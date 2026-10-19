@@ -1100,8 +1100,9 @@ button {
 
 /* Track O, regression found by A-08: both reduce modes stop finite CSS, including
    paint transitions, determinate progress and native-dialog ::backdrop. Process
-   spinner/indeterminate-progress loops remain running; decorative loops stop.
-   Правила ниже для `html[data-motion="reduce"]` — зеркало этого блока: меняя одно, меняйте другое. */
+   spinner/indeterminate-progress loops remain running; decorative loops stop. */
+/* Keep in sync with the html[data-motion="reduce"] copy below (same selectors and
+   :not() exclusions); plain CSS cannot share one list between @media and an attribute. */
 @media (prefers-reduced-motion: reduce) {
   html,
   html *,
@@ -1126,7 +1127,7 @@ button {
   }
 }
 
-/* Зеркало блока `@media (prefers-reduced-motion)` выше (личный выключатель); исключения — те же. */
+/* Personal reduce: mirror of the prefers-reduced-motion block above — edit both. */
 html[data-motion="reduce"],
 html[data-motion="reduce"] *,
 html[data-motion="reduce"]::before,
