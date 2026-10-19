@@ -59,6 +59,9 @@ export function motionReduced(): boolean {
   return userReducedMotion() || reducedMotion();
 }
 
+/** VDI: общие потолки одновременного движения и отслеживания элементов. */
+export const MOTION_CAPS = { flip: 40, ghosts: 6, enter: 8, track: 200 } as const;
+
 /** Пресеты пружин (visualDuration — токены: --dur-4 = 300 мс, между --dur-3 и --dur-4 = 250 мс). Полное время
  *  успокоения, которое motion закладывает в WAAPI `duration` + `linear()`, — не дольше 500 мс (проверяет
  *  motion.test.ts тем же `spring.applyToOptions`). */
