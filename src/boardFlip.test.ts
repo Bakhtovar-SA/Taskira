@@ -1,13 +1,14 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { flipFrom, motionReduced } from "./motion";
-import { PENDING_DELAY_MS, cancelBoardFlip, createPendingMarks, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
+import { flash, flipFrom, motionReduced, stopMotion } from "./motion";
+import { PENDING_DELAY_MS, cancelBoardFlip, clearBoardFlip, createPendingMarks, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
-vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
+vi.mock("./motion", () => ({ cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
 const tops = new Map<string, number>();
 function board(ids: string[]) {
   const root = document.createElement("div");
+  root.dataset.flipTestRoot = "";
   for (const id of ids) {
     const el = document.createElement("article");
     el.dataset.issueId = id;
@@ -21,11 +22,15 @@ const el = (root: HTMLElement, id: string) => root.querySelector<HTMLElement>(`[
 
 beforeEach(() => {
   tops.clear();
-  vi.mocked(flipFrom).mockClear();
+  vi.mocked(flipFrom).mockReset().mockResolvedValue(undefined);
+  vi.mocked(flash).mockClear();
+  vi.mocked(stopMotion).mockClear();
   vi.mocked(motionReduced).mockReturnValue(false);
 });
 afterEach(() => {
+  document.querySelectorAll<HTMLElement>("[data-flip-test-root]").forEach(clearBoardFlip);
   document.body.innerHTML = "";
+  playBoardFlip();
 });
 
 test("сдвинутые карточки едут со старого места; перенесённая — с «подъёмом»; второй проигрыш ничего не делает", () => {
@@ -306,4 +311,195 @@ test("createPendingMarks: ответ на устаревший перенос н
   } finally {
     vi.useRealTimers();
   }
+});
+
+
+function holdFlights() {
+  const finishes: (() => void)[] = [];
+  vi.mocked(flipFrom).mockImplementation(() => new Promise<void>(resolve => { finishes.push(resolve); }));
+  return finishes;
+}
+
+test("C-01: reverse responses preserve both lifted cards and their own landing points", () => {
+  holdFlights();
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  noteLanding("a", 500, 300);
+  snapshotBoard(root, "a");
+  noteLanding("b", 600, 400);
+  snapshotBoard(root, "b");
+  tops.set("b", 200); // second response first
+  playBoardFlip();
+  tops.set("a", 250); // first response last
+  playBoardFlip();
+  expect(flipFrom).toHaveBeenCalledTimes(2);
+  expect(vi.mocked(flipFrom).mock.calls.map(call => call.slice(1))).toEqual([
+    [600, 400, { lift: true }], [500, 300, { lift: true }],
+  ]);
+  expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
+});
+
+test("C-01: earliest known position wins and all snapshots advance after a commit", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  const first = snapshotBoard(root, "a");
+  tops.set("b", 150);
+  snapshotBoard(root, "b");
+  tops.set("b", 250);
+  playBoardFlip();
+  expect(vi.mocked(flipFrom).mock.calls[0].slice(1)).toEqual([10, 100, { lift: true }]);
+  cancelBoardFlip(first);
+  vi.mocked(flipFrom).mockClear();
+  playBoardFlip();
+  expect(flipFrom).not.toHaveBeenCalled(); // the second snapshot also knows B reached 250
+});
+
+test("C-01: fifth live snapshot evicts only the oldest", () => {
+  const owners = Array.from({ length: 5 }, (_, index) => {
+    const id = "cap" + index;
+    const root = board([id]);
+    return snapshotBoard(root, id);
+  });
+  expect(flipPending("cap0")).toBe(false);
+  for (let index = 1; index < 5; index++) expect(flipPending("cap" + index)).toBe(true);
+  cancelBoardFlip(owners[1]);
+  expect(flipPending("cap1")).toBe(false);
+  expect(flipPending("cap4")).toBe(true);
+});
+
+test("C-01: cancelling one owner leaves another owner's active flight and snapshot", () => {
+  holdFlights();
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  const first = snapshotBoard(root, "a");
+  snapshotBoard(root, "b");
+  tops.set("a", 50).set("b", 150);
+  playBoardFlip();
+  expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
+  cancelBoardFlip(first);
+  expect(document.querySelectorAll(".flip-flight")).toHaveLength(1);
+  expect(el(root, "a").style.visibility).toBe("");
+  expect(el(root, "b").style.visibility).toBe("hidden");
+  expect(flipPending("b")).toBe(true);
+  expect(flash).not.toHaveBeenCalled();
+});
+
+test("B-05: clear root stops its flights/timers and releases scroll listener without affecting another root", () => {
+  vi.useFakeTimers();
+  try {
+    holdFlights();
+    const remove = vi.spyOn(document, "removeEventListener");
+    const first = board(["cleanup-a"]), second = board(["cleanup-b"]);
+    snapshotBoard(first, "cleanup-a");
+    snapshotBoard(second, "cleanup-b");
+    tops.set("cleanup-a", 50).set("cleanup-b", 50);
+    playBoardFlip();
+    expect(vi.getTimerCount()).toBe(2);
+    clearBoardFlip(first);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(flipPending("cleanup-b")).toBe(true);
+    expect(remove.mock.calls.some(call => call[0] === "scroll")).toBe(false);
+    clearBoardFlip(second);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(document.querySelector(".flip-flight")).toBeNull();
+    expect(remove.mock.calls.some(call => call[0] === "scroll" && call[2] === true)).toBe(true);
+    expect(stopMotion).toHaveBeenCalledTimes(2);
+    expect(flash).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+});
+
+test("B-05: detached and expired snapshots release their roots and scroll listener", () => {
+  vi.useFakeTimers();
+  try {
+    const remove = vi.spyOn(document, "removeEventListener");
+    const root = board(["expired"]);
+    snapshotBoard(root, "expired");
+    vi.advanceTimersByTime(3001);
+    expect(flipPending("expired")).toBe(false);
+    expect(remove.mock.calls.some(call => call[0] === "scroll")).toBe(true);
+    snapshotBoard(root, "expired");
+    root.remove();
+    expect(flipPending("expired")).toBe(false);
+  } finally { vi.useRealTimers(); }
+});
+
+test("C-09: only natural landing flashes the real restored visible card", async () => {
+  const finishes = holdFlights();
+  const root = board(["natural"]);
+  snapshotBoard(root, "natural");
+  tops.set("natural", 50);
+  playBoardFlip();
+  const card = el(root, "natural");
+  expect(card.style.visibility).toBe("hidden");
+  expect(flash).not.toHaveBeenCalled();
+  finishes[0]();
+  await Promise.resolve();
+  expect(card.style.visibility).toBe("");
+  expect(flash).toHaveBeenCalledTimes(1);
+  expect(flash).toHaveBeenCalledWith(card);
+  expect(document.querySelector(".flip-flight")).toBeNull();
+});
+
+test("C-09: guard restores visibility and cancels clone without flashing", async () => {
+  vi.useFakeTimers();
+  try {
+    const finishes = holdFlights();
+    const root = board(["guarded"]);
+    snapshotBoard(root, "guarded");
+    tops.set("guarded", 50);
+    playBoardFlip();
+    vi.advanceTimersByTime(1001);
+    expect(el(root, "guarded").style.visibility).toBe("");
+    expect(document.querySelector(".flip-flight")).toBeNull();
+    expect(stopMotion).toHaveBeenCalledOnce();
+    finishes[0](); // a late successful promise cannot turn forced cleanup into a landing flash
+    await Promise.resolve();
+    expect(flash).not.toHaveBeenCalled();
+  } finally { vi.useRealTimers(); }
+});
+
+test("C-09: detached card does not flash when its animation completes", async () => {
+  const finishes = holdFlights();
+  const root = board(["detached"]);
+  snapshotBoard(root, "detached");
+  tops.set("detached", 50);
+  playBoardFlip();
+  el(root, "detached").remove();
+  finishes[0]();
+  await Promise.resolve();
+  expect(flash).not.toHaveBeenCalled();
+  expect(document.querySelector(".flip-flight")).toBeNull();
+});
+
+
+test("C-01: play scans a root once even with several live snapshots", () => {
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  snapshotBoard(root, "b");
+  const query = vi.spyOn(root, "querySelectorAll");
+  tops.set("b", 100);
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(1);
+});
+
+test("B-05: scrolling one root only invalidates its snapshots", () => {
+  const first = board(["scroll-a"]), second = board(["scroll-b"]);
+  snapshotBoard(first, "scroll-a");
+  snapshotBoard(second, "scroll-b");
+  first.dispatchEvent(new Event("scroll"));
+  expect(flipPending("scroll-a")).toBe(false);
+  expect(flipPending("scroll-b")).toBe(true);
+});
+
+test("C-09: a card hidden before flight is restored to hidden without a flash", async () => {
+  const finishes = holdFlights();
+  const root = board(["hidden"]);
+  el(root, "hidden").style.visibility = "hidden";
+  snapshotBoard(root, "hidden");
+  tops.set("hidden", 50);
+  playBoardFlip();
+  finishes[0]();
+  await Promise.resolve();
+  expect(el(root, "hidden").style.visibility).toBe("hidden");
+  expect(flash).not.toHaveBeenCalled();
 });

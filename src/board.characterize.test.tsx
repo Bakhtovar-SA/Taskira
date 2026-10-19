@@ -17,8 +17,9 @@ import {
 import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
-import { flipFrom } from "./motion";
-vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
+import { flipFrom, stopMotion } from "./motion";
+import { flipPending, playBoardFlip, snapshotBoard } from "./boardFlip";
+vi.mock("./motion", () => ({ cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
@@ -581,4 +582,27 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(screen.getByRole("article", { name: /A21-a1/ }).getAttribute("draggable")).toBe("true");
     h.ui.unmount();
   });
+});
+
+
+test("B-05: Board unmount cancels its pending flight and releases its scroll listener", async () => {
+  const h = await setup({ pageImpl: async (_p, params) => ({ items: params.status === "s1" ? [dto("unmount")] : [], hasMore: false, nextCursor: null }) });
+  const root = h.ui.container.querySelector<HTMLElement>(".board-view")!;
+  const card = root.querySelector<HTMLElement>('article[data-issue-id="unmount"]')!;
+  let top = 0;
+  vi.spyOn(card, "getBoundingClientRect").mockImplementation(() => ({ left: 0, top, width: 280, height: 80 }) as DOMRect);
+  const add = vi.spyOn(document, "addEventListener");
+  snapshotBoard(root, "unmount");
+  const scrollListener = add.mock.calls.find(call => call[0] === "scroll")![1];
+  vi.mocked(flipFrom).mockImplementationOnce(() => new Promise<void>(() => undefined));
+  top = 100;
+  playBoardFlip();
+  const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
+  expect(clone).toBeTruthy();
+  const remove = vi.spyOn(document, "removeEventListener");
+  h.ui.unmount();
+  expect(document.querySelector(".flip-flight")).toBeNull();
+  expect(stopMotion).toHaveBeenCalledWith(clone);
+  expect(remove).toHaveBeenCalledWith("scroll", scrollListener, true);
+  expect(flipPending("unmount")).toBe(false);
 });
