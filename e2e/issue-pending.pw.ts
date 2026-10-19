@@ -56,7 +56,7 @@ test("comment: delayed local draft is separate from server comments, errors keep
   await expect(comments).toHaveCount(1);
   await input.fill(body); await send.click();
   await expect(draft).toBeVisible(); await expect(draft).toHaveAttribute("data-pending", "");
-  await expect(draft).toContainText(body); await expect(comments).toHaveCount(1);
+  await expect(draft.getByRole("status")).toHaveText("Отправляется…"); await expect(draft).toContainText(body); await expect(comments).toHaveCount(1);
   await expect(input).toHaveAttribute("aria-busy", "true"); await expect(send).toHaveAttribute("aria-busy", "true"); await scopeClean(page);
   expect((await new AxeBuilder({ page }).include(".issue-pending-comment").withRules(["aria-allowed-attr", "aria-prohibited-attr", "aria-valid-attr", "aria-valid-attr-value"]).analyze()).violations).toEqual([]);
   await page.screenshot({ path: test.info().outputPath("comment-pending.png") }); control.release();
@@ -97,7 +97,7 @@ test("labels: under system reduce the input and chip still acknowledge slow requ
   await input.fill("проверка"); await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", ""); await expect(chip).toHaveCount(0); await scopeClean(page); control.release();
   await expect.poll(() => control.finished).toBe(1); await expect(input).not.toHaveAttribute("data-pending", ""); await expect(input).toHaveValue("проверка");
   control.fail = false; await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", ""); control.release(); await expect(chip).toBeVisible(); await expect(input).toHaveValue("");
-  await chip.getByRole("button", { name: "Убрать: проверка", exact: true }).click(); await expect(chip).toHaveAttribute("data-pending", ""); control.release();
+  await chip.getByRole("button", { name: "Убрать: проверка", exact: true }).click(); await expect(chip).toHaveAttribute("data-pending", ""); await expect(chip.getByRole("button", { name: "Убрать: проверка", exact: true })).toBeDisabled(); control.release();
   await expect(chip).toHaveCount(0); await expect(page.locator(".issue-labels [data-pending]")).toHaveCount(0);
 });
 

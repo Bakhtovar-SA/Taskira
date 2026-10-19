@@ -1003,7 +1003,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
               <div ref={labelsRef} className="issue-labels flex flex-wrap gap-1.5">
                 {issue.labels.map((l) => (
                   <span key={l} data-label={l} className="inline-flex">
-                    <Tag size="sm" tone="gray" onRemove={editOk ? () => void changeLabels(issue.labels.filter(x => x !== l), labelsRef.current?.querySelector<HTMLElement>(`[data-label="${CSS.escape(l)}"]`) ?? null) : undefined}>
+                    <Tag size="sm" tone="gray" removeDisabled={labelsBusy} onRemove={editOk ? () => void changeLabels(issue.labels.filter(x => x !== l), labelsRef.current?.querySelector<HTMLElement>(`[data-label="${CSS.escape(l)}"]`) ?? null) : undefined}>
                       {l}
                     </Tag>
                   </span>
@@ -1182,10 +1182,10 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             })()}
           </EnterScope>
           {(["all", "comments", "history"] as const).filter(id => id !== feed).map(id => <div key={id} role="tabpanel" id={feedId + "-" + id} aria-labelledby={feedId + "-tab-" + id} hidden />)}
-          {pendingComment !== null && <div ref={pendingCommentRef} className="issue-pending-comment gap-2.5" aria-label={t("issue.commentSending")}>
+          {pendingComment !== null && <div ref={pendingCommentRef} className="issue-pending-comment gap-2.5">
             <UserAvatar user={me} size={28} />
             <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm bg-sunken px-3.5 py-2.5 ring-1 ring-inset ring-linesoft">
-              <p className="text-[13px] text-faint">{t("issue.commentSending")}</p>
+              <p role="status" className="text-[13px] text-faint">{t("issue.commentSending")}</p>
               <p className="mt-0.5 whitespace-pre-wrap text-[15px] leading-[1.5] text-sub">{pendingComment}</p>
             </div>
           </div>}
