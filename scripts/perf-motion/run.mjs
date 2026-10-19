@@ -10,7 +10,6 @@ import { cpus, platform, release, totalmem, tmpdir } from 'node:os';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { build } from 'esbuild';
 import { metrics, summarize, traceLayouts, selfTest } from './metrics.mjs';
 import { fixtureSelfTest } from './fixture.mjs';
 import { installProbe } from './probe.mjs';
@@ -207,6 +206,7 @@ async function main() {
   const require = createRequire(import.meta.url);
   const { chromium } = require('@playwright/test');
   const { tsImport } = require('tsx/esm/api');
+  const { build } = await import('esbuild');
   // tsx keepNames injects __name into callbacks serialized to the browser.
   // Compile unchanged fixture/helper sources without keepNames instead.
   const helperDir = await mkdtemp(join(tmpdir(), 'motion-benchmark-helpers-'));
@@ -263,6 +263,8 @@ async function main() {
           if (stopping || existsSync(opts.output + '.stop')) { stopping = true; process.exitCode = 130; break; }
           console.log(profileName + ' ' + spec.id + ' run ' + run + '/' + opts.runs);
           const row = await measure(browser, profileName, profile, spec, run, dependencies, opts, server);
+          // Сигнал закрыл браузер посреди замера: строка-сбой была бы ложной, не пишем её.
+          if (stopping) break;
           report.rows.push(row); await save();
           console.log('  ' + row.status + (row.reason ? ': ' + row.reason.split('\n')[0] : ' p95=' + row.metrics.frameP95Ms + 'ms max=' + row.metrics.frameMaxMs + 'ms'));
         }
@@ -270,7 +272,7 @@ async function main() {
     }
   } finally { await server.close(); process.removeListener('SIGINT', onSignal); process.removeListener('SIGTERM', onSignal); report.interrupted = stopping; report.finishedAt = new Date().toISOString(); await save(); }
   const failures = report.rows.filter(row => row.status !== 'measured' && !unavailable(SCENARIOS.find(s => s.id === row.scenario), facts));
-  if (failures.length) { console.error(failures.length + ' unexpected unmeasured attempts; inspect raw JSON.'); process.exitCode = 1; }
+  if (!stopping && failures.length) { console.error(failures.length + ' unexpected unmeasured attempts; inspect raw JSON.'); process.exitCode = 1; }
   console.log(opts.output);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { console.error(error); process.exitCode = 1; });
