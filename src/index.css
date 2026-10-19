@@ -631,7 +631,7 @@ html.vt-theme::view-transition-new(root) {
 
 /* Входящие: непрочитанное — лёгкий акцентный фон; строка под курсором J/K —
    светящаяся метка слева (тот же язык, что у активного пункта панели и палитры). */
-.inbox-row.is-unread {
+.inbox-row.is-unread, .inbox-row-ghost.is-unread {
   background: color-mix(in oklch, var(--accent-solid) 5%, transparent);
 }
 .inbox-row[data-active]::before {
