@@ -1,9 +1,9 @@
 // ADR-0035 (прототип): FLIP доски — снимок до переноса, проигрыш после коммита, повторный проигрыш идемпотентен.
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { flash, flipFrom, motionReduced, stopMotion } from "./motion";
+import { flash, flipFrom, motionReduced, stopMotion, MOTION_CAPS } from "./motion";
 import { PENDING_DELAY_MS, cancelBoardFlip, clearBoardFlip, createPendingMarks, flipPending, markPending, noteLanding, playBoardFlip, renewBoardFlip, restoreCardFocus, snapshotBoard } from "./boardFlip";
 
-vi.mock("./motion", () => ({ cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: vi.fn(() => false) }));
 
 const tops = new Map<string, number>();
 function board(ids: string[]) {
@@ -313,6 +313,15 @@ test("createPendingMarks: ответ на устаревший перенос н
   }
 });
 
+test("more than MOTION_CAPS.flip moved cards remain instantaneous", () => {
+  const ids = Array.from({ length: MOTION_CAPS.flip + 1 }, (_, i) => String(i));
+  const root = board(ids);
+  snapshotBoard(root, ids[0]);
+  for (const id of ids) tops.set(id, 100);
+  playBoardFlip();
+  expect(flipFrom).not.toHaveBeenCalled();
+  expect(document.querySelector('.flip-flight')).toBeNull();
+});
 
 function holdFlights() {
   const finishes: (() => void)[] = [];
