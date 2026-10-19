@@ -82,8 +82,11 @@ function SprintIssueList({ issues, scope, ready, label, onRemove, children }: {
     if (before?.ids.some(id => !live.has(id))) { enter.current = createEnterTracker(); enter.current(ids, find, true); }
     // The last row has no neighbor; keep focus on its live list, including under reduced motion.
     if (!baseline && focused.current && !focused.current.isConnected && document.activeElement === document.body) host.current?.focus({ preventScroll: true });
+    // Ушедшая строка обработана один раз: иначе любой следующий рефетч при фокусе на body снова тянул бы фокус в список.
+    if (focused.current && !focused.current.isConnected) focused.current = null;
   }, [issues, scope, ready]);
-  return <div ref={host} role="group" aria-label={label} tabIndex={-1} className="sprint-issue-list ds-focus" onFocus={event => { focused.current = event.target as HTMLElement; }}>
+  return <div ref={host} role="group" aria-label={label} tabIndex={-1} className="sprint-issue-list ds-focus" onFocus={event => { focused.current = event.target as HTMLElement; }}
+    onBlur={event => { if ((event.target as HTMLElement).isConnected) focused.current = null; }}>
     {!ready || !issues.length ? children : issues.map(issue => <IssueRow key={issue.id} issue={issue} onRemove={onRemove ? () => onRemove(issue.id) : undefined} />)}
   </div>;
 }

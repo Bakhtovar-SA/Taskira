@@ -360,3 +360,25 @@ test("same-size deferred batch departures become fresh arrivals on the next conf
   expect(enter).toHaveBeenCalledTimes(2);
   h.ui.unmount();
 });
+test("фокус, ушедший из списка, не возвращается в него при удалении той строки и следующих обновлениях", async () => {
+  const sprint = { id: "sp1", name: "Sprint 1", goal: "", status: "future" as const, startDate: null, endDate: null };
+  const h = await setup([dto("i1", { sprintId: "sp1" }), dto("i3")], true, undefined, [sprint]);
+  let release!: (issue: ServerIssue) => void;
+  vi.spyOn(issuesApi, "setSprint").mockImplementation(() => new Promise(resolve => { release = resolve; }));
+  const list = screen.getByRole("group", { name: "Sprint 1" });
+  const first = within(list).getByRole("button", { name: "Убрать из спринта" });
+  first.focus();
+  first.blur();
+  expect(document.activeElement).toBe(document.body);
+  // Последнюю строку убирают без фокуса на ней (клик мышью / событие с сервера): фокус не уходит в опустевший список.
+  fireEvent.click(first);
+  await act(async () => { release(dto("i1", { sprintId: null })); await flush(); await flush(); });
+  expect(list.querySelectorAll("[data-issue-id]")).toHaveLength(0);
+  expect(document.activeElement).toBe(document.body);
+  // Следующее изменение массива задач этого списка тоже не тянет фокус.
+  fireEvent.drop(list.parentElement!, { dataTransfer: { getData: () => "i3" } });
+  await act(async () => { release(dto("i3", { sprintId: "sp1" })); await flush(); await flush(); });
+  expect(list.querySelectorAll("[data-issue-id]")).toHaveLength(1);
+  expect(document.activeElement).toBe(document.body);
+  h.ui.unmount();
+});
