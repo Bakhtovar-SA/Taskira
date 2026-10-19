@@ -1,6 +1,7 @@
 import QuickCreate from "./QuickCreateIssue";
 import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
+import { useSkeletonReveal } from "../useSkeletonReveal";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
 import { cancelBoardFlip, clearBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
@@ -33,6 +34,7 @@ import { usePulse } from "../usePulse";
 import { issuesApi, type IssueEpic, type IssueFilterParams } from "../api";
 import {
   ISSUE_PAGE_SIZE,
+  issueSetKey,
   NO_ISSUE_FILTERS,
   useDebounced,
   useEpics,
@@ -347,12 +349,20 @@ const ColumnCards = memo(function ColumnCards({
   useLayoutEffect(playBoardFlip, [rows]);
 
   const { hasMore, loading, loadingMore, loadMore } = set;
+  const scope = issueSetKey(query);
+  const reveal = useSkeletonReveal(scope, loading && rows.length === 0, rows.length > 0);
   const sentinelRef = useLoadMoreSentinel(loadMore, hasMore && !loading && !loadingMore, rows.length, "200px");
+  // Reuse the existing scroll body: an extra flex wrapper changes content-visibility sizing.
+  const mountSentinel = useCallback((node: HTMLDivElement | null) => {
+    sentinelRef.current = node;
+    // Контейнер ищем по разметке BoardColumn (data-skeleton-content="board"), а не по parentElement: обёртка вокруг sentinel его не собьёт.
+    reveal.contentRef.current = node ? node.closest<HTMLDivElement>('[data-skeleton-content="board"]') : null;
+  }, [sentinelRef, reveal.contentRef]);
 
   return (
     <>
       {loading && rows.length === 0 && (
-        <div aria-busy="true" aria-label={t("common.loading")} className="skeleton-late space-y-2">
+        <div key={scope} onAnimationStart={reveal.onSkeletonAnimationStart} aria-busy="true" aria-label={t("common.loading")} className="skeleton-late space-y-2">
           <BoardSkeletonCard />
           <BoardSkeletonCard />
         </div>
@@ -364,7 +374,7 @@ const ColumnCards = memo(function ColumnCards({
       )}
       {rows.map((i) => renderCard(i))}
       {loadingMore && <BoardSkeletonCard />}
-      <div ref={sentinelRef}>
+      <div ref={mountSentinel}>
         {set.error && rows.length > 0 ? (
           <button onClick={loadMore} className="w-full px-3 py-1.5 text-[13px] font-medium text-accent hover:underline">
             {t("board.loadMoreFailed")}
@@ -569,7 +579,7 @@ const BoardColumn = memo(function BoardColumn({
         data-drop-state={isOver ? (ok ? "allowed" : "forbidden") : undefined}
         className="pointer-events-none board-col-highlight absolute inset-0 rounded-xl"
       />
-      <div className={`${BOARD_COLUMN_BODY} relative`}>
+      <div data-skeleton-content="board" className={`${BOARD_COLUMN_BODY} relative`}>
         {canCreate && isFirstTodo && quickOpen && <QuickCreate status={st} onDone={() => setQuickFor(null)} onBeforeSubmit={onBeforeCreate} />}
         {projectId && (
           <ColumnCards

@@ -10,8 +10,13 @@ let knownCssNames: Set<string> | undefined;
 test.beforeAll(() => {
   // A-07 is independently reviewable; enable its runtime coverage once present
   // in the checkout, or via MOTION_MAP_SCRIPT while testing the two drafts.
-  const script = process.env.MOTION_MAP_SCRIPT ?? resolve("scripts/motion-map.mjs");
-  if (!existsSync(script)) return;
+  // Явно заданный путь, которого нет, — ошибка настройки, а не «инвентаря нет»: не даём проверке тихо отключиться.
+  const explicit = process.env.MOTION_MAP_SCRIPT;
+  const script = explicit ?? resolve("scripts/motion-map.mjs");
+  if (!existsSync(script)) {
+    if (explicit) throw new Error(`MOTION_MAP_SCRIPT указывает на несуществующий файл: ${explicit}`);
+    return; // скрипта ещё нет (A-07): прогон помечается аннотацией ниже, а не выдаётся за «инвентарь чист»
+  }
   const rows = JSON.parse(execFileSync(process.execPath, [script, "--json"], { encoding: "utf8" })) as { animationNames: string[] }[];
   knownCssNames = new Set(rows.flatMap(row => row.animationNames));
 });
@@ -146,7 +151,8 @@ for (const mode of ["normal", "system", "personal"] as const) {
     expect(await page.evaluate(() => (window as Window & { __motionStandCsp: string[] }).__motionStandCsp)).toEqual([]);
     const observedCss = await page.evaluate(() => [...new Set((window as Window & { __motionStandCss: string[] }).__motionStandCss)].sort());
     await testInfo.attach("CSS runtime coverage", { body: JSON.stringify({ mode, animationNames: observedCss, inventoryChecked: !!knownCssNames }), contentType: "application/json" });
-    if (knownCssNames) expect(observedCss.filter(name => !knownCssNames!.has(name)), "CSS runtime coverage: every observed animationName is inventoried").toEqual([]);
+    if (!knownCssNames) testInfo.annotations.push({ type: "skip-inventory", description: "scripts/motion-map.mjs отсутствует (A-07): инвентарь animationName не проверялся" });
+    else expect(observedCss.filter(name => !knownCssNames!.has(name)), "CSS runtime coverage: every observed animationName is inventoried").toEqual([]);
     // Pure WAAPI animations have no animationName; this does not claim JS attribution.
   });
 }

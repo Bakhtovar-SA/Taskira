@@ -1147,8 +1147,7 @@
   .ds-dialog[data-kind="panel"][data-closing],
   .ds-dialog::backdrop,
   .ds-dialog[data-closing]::backdrop,
-  .ds-sk,
-  .ds-progress[data-indeterminate] > span {
+  .ds-sk {
     animation: none;
   }
 }
