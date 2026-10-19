@@ -26,6 +26,10 @@ export function ProjectRoadmap() {
     roadmapApi.get().then(setRm, (e: unknown) => setRm(e instanceof Error ? e : new Error(String(e))));
   }, []);
   useEffect(reload, [reload, projectId]);
+  // Последние ЗАПРОШЕННЫЕ даты: пока PATCH в полёте, p — ещё старая загрузка, и сравнение с ней съело бы возврат к прежнему значению.
+  const asked = useRef<{ startDate: string | null; targetDate: string | null } | null>(null);
+  const inflight = useRef(0);
+  useEffect(() => { if (inflight.current === 0) asked.current = null; }, [rm, projectId]);
 
   const [name, setName] = useState("");
   const [date, setDate] = useState<string | null>(null);
@@ -62,10 +66,16 @@ export function ProjectRoadmap() {
 
   const fmt = (s: string) => parseDay(s).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" });
   const setDates = (patch: { startDate?: string | null; targetDate?: string | null }) => {
-    const dates = { startDate: patch.startDate === undefined ? p.startDate : patch.startDate, targetDate: patch.targetDate === undefined ? p.targetDate : patch.targetDate };
-    if (dates.startDate === p.startDate && dates.targetDate === p.targetDate) { clearRoadmapDateFlash(); return; }
+    const base = asked.current ?? p;
+    const dates = { startDate: patch.startDate === undefined ? base.startDate : patch.startDate, targetDate: patch.targetDate === undefined ? base.targetDate : patch.targetDate };
+    if (dates.startDate === base.startDate && dates.targetDate === base.targetDate) { clearRoadmapDateFlash(); return; }
+    asked.current = dates;
+    inflight.current++;
     const confirmed = beginRoadmapDateFlash(data.currentUserId, p.id, dates);
-    void run(async () => { await roadmapApi.setDates(p.id, patch); if (live.current) confirmed(); });
+    void run(async () => {
+      try { await roadmapApi.setDates(p.id, patch); } catch (e) { asked.current = null; throw e; } finally { inflight.current--; }
+      if (live.current) confirmed();
+    });
   };
   const waits = rm.dependencies.filter((d) => d.dependentId === p.id).map((d) => rm.projects.find((x) => x.id === d.sourceId)).filter((x) => !!x);
   const candidates = rm.projects.filter((x) => x.id !== p.id && !waits.some((w) => w.id === x.id));
