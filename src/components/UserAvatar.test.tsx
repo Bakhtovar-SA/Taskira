@@ -51,6 +51,13 @@ test("ds-аватар без человека тоже показывает зн
   expect(avatar.querySelector(".ds-av-portrait")).toBeNull();
 });
 
+test("ds-аватар с именем, но без ID, показывает общий силуэт человека", () => {
+  wrap(<Avatar person={{ id: null, name: "Коллега" }} />);
+  const avatar = screen.getByRole("img", { name: "Коллега" });
+  expect(avatar.className).toContain("ds-av-unknown");
+  expect(avatar.querySelector(".portrait-unknown-head")).toBeTruthy();
+});
+
 test("палитра коллег использует широкий диапазон устойчивых сочетаний", () => {
   const palettes = Array.from({ length: 100 }, (_, i) => colleagueColorVars(`user-${i}`));
   expect(new Set(palettes.map(p => `${p["--portrait-hue"]}/${p["--portrait-accent-hue"]}`)).size).toBeGreaterThan(90);

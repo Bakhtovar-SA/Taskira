@@ -3,7 +3,7 @@
 import { useOptionalT } from "../i18n";
 import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tooltip } from "./LazyTooltip";
-import { ColleaguePortrait, colleagueColorVars } from "./ColleaguePortrait";
+import { ColleaguePortrait, ColleagueUnknown, colleagueColorVars } from "./ColleaguePortrait";
 import { cssVars } from "../cssVars";
 import { IcUnassigned } from "../icons";
 
@@ -18,7 +18,7 @@ export const toneOf = (s: string): Tone => {
 };
 /* ---------- Avatar ---------- */
 
-export type AvatarPerson = { id: string; name: string; src?: string | null };
+export type AvatarPerson = { id: string; name: string; src?: string | null } | { id: null; name: string; src?: never };
 
 export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson | null; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
   const t = useOptionalT()?.t;
@@ -27,6 +27,9 @@ export function Avatar({ person, size = 24, ring, status }: { person: AvatarPers
   if (!person) {
     const label = t ? t("createIssue.unassigned") : "Unassigned";
     return <span className="ds-av ds-av-empty" data-size={size} role="img" aria-label={label} title={label}><IcUnassigned size={size} /></span>;
+  }
+  if (person.id === null) {
+    return <span className="ds-av ds-av-colleague ds-av-unknown" data-size={size} role="img" aria-label={person.name} title={person.name}><ColleagueUnknown /></span>;
   }
   return (
     <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>

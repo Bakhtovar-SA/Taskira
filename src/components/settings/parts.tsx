@@ -38,7 +38,7 @@ export function PersonAvatar({ user, size = 24, ring = false, interactive = fals
   const { t } = useT();
   const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
   const tokenSize = size >= 52 ? 64 : size >= 36 ? 40 : size >= 30 ? 32 : size >= 27 ? 28 : size >= 22 ? 24 : 20;
-  const circle = <Avatar person={user?.id ? { id: user.id, name: user.name, src } : null} size={tokenSize} ring={ring} />;
+  const circle = <Avatar person={user ? user.id ? { id: user.id, name: user.name, src } : { id: null, name: user.name } : null} size={tokenSize} ring={ring} />;
   if (!interactive || !user?.id) return circle;
   return (
     <span className="inline-flex" onClick={(e) => e.stopPropagation()}>
