@@ -191,7 +191,7 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   );
   return done(c);
 }
-/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; без него — 1, как ds/floating). */
+/** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 по MDN BCD, см. docs/design/BROWSERS.md; без него — 1, как ds/floating). */
 export const cssZoom = (el: Element): number => (el as Element & { currentCSSZoom?: number }).currentCSSZoom || 1;
 /** Конец анимации (и отмена — тоже конец): обещание никогда не отклоняется. */
 const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finished).then(() => undefined, () => undefined) : Promise.resolve());
