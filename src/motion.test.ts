@@ -143,6 +143,7 @@ describe("пресеты", () => {
     ["SPRING", SPRING],
     ["SPRING_ENTER", SPRING_ENTER],
     ["SPRING_POP", SPRING_POP],
+    ["MOTION.cssSpring", MOTION.cssSpring],
   ])("%s: полное время успокоения в WAAPI ≤ 500 мс", (_name, preset) => {
     const o = spring.applyToOptions!({ ...preset }) as { duration: number };
     expect(o.duration).toBeGreaterThan(0);

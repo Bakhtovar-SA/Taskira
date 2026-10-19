@@ -15,19 +15,19 @@ export function renderMotionTokens(directory = root) {
   const file = join(directory, "src/styles/tokens.css");
   const source = ts.createSourceFile("motion.ts", readFileSync(join(directory, "src/motion.ts"), "utf8"), ts.ScriptTarget.Latest, true);
   const registry = motionRegistry(source);
-  const options = registry.object(registry.fields.get("spring")?.initializer);
-  if (source.parseDiagnostics.length || !registry.root || !options) throw new Error("MOTION.spring must be a static object");
+  const options = registry.object(registry.fields.get("cssSpring")?.initializer);
+  if (source.parseDiagnostics.length || !registry.root || !options) throw new Error("MOTION.cssSpring must be a static object");
   const values = {};
   for (const prop of options.properties) {
     const name = ts.isPropertyAssignment(prop) && propertyName(prop.name);
     const value = name && registry.numeric(prop.initializer);
-    if (!["visualDuration", "bounce"].includes(name) || !Number.isFinite(value) || name in values) throw new Error("MOTION.spring requires explicit numeric visualDuration and bounce only");
+    if (!["visualDuration", "bounce"].includes(name) || !Number.isFinite(value) || name in values) throw new Error("MOTION.cssSpring requires explicit numeric visualDuration and bounce only");
     values[name] = value;
   }
-  if (!(values.visualDuration > 0) || !(values.bounce >= 0 && values.bounce <= 1)) throw new Error("Invalid MOTION.spring parameters");
+  if (!(values.visualDuration > 0) || !(values.bounce >= 0 && values.bounce <= 1)) throw new Error("Invalid MOTION.cssSpring parameters");
   // NativeAnimation uses this same public serializer for function easing.
   const generated = spring.applyToOptions(values);
-  if (!(generated.duration > 0 && generated.duration <= 500)) throw new Error("MOTION.spring must settle within 500ms");
+  if (!(generated.duration > 0 && generated.duration <= 500)) throw new Error("MOTION.cssSpring must settle within 500ms");
   const easing = generateLinearEasing(generated.ease, generated.duration);
   const current = readFileSync(file, "utf8");
   const declaration = /--ease-spring:[^;]*;/g;
@@ -40,7 +40,7 @@ function selfTest() {
   const directory = mkdtempSync(join(tmpdir(), "taskira-motion-tokens-"));
   try {
     mkdirSync(join(directory, "src/styles"), { recursive: true });
-    const source = 'export const MOTION = { spring: { visualDuration: 0.3, bounce: 0.15 } } as const;';
+    const source = 'export const MOTION = { cssSpring: { visualDuration: 0.25, bounce: 0.35 } } as const;';
     const motionFile = join(directory, "src/motion.ts");
     const cssFile = join(directory, "src/styles/tokens.css");
     writeFileSync(motionFile, source);
@@ -50,11 +50,11 @@ function selfTest() {
     assert.match(initial.expected, /--other: 100ms/);
     writeFileSync(cssFile, initial.expected);
     assert.equal(renderMotionTokens(directory).changed, false);
-    writeFileSync(motionFile, source.replace('bounce: 0.15', 'bounce: 0.1'));
+    writeFileSync(motionFile, source.replace('bounce: 0.35', 'bounce: 0.1'));
     assert.equal(renderMotionTokens(directory).changed, true);
-    writeFileSync(motionFile, source.replace('bounce: 0.15', 'bounce: unknown()'));
+    writeFileSync(motionFile, source.replace('bounce: 0.35', 'bounce: unknown()'));
     assert.throws(() => renderMotionTokens(directory), /explicit numeric/);
-    writeFileSync(motionFile, source.replace('spring:', 'other:'));
+    writeFileSync(motionFile, source.replace('cssSpring:', 'other:'));
     assert.throws(() => renderMotionTokens(directory), /static object/);
     writeFileSync(motionFile, source);
     writeFileSync(cssFile, initial.expected + '--ease-spring: linear(0, 1);');
@@ -73,10 +73,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       const result = renderMotionTokens();
       if (process.argv.includes("--check")) {
         if (result.changed) { console.error("--ease-spring is stale; run npm run motion:tokens"); process.exitCode = 1; }
-        else console.log("motion tokens: --ease-spring matches MOTION.spring");
+        else console.log("motion tokens: --ease-spring matches MOTION.cssSpring");
       } else {
         if (result.changed) writeFileSync(result.file, result.expected);
-        console.log("motion tokens: --ease-spring generated from MOTION.spring");
+        console.log("motion tokens: --ease-spring generated from MOTION.cssSpring");
       }
     }
   } catch (error) { console.error(error.message); process.exitCode = 1; }

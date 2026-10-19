@@ -15,9 +15,9 @@
 - **Reduce-motion** проверяет сама обёртка: `motionReduced()` — единая точка истины для JS (системный
   `prefers-reduced-motion` или личный выключатель «Уменьшить движение» в «Профиль → Внешний вид», он ставит `data-motion="reduce"` на `<html>`). Библиотека reduce не учитывает. CSS-анимации гасятся теми же правилами
   под `@media (prefers-reduced-motion: reduce)`; `motion:check` ловит анимацию без такого правила.
-- **Один реестр — `MOTION` в `src/motion.ts`.** В нём живут `spring`, `enter`, `pop`, `exit`, `flash` и `count`;
+- **Один реестр — `MOTION` в `src/motion.ts`.** В нём живут `spring`, `cssSpring`, `enter`, `pop`, `exit`, `flash` и `count`;
   публичные `SPRING*`, `EXIT` и `COUNT_MS` ссылаются на эти поля без копий настроек. CSS `--ease-spring`
-  генерируется из `MOTION.spring` тем же установленным `motion.spring` и его `generateLinearEasing`, что использует
+  генерируется из отдельного пресета `MOTION.cssSpring` (перелёт ≈ 6,8 %, как у прежней ручной кривой; общий `spring` с `bounce: 0.15` перелетал бы лишь на 0,6 %) тем же установленным `motion.spring` и его `generateLinearEasing`, что использует
   WAAPI-движок. После правки пресета — `npm run motion:tokens`; `npm run docs:check` отклоняет устаревший токен.
 - **Длительности** — токены `--dur-1…5`, не дольше 450 мс; пружины — именованные пресеты `SPRING*` в обёртке
   (полное время успокоения ≤ 500 мс). `visualDuration` допускает 100/150/200/250/300 мс; 250 мс — между
@@ -85,7 +85,7 @@ CSS-страж проверяет двигающие `transition`, reduce-вет
 | 14.10.2026 | NEW-02: отметка «перенос отправлен» на карточке до ответа сервера (через 150 мс, без анимации) | PR #188, в `main` |
 | 14.10.2026 | NEW-05: соседние виджеты дашборда плавно доезжают в режиме правки (`dashboards/gridFlip.ts`) | PR #189, в `main` |
 | 14.10.2026 | Трек O A-04: AST-страж движения, 25 мутационных самотестов, ограничение времени волны FLIP, токен круга темы и reduce для прогресса | PR #196 |
-| 16.10.2026 | Трек O C-06: единый реестр MOTION, генерация CSS-пружины из установленного motion, проверка синхронизации в docs:check, AST-страж читает поля реестра | 33/33 unit; typecheck/build/bundle и guards пройдены; production Chromium menu smoke 1/1; ручные Safari/Firefox не выполнены |
+| 16.10.2026 | Трек O C-06: единый реестр MOTION, генерация CSS-пружины из установленного motion (отдельный пресет `cssSpring`, внешний вид сохранён: перелёт ≈ 6,8 % вместо прежних ≈ 6 %), проверка синхронизации в docs:check, AST-страж читает поля реестра | 33/33 unit; typecheck/build/bundle и guards пройдены; production Chromium menu smoke 1/1; ручные Safari/Firefox не выполнены |
 | 14.10.2026 | COV-01: счётчики `countTo` (`CountUp`) — рост по обновлению данных; не в «Отчётах» | PR #190, в `main` |
 
 ## Открыто

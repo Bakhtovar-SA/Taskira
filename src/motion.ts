@@ -64,6 +64,9 @@ export function motionReduced(): boolean {
  *  motion.test.ts тем же `spring.applyToOptions`). */
 export const MOTION = {
   spring: { visualDuration: 0.3, bounce: 0.15 },
+  // Только для CSS-токена --ease-spring (npm run motion:tokens): CSS-переходы идут за 150–300 мс, поэтому кривая
+  // выразительнее JS-пружины и сохраняет прежний перелёт ≈ 6 %; в WAAPI-движок не передаётся.
+  cssSpring: { visualDuration: 0.25, bounce: 0.35 },
   enter: { visualDuration: 0.25, bounce: 0.1 },
   pop: { visualDuration: 0.25, bounce: 0.3 },
   exit: { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] },

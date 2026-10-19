@@ -192,7 +192,7 @@ export function checkMotion(root) {
       if (!registry.root) fail("motion-registry", rel + ":1", "нужен единый литерал MOTION");
       else {
         if (registry.root.properties.some(prop => !ts.isPropertyAssignment(prop))) fail("motion-registry", where(registry.root), "MOTION должен содержать явные поля без spread");
-        for (const name of ["spring", "enter", "pop"]) {
+        for (const name of ["spring", "cssSpring", "enter", "pop"]) {
           const prop = registry.fields.get(name);
           if (!prop) fail("motion-registry", where(registry.root), "в MOTION отсутствует " + name);
           else checkSpring(prop, object(prop.initializer), name);
@@ -261,7 +261,7 @@ function selfTest() {
   // Real files in a disposable source tree; every mutant must hit its own diagnostic.
   const root = mkdtempSync(join(tmpdir(), "taskira-motion-check-"));
   const baseline = {
-    "src/motion.ts": `export const MOTION = { spring: { visualDuration: 0.3, bounce: 0.15 }, enter: { visualDuration: 0.25, bounce: 0.1 }, pop: { visualDuration: 0.25, bounce: 0.2 }, exit: { duration: 0.2 }, flash: 300, count: 200 } as const;\nexport const COUNT_MS = MOTION.count;\nexport const SPRING = MOTION.spring;\nexport const SPRING_ENTER = MOTION.enter;\nexport const SPRING_POP = MOTION.pop;\nexport function motionReduced() { return false; }\nexport function enter(el: HTMLElement) { if (motionReduced()) return; el.animate([], { duration: COUNT_MS, delay: 0.1 }); }\nconst EXIT = MOTION.exit;`,
+    "src/motion.ts": `export const MOTION = { spring: { visualDuration: 0.3, bounce: 0.15 }, cssSpring: { visualDuration: 0.25, bounce: 0.35 }, enter: { visualDuration: 0.25, bounce: 0.1 }, pop: { visualDuration: 0.25, bounce: 0.2 }, exit: { duration: 0.2 }, flash: 300, count: 200 } as const;\nexport const COUNT_MS = MOTION.count;\nexport const SPRING = MOTION.spring;\nexport const SPRING_ENTER = MOTION.enter;\nexport const SPRING_POP = MOTION.pop;\nexport function motionReduced() { return false; }\nexport function enter(el: HTMLElement) { if (motionReduced()) return; el.animate([], { duration: COUNT_MS, delay: 0.1 }); }\nconst EXIT = MOTION.exit;`,
     "src/motionEngine.ts": `export { animate } from "motion/mini"; import { spring } from "motion";`,
     "src/theme.ts": `const THEME_MS = 450; root.animate([], { duration: THEME_MS });`,
     "src/component.tsx": `const classes = "transition-transform motion-reduce:transition-none duration-150";`,
