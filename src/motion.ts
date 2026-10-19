@@ -166,7 +166,9 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
       if (document.activeElement === outgoingFocus && outgoingFocus?.closest("main")) return false;
       return true;
     }
-    const heading = [...document.querySelectorAll<HTMLElement>('main [data-view-heading], main h1')]
+    // Сначала заголовок внутри <main>; иначе — помеченный заголовок вне его (h1 шапки у видов без своего h1).
+    const heading = [...document.querySelectorAll<HTMLElement>("main [data-view-heading], main h1"),
+      ...document.querySelectorAll<HTMLElement>("[data-view-heading]")]
       .find(el => el.getClientRects().length > 0);
     if (!heading) return false;
     heading.tabIndex = -1;
@@ -174,13 +176,13 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
     return true;
   };
   if (focus()) return;
-  const root = document.querySelector('main');
-  if (!root) return;
+  // Наблюдаем body, а не <main>: goHome и смена bootStatus могут заменить сам <main>,
+  // и наблюдатель на отсоединённом узле уже не увидел бы новый заголовок.
   const observer = new MutationObserver(() => { if (focus()) cancel(); });
   const cancel = () => { observer.disconnect(); window.clearTimeout(timer); if (cancelViewFocus === cancel) cancelViewFocus = () => {}; };
   const timer = window.setTimeout(cancel, 2000);
   cancelViewFocus = cancel;
-  observer.observe(root, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 export function viewTransition(update: () => void, issueHero?: IssueHeroSource): void {
   const sequence = ++viewSequence;
@@ -188,7 +190,7 @@ export function viewTransition(update: () => void, issueHero?: IssueHeroSource):
   cancelViewFocus();
   if (ISSUE_HERO_SPIKE) clearIssueHeroSpike();
   const doc = document as VTDoc;
-  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== 'visible') {
+  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== "visible") {
     update();
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
@@ -196,29 +198,32 @@ export function viewTransition(update: () => void, issueHero?: IssueHeroSource):
   const hero = ISSUE_HERO_SPIKE && issueHero ? prepareIssueHeroSpike(issueHero) : null;
   const root = document.documentElement;
   activeTransitions++;
-  root.classList.add('vt-nav');
-  let transition: NativeVT | undefined, skip = false, performed = false;
+  root.classList.add("vt-nav");
+  let transition: NativeVT | undefined, performed = false;
   const apply = () => {
-    if (hero && sequence !== viewSequence) { skip = true; return; }
+    // Обновление применяется всегда, и на пути с hero тоже: устаревший переход (его вытеснила новая
+    // навигация) несёт состояние, которое следующая не повторит (например, goHome). Браузер вызывает
+    // колбэки по порядку запуска, так что новое обновление ляжет поверх. Пропускается только hero-подмена.
     performed = true; flushSync(update);
     // Warm target only. Cold/lazy content falls back immediately; the D17 observer still owns focus.
-    if (hero && !hero.swap()) { skip = true; transition?.skipTransition?.(); }
+    if (hero && (sequence !== viewSequence || !hero.swap())) transition?.skipTransition?.();
   };
   try {
     transition = doc.startViewTransition(apply);
-    if (skip) transition.skipTransition?.();
-    transition.ready?.catch(() => hero?.cleanup());
-    transition.finished.catch(() => undefined).finally(() => {
-      hero?.cleanup();
-      if (--activeTransitions === 0) root.classList.remove('vt-nav');
-      focusViewHeading(sequence, outgoingFocus);
-    });
   } catch {
+    // Синхронный отказ API: откатываем счётчик, класс и имена, обновляем без анимации.
     hero?.cleanup();
-    if (--activeTransitions === 0) root.classList.remove('vt-nav');
+    if (--activeTransitions === 0) root.classList.remove("vt-nav");
     if (!performed) update();
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
+    return;
   }
+  transition.ready?.catch(() => hero?.cleanup());
+  transition.finished.catch(() => undefined).finally(() => {
+    hero?.cleanup();
+    if (--activeTransitions === 0) root.classList.remove("vt-nav");
+    focusViewHeading(sequence, outgoingFocus);
+  });
 }
 
 /** FLIP: элемент уже на новом месте; анимируем его из старой точки (left/top во viewport). Пружина `SPRING`, если

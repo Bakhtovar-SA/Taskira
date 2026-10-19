@@ -58,9 +58,12 @@ test("cold target skips the shared snapshot and still focuses a lazy heading lat
  const calls=nativeFake(),f=pageFixture();viewTransition(()=>f.main.replaceChildren(),{scope:"page",source:f.source,target:()=>null});calls[0].update();expect(calls[0].skip).toHaveBeenCalledOnce();expect(name(f.source)).toBe("");calls[0].finish();await Promise.resolve();await Promise.resolve();
  const heading=visible(document.createElement("h2"));heading.setAttribute("data-view-heading","");f.main.append(heading);await vi.waitFor(()=>expect(document.activeElement).toBe(heading));
 });
-test("an older shared transition cannot apply its update after the newer navigation",async()=>{
+test("вытесненный hero-переход применяет своё обновление, но не забирает общий ключ у новой навигации",async()=>{
  const calls=nativeFake(),a=pageFixture(),oldUpdate=vi.fn(a.update);viewTransition(oldUpdate,{scope:"page",source:a.source,target:a.target});
- const b=pageFixture();viewTransition(b.update,{scope:"page",source:b.source,target:b.target});calls[1].update();calls[0].update();expect(oldUpdate).not.toHaveBeenCalled();expect(name(b.target()!)).toBe(ISSUE_HERO_NAME);
+ const b=pageFixture();viewTransition(b.update,{scope:"page",source:b.source,target:b.target});
+ // Браузер вызывает колбэки вытесненного и нового перехода в порядке запуска.
+ calls[0].update();expect(oldUpdate).toHaveBeenCalledOnce();expect(calls[0].skip).toHaveBeenCalledOnce();expect(name(a.target()!)).toBe("");
+ calls[1].update();expect(calls[1].skip).not.toHaveBeenCalled();expect(name(b.target()!)).toBe(ISSUE_HERO_NAME);
  calls[0].finish();calls[1].finish();await vi.waitFor(()=>expect(document.documentElement.classList.contains("vt-nav")).toBe(false));expect(name(b.target()!)).toBe("");
 });
 test("reduced navigation never starts a native/shared transition",()=>{
