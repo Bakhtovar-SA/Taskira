@@ -264,9 +264,10 @@
 .board-member-filter:hover { z-index: 1; transform: translateY(-2px); }
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
-.board-move-touch-hint { display: none; }
+/* Двойной класс: .hint-line (index.css) ставит display: grid и идёт в каскаде позже — одиночный класс ему проигрывал. */
+.hint-line.board-move-touch-hint { display: none; }
 @media (hover: none) {
-  .board-move-touch-hint { display: grid; }
+  .hint-line.board-move-touch-hint { display: grid; }
   .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
