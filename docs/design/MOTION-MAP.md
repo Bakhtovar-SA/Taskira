@@ -9,6 +9,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/boardFlip.ts:166 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/boardFlip.ts:214 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/boardFlip.ts:217 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
+| src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
 | src/components/Board.tsx:139 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
 | src/components/Sidebar.tsx:191 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
@@ -52,9 +53,10 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:1064 | css-keyframes | drawLine: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
 | src/index.css:1069 | css-animation | .anim-view: opacity | viewIn var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/App.tsx, src/components/ProjectWizard.tsx, src/components/settings/SettingsView.tsx, src/useSkeletonReveal.ts |
 | src/index.css:1072 | css-animation | .anim-stagger > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/InboxView.tsx, src/components/MyIssuesView.tsx, src/components/ReportsView.tsx, src/components/SprintsView.tsx, src/dashboards/DashboardGrid.tsx |
-| src/index.css:1081 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
-| src/index.css:1085 | css-animation | .reports-chart rect[data-series]: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
-| src/index.css:1088 | css-animation | .ds-empty: opacity | viewIn var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/dashboards/widgets.tsx, src/ds/Display.tsx |
+| src/index.css:1081 | css-animation | .success-check path: stroke-dashoffset | drawLine var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/ds/Display.tsx, src/ui.tsx |
+| src/index.css:1085 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
+| src/index.css:1089 | css-animation | .reports-chart rect[data-series]: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
+| src/index.css:1092 | css-animation | .ds-empty: opacity | viewIn var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/dashboards/widgets.tsx, src/ds/Display.tsx |
 | src/index.css:176 | css-transition | body: background-color, color | background-color var(--dur-4) var(--ease-standard), color var(--dur-4) var(--ease-standard) | личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:345 | css-transition | .board-card: box-shadow | box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1) | личный выключатель | src/components/Board.tsx |
 | src/index.css:440 | css-transition | .theme-choice: box-shadow, background-color | box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) | личный выключатель | src/components/ProjectLookPicker.tsx |
@@ -99,15 +101,15 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/listEnter.ts:29 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/listEnter.ts |
 | src/listExit.ts:101 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
 | src/listExit.ts:105 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
-| src/motion.ts:162 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:189 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:190 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:218 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:228 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:286 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: 300, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:302 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:302 | waapi-wrapper | animate: frames | { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:349 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:166 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:193 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:194 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:224 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:234 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:292 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: 300, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:322 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:322 | waapi-wrapper | animate: frames | { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:369 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/store.tsx:456 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store.tsx:469 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store/session.ts:459 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
@@ -121,6 +123,6 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/styles/workspace.css:700 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
 | src/theme.ts:147 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/theme.ts:150 | waapi-raw | animate: { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.ceil(r)}px at ${x}px ${y}px)`] } | { duration: 420, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" } | JS guard в модуле; проверяется motion:check | src/theme.ts |
-| src/ui.tsx:108 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
-| src/ui.tsx:111 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
+| src/ui.tsx:109 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
+| src/ui.tsx:112 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
 | src/usePulse.ts:12 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/usePulse.ts |
