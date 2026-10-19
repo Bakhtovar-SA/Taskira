@@ -817,7 +817,15 @@ export default function Board() {
     clearSelection();
     if (id === undefined || !boardMounted.current) return;
     restoreFocusCancel.current?.();
-    const cancel = restoreCardFocus(boardRoot.current, id, null, null, () => { if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null; });
+    // Смена статуса пересаживает карточку в другую колонку — ждём НОВУЮ кнопку (stale = нынешняя), иначе фокус встанет на
+    // уходящую и пропадёт. Если карточка не пересаживалась (другое действие), после ожидания берём ту же кнопку.
+    const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
+    const stale = boardRoot.current?.querySelector<HTMLElement>(sel) ?? null;
+    const cancel = restoreCardFocus(boardRoot.current, id, null, stale, () => {
+      if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null;
+      const active = document.activeElement;
+      if (boardMounted.current && (!active || active === document.body || active === stale)) boardRoot.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
+    });
     restoreFocusCancel.current = cancel;
   }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
