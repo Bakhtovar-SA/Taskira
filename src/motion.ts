@@ -161,7 +161,9 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
       if (document.activeElement === outgoingFocus && outgoingFocus?.closest("main")) return false;
       return true;
     }
-    const heading = [...document.querySelectorAll<HTMLElement>('main [data-view-heading], main h1')]
+    // Сначала заголовок внутри <main>; иначе — помеченный заголовок вне его (h1 шапки у видов без своего h1).
+    const heading = [...document.querySelectorAll<HTMLElement>("main [data-view-heading], main h1"),
+      ...document.querySelectorAll<HTMLElement>("[data-view-heading]")]
       .find(el => el.getClientRects().length > 0);
     if (!heading) return false;
     heading.tabIndex = -1;
@@ -169,29 +171,39 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
     return true;
   };
   if (focus()) return;
-  const root = document.querySelector('main');
-  if (!root) return;
+  // Наблюдаем body, а не <main>: goHome и смена bootStatus могут заменить сам <main>,
+  // и наблюдатель на отсоединённом узле уже не увидел бы новый заголовок.
   const observer = new MutationObserver(() => { if (focus()) cancel(); });
   const cancel = () => { observer.disconnect(); window.clearTimeout(timer); if (cancelViewFocus === cancel) cancelViewFocus = () => {}; };
   const timer = window.setTimeout(cancel, 2000);
   cancelViewFocus = cancel;
-  observer.observe(root, { childList: true, subtree: true });
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 export function viewTransition(update: () => void): void {
   const sequence = ++viewSequence;
   const outgoingFocus = document.activeElement;
   cancelViewFocus();
   const doc = document as VTDoc;
-  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== 'visible') {
+  if (!doc.startViewTransition || motionReduced() || document.visibilityState !== "visible") {
     update();
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
   }
   const root = document.documentElement;
   activeTransitions++;
-  root.classList.add('vt-nav');
-  doc.startViewTransition(() => flushSync(update)).finished.catch(() => undefined).finally(() => {
-    if (--activeTransitions === 0) root.classList.remove('vt-nav');
+  root.classList.add("vt-nav");
+  let transition: ReturnType<NonNullable<VTDoc["startViewTransition"]>>;
+  try {
+    transition = doc.startViewTransition(() => flushSync(update));
+  } catch {
+    // Синхронный отказ API: откатываем счётчик и класс, обновляем без анимации.
+    if (--activeTransitions === 0) root.classList.remove("vt-nav");
+    update();
+    requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
+    return;
+  }
+  transition.finished.catch(() => undefined).finally(() => {
+    if (--activeTransitions === 0) root.classList.remove("vt-nav");
     focusViewHeading(sequence, outgoingFocus);
   });
 }

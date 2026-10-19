@@ -113,3 +113,39 @@ test("waits for an outgoing focused route to detach after the first frame", asyn
   const next = heading(); main.replaceChildren(next); await tick();
   expect(document.activeElement).toBe(next); expect(vi.getTimerCount()).toBe(0);
 });
+
+test("goHome: заменённый целиком <main> всё равно получает фокус на заголовок", async () => {
+  viewTransition(() => main.replaceChildren()); vi.runOnlyPendingTimers();
+  const fresh = document.createElement("main"), next = heading();
+  main.replaceWith(fresh); fresh.append(next); await tick();
+  expect(document.activeElement).toBe(next); expect(vi.getTimerCount()).toBe(0);
+});
+
+test("синхронный отказ startViewTransition: обновление без анимации, класс и счётчик откатываются", async () => {
+  Object.defineProperty(document, "startViewTransition", { configurable: true, value: () => { throw new Error("InvalidStateError"); } });
+  const next = heading();
+  viewTransition(() => main.replaceChildren(next));
+  expect(main.contains(next)).toBe(true);
+  expect(document.documentElement.classList.contains("vt-nav")).toBe(false);
+  vi.runOnlyPendingTimers();
+  expect(document.activeElement).toBe(next);
+  // Счётчик не застрял: следующий нативный переход снимает класс по завершении.
+  const finishes = nativeTransitions();
+  viewTransition(() => main.replaceChildren(heading()));
+  finishes[0](); await tick();
+  expect(document.documentElement.classList.contains("vt-nav")).toBe(false);
+});
+
+test("без заголовка в <main> фокус уходит на помеченный h1 шапки", () => {
+  const top = heading(); top.setAttribute("data-view-heading", "true");
+  document.body.prepend(top);
+  viewTransition(() => main.replaceChildren(document.createElement("section"))); vi.runOnlyPendingTimers();
+  expect(document.activeElement).toBe(top);
+});
+
+test("заголовок в <main> важнее помеченного h1 шапки", () => {
+  const top = heading(); top.setAttribute("data-view-heading", "true");
+  document.body.prepend(top);
+  const next = heading(); viewTransition(() => main.replaceChildren(next)); vi.runOnlyPendingTimers();
+  expect(document.activeElement).toBe(next);
+});
