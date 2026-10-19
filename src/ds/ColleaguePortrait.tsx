@@ -52,3 +52,12 @@ export function ColleaguePortrait({ seed }: { seed: string }) {
     {glasses && <path d="M9.4 15.4h5.8v4.3H9.4zm7.4 0h5.8v4.3h-5.8zm-1.6 1.3h1.6" className="portrait-glasses" />}
   </svg>;
 }
+
+/** For a named person whose stable ID is unavailable: a shared, neutral glyph. */
+export function ColleagueUnknown() {
+  return <svg className="ds-av-portrait" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+    <circle cx="16" cy="16" r="16" className="portrait-field" />
+    <circle cx="16" cy="12" r="5" className="portrait-unknown-head" />
+    <path d="M4 32c1-7 5-11 12-11s11 4 12 11Z" className="portrait-unknown-body" />
+  </svg>;
+}

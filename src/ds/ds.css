@@ -851,6 +851,9 @@
 .portrait-field { fill: color-mix(in oklch, oklch(var(--ic-l) var(--ic-c) var(--portrait-accent-hue, 336deg)) 24%, var(--bg-panel)); }
 .portrait-shoulders { fill: oklch(var(--ic-l) var(--ic-c) var(--portrait-accent-hue, 336deg)); }
 .portrait-hair, .portrait-eye { fill: currentColor; }
+.ds-av-unknown { color: var(--text-2); }
+.ds-av-unknown .portrait-field { fill: var(--bg-hover); }
+.portrait-unknown-head, .portrait-unknown-body { fill: currentColor; }
 .portrait-face { fill: var(--bg-panel); stroke: currentColor; stroke-width: 1.2; }
 .portrait-mouth, .portrait-glasses {
   fill: none;

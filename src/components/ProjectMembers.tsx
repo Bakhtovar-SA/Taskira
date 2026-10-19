@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n";
 import { useStore } from "../store";
 import type { User } from "../types";
@@ -9,7 +9,7 @@ import { cssVars } from "../cssVars";
 
 const placeMemberName = (button: HTMLButtonElement) => {
   const { left, right } = button.getBoundingClientRect();
-  const roomRight = innerWidth - right - 8;
+  const roomRight = window.innerWidth - right - 8;
   const roomLeft = left - 8;
   const side = roomRight >= 168 || roomRight >= roomLeft ? "right" : "left";
   button.dataset.labelSide = side;
@@ -26,6 +26,12 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   // Controlled: the lazy Menu drops a click made before its chunk arrives, unless the open state lives here.
   const [moreOpen, setMoreOpen] = useState(false);
   const [touchOpen, setTouchOpen] = useState(false);
+  const listRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const updateNamePosition = () => listRef.current?.querySelectorAll<HTMLButtonElement>(".board-member-filter:is(:hover, :focus-visible)").forEach(placeMemberName);
+    window.addEventListener("resize", updateNamePosition);
+    return () => window.removeEventListener("resize", updateNamePosition);
+  }, []);
   // Match the old board filter: active human assignees, not the full directory.
   const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
   const candidates = [...new Map([...extraUsers, ...(selectedUser ? [selectedUser] : [])]
@@ -38,7 +44,7 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   const overflowSelected = overflow.find(user => user.id === selectedUserId);
   const moreLabel = overflowSelected ? t("board.moreAssigneesActive", { name: overflowSelected.name }) : t("board.moreAssignees");
   return <span className="project-members" role="group" aria-label={t("field.assignee")}>
-    <span className="ds-av-group board-member-list">
+    <span ref={listRef} className="ds-av-group board-member-list">
       {visible.map(user => <button key={user.id} type="button"
         className={`board-member-filter ds-focus flex rounded-full ${selected && selected.id !== user.id ? "opacity-50" : ""}`}
         aria-label={t("board.filterUserAria", { name: user.name })}

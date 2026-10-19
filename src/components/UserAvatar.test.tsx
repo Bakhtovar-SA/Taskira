@@ -39,8 +39,9 @@ test("портрет закреплён за ID и не меняется при 
 test("без ID показывается нейтральный знак вместо случайного портрета по имени", () => {
   wrap(<UserAvatar user={{ name: "Неизвестный коллега" }} />);
   const avatar = screen.getByRole("img", { name: "Неизвестный коллега" });
-  expect(avatar.className).toContain("ds-av-empty");
-  expect(avatar.querySelector(".ds-av-portrait")).toBeNull();
+  expect(avatar.className).toContain("ds-av-unknown");
+  expect(avatar.querySelector(".portrait-unknown-head")).toBeTruthy();
+  expect(avatar.querySelector(".portrait-hair")).toBeNull();
 });
 
 test("ds-аватар без человека тоже показывает знак «не назначен»", () => {

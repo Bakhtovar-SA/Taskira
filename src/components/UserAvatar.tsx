@@ -12,13 +12,13 @@ import { cropAndResizeAvatar } from "../avatarCrop";
 import { cssVars } from "../cssVars";
 import { Tag, toneOf } from "../ds/Display";
 import { Popover } from "../ds/LazyOverlay";
-import { ColleaguePortrait, colleagueColorVars } from "../ds/ColleaguePortrait";
+import { ColleaguePortrait, ColleagueUnknown, colleagueColorVars } from "../ds/ColleaguePortrait";
 
 /** Аватару достаточно имени — любой объект с ним (не только полный User: напр. `actor` в уведомлениях). С id аватар
  *  может быть кликабельным (карточка пользователя), с avatarUpdatedAt — показать загруженное фото. */
 export type AvatarUser = Pick<User, "name"> &
   Partial<Pick<User, "id" | "avatarUpdatedAt" | "initials">> & {
-    /** Не используется: тон и портрет — по ID; без ID показываем нейтральный знак. Поле допущено, чтобы
+    /** Не используется: тон и портрет — по ID; без ID показываем общий силуэт человека. Поле допущено, чтобы
      *  старые вызовы с {name, initials, color} продолжали собираться. */
     color?: string;
   };
@@ -86,8 +86,8 @@ export function UserAvatar({
     );
 
   const circle = (
-    <span ref={sizeRef} className={`ds-av ${src ? `tk-tone-${toneOf(seed)}` : user.id ? "ds-av-colleague" : "ds-av-empty"}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive || !showTitle ? undefined : user.name}>
-      {src ? <img src={src} alt="" /> : user.id ? <ColleaguePortrait seed={seed} /> : <IcUnassigned size={size} />}
+    <span ref={sizeRef} className={`ds-av ${src ? `tk-tone-${toneOf(seed)}` : user.id ? "ds-av-colleague" : "ds-av-colleague ds-av-unknown"}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive || !showTitle ? undefined : user.name}>
+      {src ? <img src={src} alt="" /> : user.id ? <ColleaguePortrait seed={seed} /> : <ColleagueUnknown />}
     </span>
   );
   if (!interactive || !user.id) return circle;

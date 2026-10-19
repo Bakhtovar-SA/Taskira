@@ -25,7 +25,7 @@ export function Avatar({ person, size = 24, ring, status }: { person: AvatarPers
   const seed = person?.id ?? "";
   const colorRef = useMemo(() => cssVars(colleagueColorVars(seed)), [seed]);
   if (!person) {
-    const label = t ? t("createIssue.unassigned") : "Не назначен";
+    const label = t ? t("createIssue.unassigned") : "Unassigned";
     return <span className="ds-av ds-av-empty" data-size={size} role="img" aria-label={label} title={label}><IcUnassigned size={size} /></span>;
   }
   return (
