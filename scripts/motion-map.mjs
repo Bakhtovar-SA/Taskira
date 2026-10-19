@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Track O A-07: deterministic source inventory; shares the motion guard parser.
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+// Track O A-07: deterministic source inventory. Разбор берёт из motion-lib.mjs; check-motion.mjs пока держит свой разбор, поэтому расхождения возможны.
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, realpathSync } from "node:fs";
+import { join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import ts from "typescript";
@@ -12,7 +12,6 @@ const WRAPPERS = new Set(["enter", "exit", "flipFrom", "glideTo", "glideWidth", 
 const MOVING = /^(?:all|transform|translate|scale|rotate|width|height|left|right|top|bottom|clip-path|inset|background-position|stroke-dashoffset|grid-template-rows|margin.*)$/;
 const properties = body => [...new Set([...body.matchAll(/([\w-]+)\s*:/g)].map(m => m[1]))].sort();
 const declarations = body => Object.fromEntries(body.split(";").map(p => p.split(/:(.*)/s).slice(0, 2).map(s => s.trim())).filter(p => p.length === 2));
-const quoted = value => String.fromCharCode(96) + value + String.fromCharCode(96);
 const cell = value => String(value).replaceAll("|", "\\|").replace(/\s+/g, " ").trim();
 
 export function motionMap(root) {
@@ -113,9 +112,11 @@ function selfTest() {
     if (!motionMap(root).some(row => row.target === "enter" && row.reduce === "обёртка motionReduced")) throw new Error("aliased wrapper call missing");
     console.log("motion map self-test: locations, missing reduce, aliased wrappers passed");
   } finally {
-    const canonical = resolve(root);
-    if (!canonical.startsWith(resolve(tmpdir()) + "/") && !canonical.startsWith(resolve(tmpdir()) + "\\")) throw new Error("Unsafe self-test cleanup");
-    rmSync(canonical, { recursive: true, force: true });
+    // Страховка: удаляем только каталог внутри реального tmpdir (realpath — tmpdir может быть симлинком); ошибку теста не маскируем.
+    const canonical = realpathSync(root);
+    const base = realpathSync(tmpdir());
+    if (canonical.startsWith(base + sep)) rmSync(canonical, { recursive: true, force: true });
+    else console.error("motion map self-test: каталог вне tmpdir не удалён: " + canonical);
   }
 }
 
