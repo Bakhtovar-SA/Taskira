@@ -101,18 +101,19 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/listEnter.ts:29 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/listEnter.ts |
 | src/listExit.ts:101 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
 | src/listExit.ts:105 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
-| src/motion.ts:166 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:193 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:194 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:224 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:234 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:292 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: 300, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:322 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:322 | waapi-wrapper | animate: frames | { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:369 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:205 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:240 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:241 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:271 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:281 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:339 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: 300, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:369 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:369 | waapi-wrapper | animate: frames | { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:416 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/store.tsx:456 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store.tsx:469 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
-| src/store/session.ts:459 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
+| src/store/session.ts:338 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
+| src/store/session.ts:461 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/styles/reports.css:56 | css-animation | .reports-metrics > *, .reports-panels > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/styles/reports.css:63 | css-animation | .reports-content > .reports-footnote: opacity | viewIn var(--dur-4) var(--ease-out) backwards; delay 150ms | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/styles/roadmap.css:81 | css-animation | .roadmap-connection-preview: stroke-dashoffset | roadmap-dash var(--dur-5) linear infinite | @media + личный выключатель | src/components/RoadmapView.tsx |
