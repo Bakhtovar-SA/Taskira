@@ -22,8 +22,11 @@ export function BoardDoneTail({ id, animate, children }: { id: string; animate: 
       ? previous : { ids: next, loading });
   }, [id]);
   useLayoutEffect(() => {
-    if (revealed.current || rows.loading || !rows.ids.length || !body.current) return;
+    if (revealed.current || rows.loading || !body.current) return;
+    // Первая загрузка завершена — раскрытие «отыграно», даже если строк нет: иначе первая строка из поздней
+    // ревалидации сыграла бы анимацию давно после клика.
     revealed.current = true;
+    if (!rows.ids.length) return;
     if (!initialIntent.current || motionReduced()) return;
     setAnimating(true);
     const find = (issueId: string) => body.current?.querySelector<HTMLElement>(`[data-issue-id="${CSS.escape(issueId)}"]`);
