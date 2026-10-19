@@ -1,0 +1,8 @@
+/* D05 spike only; imported by the DEV scene and the isolated CSP probe. */
+.issue-hero-key { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; font-weight: 500; }
+.issue-hero-stage { min-height: 120px; padding: 16px; }
+.issue-hero-destination { padding-inline-start: 60px; }
+html.vt-nav::view-transition-group(issue-hero) { animation-duration: var(--dur-3, 200ms); animation-timing-function: var(--ease, ease-out); }
+html.vt-nav::view-transition-old(issue-hero), html.vt-nav::view-transition-new(issue-hero) { height: 100%; mix-blend-mode: normal; }
+@media (prefers-reduced-motion: reduce) { html.vt-nav::view-transition-group(issue-hero) { animation-duration: 0s; } }
+html[data-motion="reduce"]::view-transition-group(issue-hero) { animation-duration: 0s; }

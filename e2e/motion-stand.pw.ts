@@ -222,3 +222,30 @@ test("motion stand: desktop/mobile layout and unmount cleanup", async ({ page },
   await expect(page.locator("[data-list-count]")).toHaveText("12 строк");
   await expect(page.locator("[data-toast-id]")).toHaveCount(0);
 });
+
+
+for (const mode of ["normal", "system", "personal"] as const) {
+ test("motion stand: D05 isolated React key transfer (" + mode + ")", async ({ page }, testInfo) => {
+  await openStand(page, mode);
+  const errors:string[]=[];page.on("pageerror",error=>errors.push(error.message));
+  await page.evaluate(()=>{
+   const state:{names:string[];duration:string}[]=[];
+   Object.assign(window,{__heroNative:state});
+   const native=document.startViewTransition.bind(document);
+   document.startViewTransition=(update)=>{
+    const transition=native(update);
+    transition.ready.then(()=>state.push({names:[...document.querySelectorAll(".issue-hero-key")].filter(el=>getComputedStyle(el).viewTransitionName==="issue-hero").map(el=>el.textContent??""),duration:getComputedStyle(document.documentElement,"::view-transition-group(issue-hero)").animationDuration})).catch(()=>{});
+    return transition;
+   };
+  });
+  const trigger=page.locator('[data-action="issue-hero-open"]');
+  await trigger.click();await settle(page);
+  await expect(page.locator(".issue-hero-destination .issue-hero-key")).toHaveText("CORP-1");
+  await expect(trigger).toBeFocused();
+  const native=await page.evaluate(()=>(window as Window & {__heroNative:{names:string[];duration:string}[]}).__heroNative);
+  expect(native).toEqual(mode==="normal"?[{names:["CORP-1"],duration:"0.2s"}]:[]);
+  expect(await page.locator(".issue-hero-key").evaluateAll(nodes=>nodes.map(node=>(node as HTMLElement).style.getPropertyValue("view-transition-name")))).toEqual(["",""]);
+  expect(errors).toEqual([]);
+  await page.screenshot({path:testInfo.outputPath("d05-react-"+mode+".png")});
+ });
+}
