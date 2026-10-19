@@ -51,7 +51,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/Flash.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/Flash.tsx |
 | src/index.css:1059 | css-keyframes | viewIn: opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:1064 | css-keyframes | drawLine: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
-| src/index.css:1069 | css-animation | .anim-view: opacity | viewIn var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/App.tsx, src/components/ProjectWizard.tsx, src/components/settings/SettingsView.tsx, src/useSkeletonReveal.ts |
+| src/index.css:1069 | css-animation | .anim-view: opacity | viewIn var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/App.tsx, src/components/ProjectWizard.tsx, src/components/QuickCreateIssue.tsx, src/components/TimelineView.tsx, src/components/settings/SettingsView.tsx, src/useSkeletonReveal.ts |
 | src/index.css:1072 | css-animation | .anim-stagger > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/InboxView.tsx, src/components/MyIssuesView.tsx, src/components/ReportsView.tsx, src/components/SprintsView.tsx, src/dashboards/DashboardGrid.tsx |
 | src/index.css:1081 | css-animation | .success-check path: stroke-dashoffset | drawLine var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/ds/Display.tsx, src/ui.tsx |
 | src/index.css:1085 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
@@ -81,7 +81,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:799 | css-keyframes | dropLand: transform | из правила применения | см. правила применения | см. CSS |
 | src/index.css:808 | css-keyframes | doneFlash: background, box-shadow | из правила применения | см. правила применения | см. CSS |
 | src/index.css:819 | css-transition | .cl-text: text-decoration-color, color | text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard) | @media + личный выключатель | src/components/IssueModal.tsx |
-| src/index.css:827 | css-animation | .anim-fadeup: opacity, transform | fadeUp var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/components/IssueModal.tsx, src/components/QuickCreateIssue.tsx, src/components/TimelineView.tsx |
+| src/index.css:827 | css-animation | .anim-fadeup: opacity, transform | fadeUp var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/components/IssueModal.tsx |
 | src/index.css:830 | css-animation | .anim-pop: opacity, transform | popIn var(--dur-2) var(--ease-out) both | @media + личный выключатель | src/components/Board.tsx, src/components/Topbar.tsx |
 | src/index.css:835 | css-keyframes | scrimIn: opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:840 | css-animation | .anim-scrim: opacity | scrimIn var(--dur-3) var(--ease-standard) both | личный выключатель | src/components/Sidebar.tsx |
