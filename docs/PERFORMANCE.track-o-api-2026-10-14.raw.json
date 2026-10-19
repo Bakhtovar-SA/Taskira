@@ -1,0 +1,247 @@
+{
+  "browser": "Chromium 141.0.7390.37",
+  "cpu": "Intel(R) Core(TM) i3-N305 × 8",
+  "cards": 300,
+  "runs": {
+    "cpu 1×": {
+      "boardLoadMs": 2264,
+      "memory": {
+        "totalMiB": 7846,
+        "availableMiB": 481
+      },
+      "theme": "light",
+      "loadPhases": {
+        "firstCardMs": 2053.800000190735,
+        "requests": [
+          {
+            "url": "http://127.0.0.1:61078/api/instance/brand",
+            "start": 395.90000009536743,
+            "headers": 506.30000019073486,
+            "bodyReady": 863,
+            "parseMs": 1.0999999046325684
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/auth/me",
+            "start": 820.5,
+            "headers": 869,
+            "bodyReady": 953.9000000953674,
+            "parseMs": 0.5999999046325684
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects",
+            "start": 954.8000001907349,
+            "headers": 1000.1999998092651,
+            "bodyReady": 1002.5,
+            "parseMs": 0.5
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/departments",
+            "start": 956,
+            "headers": 1001,
+            "bodyReady": 1004.5,
+            "parseMs": 0.40000009536743164
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/issues/collaborating",
+            "start": 957.5999999046326,
+            "headers": 1001.5,
+            "bodyReady": 1004.9000000953674,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/auth/config",
+            "start": 958.3000001907349,
+            "headers": 1002.0999999046326,
+            "bodyReady": 1005,
+            "parseMs": 0.09999990463256836
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1",
+            "start": 1009.3000001907349,
+            "headers": 1020.5,
+            "bodyReady": 1021.1999998092651,
+            "parseMs": 0.5
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/notifications?limit=20",
+            "start": 1023.8000001907349,
+            "headers": 1457,
+            "bodyReady": 1493.3000001907349,
+            "parseMs": 0.09999990463256836
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/notifications/unread-count",
+            "start": 1024.8000001907349,
+            "headers": 1457.5,
+            "bodyReady": 1493.4000000953674,
+            "parseMs": 0.09999990463256836
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/issues/assigned-to-me",
+            "start": 1363.9000000953674,
+            "headers": 1533.8000001907349,
+            "bodyReady": 1539.4000000953674,
+            "parseMs": 0.09999990463256836
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/me/lang",
+            "start": 1392.1999998092651,
+            "headers": 1539.1999998092651,
+            "bodyReady": 1562.9000000953674,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues?status=s1&sort=rank&dir=asc&limit=100",
+            "start": 1367.6999998092651,
+            "headers": 1540.4000000953674,
+            "bodyReady": 1574.5999999046326,
+            "parseMs": 0.5999999046325684
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues?status=s2&sort=rank&dir=asc&limit=100",
+            "start": 1369.5,
+            "headers": 1560.3000001907349,
+            "bodyReady": 1578.8000001907349,
+            "parseMs": 0.39999961853027344
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues?status=s3&closed=recent&closedDays=14&sort=rank&dir=asc&limit=100",
+            "start": 1370.9000000953674,
+            "headers": 1562.3000001907349,
+            "bodyReady": 1580,
+            "parseMs": 0.40000009536743164
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues/epics",
+            "start": 1379.5,
+            "headers": 1563.4000000953674,
+            "bodyReady": 1581.0999999046326,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues/counts",
+            "start": 1381.0999999046326,
+            "headers": 1565.0999999046326,
+            "bodyReady": 1581.4000000953674,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues/counts?overdue=1",
+            "start": 1382.5999999046326,
+            "headers": 1566,
+            "bodyReady": 1581.5999999046326,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues/counts?closed=older&closedDays=14",
+            "start": 1384.3000001907349,
+            "headers": 1566.8000001907349,
+            "bodyReady": 1581.6999998092651,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/projects/p1/issues/assignees?limit=24",
+            "start": 1385.6999998092651,
+            "headers": 1570.0999999046326,
+            "bodyReady": 2247,
+            "parseMs": 0.09999990463256836
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/me/onboarding",
+            "start": 1387.9000000953674,
+            "headers": 1570.5,
+            "bodyReady": 2247.4000000953674,
+            "parseMs": 0
+          },
+          {
+            "url": "http://127.0.0.1:61078/api/admin/setup",
+            "start": 1390.9000000953674,
+            "headers": 1570.8000001907349,
+            "bodyReady": 2254.0999999046326,
+            "parseMs": 0
+          }
+        ],
+        "fonts": [
+          {
+            "start": 545.5,
+            "end": 788.5999999046326
+          },
+          {
+            "start": 1233,
+            "end": 1767.4000000953674
+          }
+        ]
+      },
+      "fontsOnBoard": [
+        "manrope-latin-wght-normal-DHIcAJRg.woff2",
+        "manrope-cyrillic-wght-normal-Dvxsihut.woff2"
+      ],
+      "dragStartMedianMs": 16.6,
+      "dragOverAlternatingColumns": {
+        "avgFrameMs": 24.4,
+        "p90FrameMs": 27.7,
+        "fps": 41
+      },
+      "dragOverSameColumn": {
+        "avgFrameMs": 16.6,
+        "p90FrameMs": 17.2,
+        "fps": 60
+      },
+      "unreadBadgeMedianMs": 5027.2,
+      "openIssueFirstMs": 436.4,
+      "openIssueMedianMs": 203.2,
+      "openIssuePreviewFirstMs": 801.1,
+      "openIssuePreviewMedianMs": 384.7,
+      "openIssueDetailsFirstMs": 801.1,
+      "openIssueDetailsMedianMs": 384.7,
+      "openIssueClickEventMs": [
+        616,
+        248,
+        264,
+        256,
+        232,
+        232
+      ],
+      "cspViolations": [],
+      "dynamicCssRules": 9
+    }
+  },
+  "serverDetailMarker": "Track O benchmark details",
+  "gpu": {
+    "renderer": "ANGLE (Intel, Intel(R) UHD Graphics (0x000046D0) Direct3D11 vs_5_0 ps_5_0, D3D11-32.0.101.7076)",
+    "compositing": "enabled",
+    "rasterization": "enabled"
+  },
+  "summary": {
+    "cpu 1×": {
+      "samples": 1,
+      "boardLoadMs": {
+        "median": 2264,
+        "min": 2264,
+        "max": 2264
+      },
+      "dragFps": {
+        "median": 41,
+        "min": 41,
+        "max": 41
+      },
+      "firstDetailsMs": {
+        "median": 801.1,
+        "min": 801.1,
+        "max": 801.1
+      },
+      "repeatedDetailsMs": {
+        "median": 384.7,
+        "min": 384.7,
+        "max": 384.7
+      }
+    }
+  },
+  "validation": {
+    "purpose": "A-05: benchmark bootstrap and fail-fast API diagnostics",
+    "date": "2026-10-14",
+    "base": "ff9c8ff0",
+    "environment": "Windows, Chromium 141, GPU enabled; concurrent tests on host",
+    "comparablePerformanceBaseline": false
+  }
+}
