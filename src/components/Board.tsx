@@ -3,7 +3,7 @@ import { Suspense, lazy, memo, useCallback, useEffect, useId, useLayoutEffect, u
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { enter, preloadMotion } from "../motion";
-import { cancelBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
+import { cancelBoardFlip, clearBoardFlip, createPendingMarks, flipPending, noteLanding as noteFlipLanding, playBoardFlip, restoreCardFocus, snapshotBoard } from "../boardFlip";
 import { useLocation } from "wouter";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, pathForView } from "../router";
 import { IssueFilterSummary } from "./IssueFilterSummary";
@@ -21,7 +21,8 @@ import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
-import { Menu, Popover } from "../ds/LazyOverlay";
+import { Menu } from "../ds/LazyOverlay";
+import { BoardFilterSummary } from "./BoardFilterSummary";
 import { Button } from "../ds/Button";
 import { EmptyState, Skeleton } from "../ds/Display";
 import { useT } from "../i18n";
@@ -802,10 +803,12 @@ export default function Board() {
   useEffect(() => {
     boardMounted.current = true;
     const marks = pendingMarks.current;
+    const root = boardRoot.current;
     return () => {
       boardMounted.current = false;
       restoreFocusCancel.current?.();
       marks.clearAll();
+      clearBoardFlip(root);
     };
   }, []);
   // Массовое действие закончено: панель выделения исчезает вместе с кнопкой, державшей фокус (B-04) — возвращаем его на
@@ -958,13 +961,12 @@ export default function Board() {
           members={<BoardAssigneeFilter selectedUserId={filterUser} extraUsers={assignees}
             onSelectUser={userId => setFilterUser(current => current === userId ? null : userId)} />}
           compact
-          summary={filtersOn ? <Popover label={filterLabel} placement="bottom-end" open={filterSummaryOpen} onOpenChange={setFilterSummaryOpen}
-            trigger={props => <button {...props} type="button" className="ds-focus cursor-pointer rounded text-accenttext hover:underline" aria-label={`${filterLabel}: ${filteredSummary}`}>{filteredSummary}</button>}>
+          summary={filtersOn ? <BoardFilterSummary label={filterLabel} summary={filteredSummary} open={filterSummaryOpen} onOpenChange={setFilterSummaryOpen}>
             <IssueFilterSummary filters={baseFilters}>
               {chips.has("overdue") && <span>{t("board.quickChip.overdue")}</span>}
               <button onClick={resetFilters} className="ds-focus rounded px-2 py-1 font-medium hover:text-ink">{t("common.reset")}</button>
             </IssueFilterSummary>
-          </Popover> : filteredSummary}
+          </BoardFilterSummary> : filteredSummary}
           quickFilters={<WorkspaceQuickFilters active={id => id === "overdue" ? chips.has(id) : baseFilters.assignee === (id === "mine" ? data.currentUserId : "none")} onToggle={toggleChip} overdue={overdueCounts.counts?.total} />}
           search={<WorkspaceSearch value={q} onChange={setQ} />}
           actions={<>
