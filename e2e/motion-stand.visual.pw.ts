@@ -51,12 +51,18 @@ for (const theme of ["light", "dark"] as const) for (const scene of scenes) {
           await expect(page.locator(".list-row-ghost")).toHaveAttribute("inert", "");
         }
       }
+      let shotFailed = false;
       try {
         await saveMidpoint(page, testInfo, name, clip, capture);
+      } catch (error) {
+        shotFailed = true;
+        throw error;
       } finally {
         after = counter ? await counterProof(page) : await pausedProof(page);
         // Native finished/onfinish stay pending, track has not cleared the effect, and a paused RAF count stays put.
-        expect(after).toEqual(before);
+        // Если скриншот упал, его ошибка важнее: сверку фиксируем мягко, чтобы не затереть diff эталона.
+        if (shotFailed) expect.soft(after).toEqual(before);
+        else expect(after).toEqual(before);
         await saveProof(testInfo, capture, name, { mode: capture ? "capture-only (not golden)" : "Linux golden comparison", image,
           browser: browser.version(), node: process.version, theme, scene: scene.name, clip, before, after,
           note: "No runtime timeouts/durations were changed. Native animations are paused at delay + activeDuration/2; CountUp executes its real RAF callbacks at elapsed 0 and COUNT_MS/2." });

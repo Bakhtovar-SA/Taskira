@@ -94,5 +94,5 @@ activeDuration/2, CountUp выполняет настоящие RAF callbacks н
 
 Методика, D-temp capture-only и получение просмотренных Linux actual через существующий
 ui-visual описаны в [MOTION-MIDPOINTS.md](MOTION-MIDPOINTS.md). На момент этой записи тесты,
-typecheck/build/browser **не запускались**, baseline PNG отсутствуют; B-03/B-04 и manual QA
+typecheck/build/browser локально **не запускались**; baseline PNG получены из артефакта CI (см. MOTION-MIDPOINTS.md); B-03/B-04 и manual QA
 не закрыты. Новый workflow и ADR не создавались, production motion API/таймауты не менялись.

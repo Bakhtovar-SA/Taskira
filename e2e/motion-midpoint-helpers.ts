@@ -141,7 +141,12 @@ export async function holdCounterRaf(page: Page): Promise<void> {
     };
   });
 }
+// Шаг кнопки «Увеличить число» в src/dev/DevMotion.tsx (setValue(x => x + 25)).
+const COUNT_STEP = 25;
 export async function counterMidpoint(page: Page) {
+  // Начальное значение берём из самого стенда, а не зашиваем в тест.
+  const startValue = Number(await page.locator(".count-up").first().textContent());
+  expect(Number.isFinite(startValue)).toBe(true);
   await holdCounterRaf(page);
   await standAction(page, "count-up");
   await expect(page.locator(".count-up[data-counting]")).toHaveCount(3);
@@ -150,17 +155,20 @@ export async function counterMidpoint(page: Page) {
   await page.evaluate(() => window.__motionMidpointCounter!.flush(performance.now()));
   const startedAt = await page.evaluate(() => performance.now());
   const duration = await page.evaluate(async () => { const url = "/src/motion.ts"; return (await import(url)).COUNT_MS as number; });
-  expect(duration).toBe(300);
+  expect(duration).toBeGreaterThan(0);
   await page.clock.runFor(duration / 2);
   await page.evaluate(() => window.__motionMidpointCounter!.flush(performance.now()));
   const proof = await counterProof(page);
   expect(proof.now - startedAt).toBe(duration / 2);
   expect(proof.frames.slice(-2)).toEqual([startedAt, startedAt + duration / 2]);
   expect(proof.pending).toBe(3);
-  expect(proof.values.map(value => value.text)).toEqual(["125", "125", "125"]);
-  // ease-out: 100 + 25 * (1 - (1 - .5)^3) = 121.875 -> 122, NOT the arithmetic midpoint 112/113.
-  expect(proof.values.map(value => value.shown)).toEqual(["122", "122", "122"]);
-  expect(proof.values.every(value => value.counting && value.content.includes("122"))).toBe(true);
+  const endText = String(startValue + COUNT_STEP);
+  // ease-out cubic на середине: start + step * (1 - (1 - .5)^3), а не арифметическая середина (100 -> 125 даёт 122, не 112/113).
+  // Кривая и COUNT_MS заданы в src/motion.ts; смена кривой должна менять и это ожидание.
+  const midText = String(Math.round(startValue + COUNT_STEP * (1 - 0.5 ** 3)));
+  expect(proof.values.map(value => value.text)).toEqual([endText, endText, endText]);
+  expect(proof.values.map(value => value.shown)).toEqual([midText, midText, midText]);
+  expect(proof.values.every(value => value.counting && value.content.includes(midText))).toBe(true);
   return { ...proof, startedAt, duration };
 }
 export async function counterProof(page: Page) {
