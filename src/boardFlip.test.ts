@@ -54,7 +54,6 @@ test("перетаскивание: брошенная карточка прил
   // До ответа сервера карточка на старом месте: коммит в это время её никуда не «возвращает».
   playBoardFlip();
   expect(flipFrom).not.toHaveBeenCalled();
-  await Promise.resolve(); // The server response applies in a later commit, after the no-op commit.
   tops.set("a", 50);
   playBoardFlip();
   // Другая колонка: летит копия в фиксированном слое (тело колонки обрезало бы карточку), сама карточка скрыта.
@@ -309,21 +308,55 @@ test("createPendingMarks: ответ на устаревший перенос н
   }
 });
 
-test("C-02: repeated column effects read once; next commit reads again", async () => {
-  tops.set("a",0).set("b",100); const root=board(["a","b"]); snapshotBoard(root,"a");
-  const query=vi.spyOn(root,"querySelectorAll"); tops.set("a",100).set("b",0);
-  playBoardFlip(); playBoardFlip(); playBoardFlip(); expect(query).toHaveBeenCalledTimes(1);
-  await Promise.resolve(); tops.set("b",30); playBoardFlip(); expect(query).toHaveBeenCalledTimes(2);
+test("колонки одного коммита читают геометрию один раз; следующий коммит читает снова", async () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  const query = vi.spyOn(root, "querySelectorAll");
+  tops.set("a", 100).set("b", 0);
+  playBoardFlip();
+  playBoardFlip();
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(1);
+  await Promise.resolve();
+  tops.set("b", 30);
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(2);
 });
-test("C-02: geometry reads precede flight insertion", () => {
-  tops.set("a",0).set("b",100); const root=board(["a","b"]); snapshotBoard(root,"a"); let writing=false;
-  for(const id of ["a","b"]) { const card=el(root,id);
-    card.getBoundingClientRect=()=>{expect(writing).toBe(false);return {left:400,top:tops.get(id)} as DOMRect;};
-    Object.defineProperty(card,"offsetWidth",{get:()=>{expect(writing).toBe(false);return 280;}});
+
+test("пустой проход не блокирует настоящий коммит в той же микрозадаче", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  const query = vi.spyOn(root, "querySelectorAll");
+  playBoardFlip(); // ничего не сдвинулось
+  expect(flipFrom).not.toHaveBeenCalled();
+  tops.set("a", 100).set("b", 0); // реальный коммит без await между ними
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(2);
+  expect(flipFrom).toHaveBeenCalled();
+});
+
+test("чтение геометрии идёт раньше вставки летящих копий", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  let writing = false;
+  for (const id of ["a", "b"]) {
+    const card = el(root, id);
+    card.getBoundingClientRect = () => {
+      expect(writing).toBe(false);
+      return { left: 400, top: tops.get(id) } as DOMRect;
+    };
+    Object.defineProperty(card, "offsetWidth", { get: () => { expect(writing).toBe(false); return 280; } });
   }
-  const append=document.body.appendChild.bind(document.body);
-  const spy=vi.spyOn(document.body,"appendChild").mockImplementation(node=>{writing=true;return append(node);});
-  playBoardFlip(); expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
-  expect([...document.querySelectorAll<HTMLElement>(".flip-flight > article")].every(card=>card.style.width==="280px")).toBe(true);
+  const append = document.body.appendChild.bind(document.body);
+  const spy = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+    writing = true;
+    return append(node);
+  });
+  playBoardFlip();
+  expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
+  expect([...document.querySelectorAll<HTMLElement>(".flip-flight > article")].every((card) => card.style.width === "280px")).toBe(true);
   spy.mockRestore();
 });

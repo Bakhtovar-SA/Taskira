@@ -112,7 +112,8 @@ export function playBoardFlip(): void {
     snap = null;
     return;
   }
-  // Column layout effects share a mutation phase: one geometry read pass.
+  // Эффекты колонок одного коммита делят фазу мутаций — один проход чтения геометрии. Защёлка сбрасывается в микрозадаче:
+  // второй коммит в том же синхронном отрезке (например, flushSync) пропустит проигрыш — осознанная цена.
   played = true;
   queueMicrotask(() => { played = false; });
   const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean; width: number }[] = [];
@@ -134,7 +135,11 @@ export function playBoardFlip(): void {
     }
     moved.push({ el, from, to, id, seen: seen(prev) || seen(to), width: el.offsetWidth });
   }
-  if (!moved.length) return;
+  if (!moved.length) {
+    // Пустой проход не должен блокировать настоящий коммит в той же микрозадаче.
+    played = false;
+    return;
+  }
   const layerZoom = cssZoom(document.body);
   const animate = moved.length <= MAX_ANIMATED;
   // Массовая смена статуса: все сменившие колонку карточки «поднимаются», первая (по прежнему месту: выше и левее)
