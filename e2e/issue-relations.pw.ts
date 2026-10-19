@@ -1,6 +1,7 @@
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {boardFixture} from './board-fixture';
+import {loadMotion, settle} from './motion-helpers';
 
 async function fixture(page:Page, opts:{role?:string;parent?:boolean;children?:boolean;linked?:boolean;theme?:string;error?:boolean}={}) {
  const {issues,project,users,statuses}=await boardFixture(page,opts.theme??'dark');
@@ -9,11 +10,13 @@ async function fixture(page:Page, opts:{role?:string;parent?:boolean;children?:b
  const related=(id:string)=>{const i=issues.find(i=>i.id===id)!;return {id:i.id,key:i.key,title:i.title,statusCategory:statuses.find(s=>s.id===i.statusId)!.category};};
  if(opts.linked)detail.links=[{id:'link1',dir:'blocks',issue:related('i3')}];
  const writes:any[]=[];
+ const childItems:any[]=opts.children?[{...issues[1],parentId:'i1'}]:[];
  await page.route('**/api/**',async route=>{
   const url=new URL(route.request().url()),path=url.pathname,method=route.request().method();
   if(path==='/api/projects/p1')return route.fulfill({json:{project,users,members:users.map(u=>({userId:u.id,role:opts.role??'admin'})),workflow:{statuses,transitions:[]},issueTemplates:[],customFields:[],sprints:[]}});
   if(path==='/api/auth/me')return route.fulfill({json:{...users[0],globalRole:'member',onboarding:{hidden:true}}});
-  if(path==='/api/projects/p1/issues'&&url.searchParams.has('parentId'))return route.fulfill({json:{items:[],hasMore:false,nextCursor:null}});
+  if(path==='/api/projects/p1/issues'&&url.searchParams.has('parentId'))return route.fulfill({json:{items:childItems,hasMore:false,nextCursor:null}});
+  if(path==='/api/projects/p1/issues'&&method==='POST'){const body=route.request().postDataJSON();const child={...issues[2],...body,id:'child-new',key:'CORP-NEW'};childItems.push(child);detail.subtasksSummary.total++;writes.push({path,method,body});return route.fulfill({json:child});}
   if(path==='/api/issues/resolve')return route.fulfill({json:{projectId:'p1',id:'i1',projectKey:'CORP'}});
   if(path.match(/\/issues\/[^/]+\/(comments|activity|collaborators)$/)&&method==='GET')return route.fulfill({json:[]});
   const match=path.match(/^\/api\/projects\/p1\/issues\/([^/]+)$/);
@@ -22,7 +25,7 @@ async function fixture(page:Page, opts:{role?:string;parent?:boolean;children?:b
    const body=method==='DELETE'?null:route.request().postDataJSON();writes.push({path,method,body});
    if(opts.error)return route.fulfill({status:409,json:{error:{code:'CONFLICT',reason:method==='PATCH'?'Родитель недоступен':'Связь не сохранена'}}});
    if(method==='PATCH'){Object.assign(detail,body);return route.fulfill({json:detail});}
-   if(path.endsWith('/links')&&method==='POST'){detail.links.push({id:'link1',dir:body.type,issue:related(body.linkedIssueId)});return route.fulfill({json:{id:'link1',links:detail.links}});}
+   if(path.endsWith('/links')&&method==='POST'){const id='link'+(detail.links.length+1);detail.links.push({id,dir:body.type,issue:related(body.linkedIssueId)});return route.fulfill({json:{id,links:detail.links}});}
    if(path.includes('/links/')&&method==='DELETE'){detail.links=[];return route.fulfill({json:{links:[]}});}
   }
   return route.fallback();
@@ -82,3 +85,35 @@ test('failed relationship mutation keeps existing issue state and reports error'
  await expect(page.locator('[data-toast-id]').filter({hasText:'Связь не сохранена'})).toBeVisible();await expect(card.locator('.issue-linked-task')).toHaveCount(0);
  await action(page,'Сделать подзадачей');await page.getByRole('option',{name:/CORP-2/}).click();await expect(page.locator('[data-toast-id]').filter({hasText:'Родитель недоступен'})).toBeVisible();await expect(card.locator('.issue-parent-link')).toHaveCount(0);
 });
+
+for (const mode of ['normal', 'system', 'personal'] as const) {
+ test('D-02: only appended relations enter (' + mode + ')', async ({page}) => {
+  await page.emulateMedia({reducedMotion:mode==='system'?'reduce':'no-preference'});
+  await page.addInitScript(personal => {
+   if(personal)localStorage.setItem('taskira.reduceMotion','1');
+   const calls:string[]=[];(window as any).__relationEnters=calls;
+   const animate=HTMLElement.prototype.animate;
+   HTMLElement.prototype.animate=function(...args:Parameters<typeof animate>){
+    // Motion mini creates one WAAPI animation per property: count transform entries, not opacity too.
+    if(this.matches('.issue-linked-task[data-enter-id], button[data-enter-id]') && args[0] && 'transform' in args[0])calls.push(this.dataset.enterId!);
+    return animate.apply(this,args);
+   };
+  }, mode==='personal');
+  const loaded=mode==='normal'?loadMotion(page):Promise.resolve();
+  const {card,writes}=await fixture(page,{linked:true,children:true});await loaded;
+  await expect(card.locator('[data-enter-id="i2"]')).toBeVisible();
+  await settle(page);expect(await page.evaluate(()=>(window as any).__relationEnters)).toEqual([]);
+  await action(page,'Добавить связь');await page.getByRole('option',{name:/CORP-2/}).click();
+  await expect(card.locator('.issue-linked-task')).toHaveCount(2);await settle(page);
+  expect(await page.evaluate(()=>(window as any).__relationEnters)).toEqual(mode==='normal'?['link2']:[]);
+  await card.locator('.issue-tile').filter({hasText:'Подзадачи'}).getByRole('button',{name:'+ Добавить',exact:true}).click();
+  const create=page.getByRole('dialog').filter({has:page.locator('#create-issue-title')});
+  await create.getByLabel('Название *',{exact:true}).fill('Вторая подзадача');
+  await create.getByRole('button',{name:'Создать задачу',exact:true}).click();
+  await expect(create).toHaveCount(0);await expect(card.locator('[data-enter-id="child-new"]')).toBeVisible();await settle(page);
+  expect(writes.at(-1).body.parentId).toBe('i1');
+  expect(await page.evaluate(()=>(window as any).__relationEnters)).toEqual(mode==='normal'?['link2','child-new']:[]);
+  const before=await card.locator('.issue-linked-task').evaluateAll(nodes=>nodes.map(n=>({width:n.getBoundingClientRect().width,height:n.getBoundingClientRect().height})));
+  await settle(page);expect(await card.locator('.issue-linked-task').evaluateAll(nodes=>nodes.map(n=>({width:n.getBoundingClientRect().width,height:n.getBoundingClientRect().height})))).toEqual(before);
+ });
+}
