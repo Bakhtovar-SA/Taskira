@@ -286,11 +286,11 @@
 }
 .board-member-name > span { overflow: hidden; text-overflow: ellipsis; }
 .board-member-filter:is(:hover, :focus-visible) .board-member-name {
-  max-width: 168px;
+  max-width: var(--member-name-max, 168px);
   padding: 0 10px 0 8px;
   opacity: 1;
 }
-.board-member-filter:nth-child(n+3) .board-member-name {
+.board-member-filter[data-label-side="left"] .board-member-name {
   left: auto;
   right: calc(100% - 4px);
   border-radius: 999px 0 0 999px;
@@ -298,11 +298,29 @@
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 .board-member-filter[aria-pressed="true"]:is(:hover, :focus-visible) { z-index: 3; }
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-member-touch-picker { display: none; }
+.board-member-touch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(220px, calc(100vw - 32px));
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+.board-member-touch-trigger > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 @media (prefers-reduced-motion: reduce) {
   .board-member-filter, .board-member-name { transition: none; }
 }
 .board-move-touch-hint { display: none; }
 @media (hover: none) {
+  .board-member-list { display: none; }
+  .board-member-touch-picker { display: inline-flex; min-width: 0; max-width: 100%; }
   .board-move-touch-hint { display: flex; }
   .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }

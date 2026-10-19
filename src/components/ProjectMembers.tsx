@@ -5,6 +5,16 @@ import type { User } from "../types";
 import { Menu } from "../ds/LazyOverlay";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { IcCheck } from "../icons";
+import { cssVars } from "../cssVars";
+
+const placeMemberName = (button: HTMLButtonElement) => {
+  const { left, right } = button.getBoundingClientRect();
+  const roomRight = innerWidth - right - 8;
+  const roomLeft = left - 8;
+  const side = roomRight >= 168 || roomRight >= roomLeft ? "right" : "left";
+  button.dataset.labelSide = side;
+  cssVars({ "--member-name-max": `${Math.max(24, Math.min(150, (side === "right" ? roomRight : roomLeft) - 18))}px` })(button);
+};
 
 export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }: {
   selectedUserId: string | null;
@@ -15,6 +25,7 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
   const { idx } = useStore();
   // Controlled: the lazy Menu drops a click made before its chunk arrives, unless the open state lives here.
   const [moreOpen, setMoreOpen] = useState(false);
+  const [touchOpen, setTouchOpen] = useState(false);
   // Match the old board filter: active human assignees, not the full directory.
   const selectedUser = selectedUserId ? idx.users.get(selectedUserId) : undefined;
   const candidates = [...new Map([...extraUsers, ...(selectedUser ? [selectedUser] : [])]
@@ -32,6 +43,8 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
         className={`board-member-filter ds-focus flex rounded-full ${selected && selected.id !== user.id ? "opacity-50" : ""}`}
         aria-label={t("board.filterUserAria", { name: user.name })}
         aria-pressed={selectedUserId === user.id}
+        onPointerEnter={event => placeMemberName(event.currentTarget)}
+        onFocus={event => placeMemberName(event.currentTarget)}
         onClick={() => onSelectUser(user.id)}>
         <UserAvatar user={user} size={26} ring showTitle={false} />
         <span className="board-member-name" aria-hidden="true"><span>{user.name}</span></span>
@@ -45,6 +58,17 @@ export function BoardAssigneeFilter({ selectedUserId, onSelectUser, extraUsers }
         items={overflow.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
           hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
           onSelect: () => onSelectUser(user.id) }))} />}
+    </span>
+    <span className="board-member-touch-picker">
+      <Menu label={t("field.assignee")} placement="bottom-end" open={touchOpen} onOpenChange={setTouchOpen}
+        trigger={props => <button {...props} type="button" className="board-member-touch-trigger ds-focus"
+          aria-label={selected ? `${t("field.assignee")}: ${selected.name}` : t("field.assignee")}>
+          {selected && <UserAvatar user={selected} size={24} showTitle={false} />}
+          <span>{selected?.name ?? t("field.assignee")}</span>
+        </button>}
+        items={candidates.map(user => ({ id: user.id, label: user.name, icon: <UserAvatar user={user} size={20} />,
+          hint: selectedUserId === user.id ? <IcCheck size={14} /> : undefined,
+          onSelect: () => onSelectUser(user.id) }))} />
     </span>
   </span>;
 }

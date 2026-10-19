@@ -133,6 +133,40 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   await expect(more).not.toHaveAttribute("data-active", "true");
 });
 
+test("assignee hover name stays inside a narrow desktop viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await boardFixture(page);
+  await page.goto("/p/CORP/board");
+  const avatars = page.locator(".board-member-filter");
+  await expect(avatars).toHaveCount(2);
+  for (const avatar of await avatars.all()) {
+    await avatar.hover();
+    const name = avatar.locator(".board-member-name");
+    await expect(name).toHaveCSS("opacity", "1");
+    const box = await name.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(321);
+  }
+});
+
+test.describe("touch assignee filter", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test("shows names in a picker without hover", async ({ page }) => {
+    const { users } = await boardFixture(page);
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-member-list")).toBeHidden();
+    const picker = page.locator(".board-member-touch-trigger");
+    await expect(picker).toBeVisible();
+    await picker.click();
+    await page.getByRole("menuitem", { name: users[0].name }).click();
+    await expect(page).toHaveURL(/assignee=u1/);
+    await expect(picker).toContainText(users[0].name);
+  });
+});
+
 for (const width of [390, 320]) test(`board refresh: mobile targets and no overflow at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
   await boardFixture(page);

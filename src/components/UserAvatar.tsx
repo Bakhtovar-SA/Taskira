@@ -18,7 +18,7 @@ import { ColleaguePortrait, colleagueColorVars } from "../ds/ColleaguePortrait";
  *  может быть кликабельным (карточка пользователя), с avatarUpdatedAt — показать загруженное фото. */
 export type AvatarUser = Pick<User, "name"> &
   Partial<Pick<User, "id" | "avatarUpdatedAt" | "initials">> & {
-    /** Не используется: тон и портрет — по ID, цвета из данных в интерфейс не попадают. Поле допущено, чтобы
+    /** Не используется: тон и портрет — по ID; без ID показываем нейтральный знак. Поле допущено, чтобы
      *  старые вызовы с {name, initials, color} продолжали собираться. */
     color?: string;
   };
@@ -75,7 +75,7 @@ export function UserAvatar({
   const preview = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(true), 300); };
   const leave = () => { cancelHover(); if (!pinned) hoverTimer.current = setTimeout(() => setOpen(false), 180); };
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
-  const seed = user?.id ?? user?.name ?? "";
+  const seed = user?.id ?? "";
   const sizeRef = useMemo(() => cssVars({ "--av": size, ...colleagueColorVars(seed) }), [size, seed]);
 
   if (!user)
@@ -86,8 +86,8 @@ export function UserAvatar({
     );
 
   const circle = (
-    <span ref={sizeRef} className={`ds-av ${src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive || !showTitle ? undefined : user.name}>
-      {src ? <img src={src} alt="" /> : <ColleaguePortrait seed={seed} />}
+    <span ref={sizeRef} className={`ds-av ${src ? `tk-tone-${toneOf(seed)}` : user.id ? "ds-av-colleague" : "ds-av-empty"}`} data-ring={ring || undefined} role="img" aria-label={user.name} title={interactive || !showTitle ? undefined : user.name}>
+      {src ? <img src={src} alt="" /> : user.id ? <ColleaguePortrait seed={seed} /> : <IcUnassigned size={size} />}
     </span>
   );
   if (!interactive || !user.id) return circle;

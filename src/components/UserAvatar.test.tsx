@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { colleagueColorVars } from "../ds/ColleaguePortrait";
+import { Avatar } from "../ds/Display";
 
 afterEach(cleanup);
 
@@ -33,6 +34,20 @@ test("портрет закреплён за ID и не меняется при 
   expect(first.container.querySelector(".ds-av-portrait")?.innerHTML).toBe(portrait);
   expect(first.container.querySelector<HTMLElement>(".ds-av-colleague")?.style.getPropertyValue("--portrait-hue")).toBe(hue);
   expect(first.container.querySelector<HTMLElement>(".ds-av-colleague")?.style.getPropertyValue("--portrait-accent-hue")).toBe(accentHue);
+});
+
+test("без ID показывается нейтральный знак вместо случайного портрета по имени", () => {
+  wrap(<UserAvatar user={{ name: "Неизвестный коллега" }} />);
+  const avatar = screen.getByRole("img", { name: "Неизвестный коллега" });
+  expect(avatar.className).toContain("ds-av-empty");
+  expect(avatar.querySelector(".ds-av-portrait")).toBeNull();
+});
+
+test("ds-аватар без человека тоже показывает знак «не назначен»", () => {
+  wrap(<Avatar person={null} />);
+  const avatar = screen.getByRole("img", { name: "Не назначен" });
+  expect(avatar.className).toContain("ds-av-empty");
+  expect(avatar.querySelector(".ds-av-portrait")).toBeNull();
 });
 
 test("палитра коллег использует широкий диапазон устойчивых сочетаний", () => {

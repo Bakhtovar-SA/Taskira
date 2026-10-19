@@ -5,6 +5,7 @@ import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tooltip } from "./LazyTooltip";
 import { ColleaguePortrait, colleagueColorVars } from "./ColleaguePortrait";
 import { cssVars } from "../cssVars";
+import { IcUnassigned } from "../icons";
 
 export type Tone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
 const TONES: Tone[] = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"];
@@ -17,11 +18,16 @@ export const toneOf = (s: string): Tone => {
 };
 /* ---------- Avatar ---------- */
 
-export type AvatarPerson = { name: string; id?: string; src?: string | null };
+export type AvatarPerson = { id: string; name: string; src?: string | null };
 
-export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
-  const seed = person.id ?? person.name;
+export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson | null; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
+  const t = useOptionalT()?.t;
+  const seed = person?.id ?? "";
   const colorRef = useMemo(() => cssVars(colleagueColorVars(seed)), [seed]);
+  if (!person) {
+    const label = t ? t("createIssue.unassigned") : "Не назначен";
+    return <span className="ds-av ds-av-empty" data-size={size} role="img" aria-label={label} title={label}><IcUnassigned size={size} /></span>;
+  }
   return (
     <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : "ds-av-colleague"}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>
       {person.src ? <img src={person.src} alt="" /> : <ColleaguePortrait seed={seed} />}

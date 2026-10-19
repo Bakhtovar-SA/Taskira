@@ -21,8 +21,7 @@ import { workflowStatusName } from "../workflowStatus";
  *  оболочка — «Мои подключения» + карточка задачи с комментариями, без проекта. */
 
 function Ava({ p, size = 24 }: { p: { id?: string; name: string; initials: string; color: string } | undefined; size?: number }) {
-  const { t } = useT();
-  return <Avatar person={{ id: p?.id, name: p?.name ?? t("createIssue.unassigned") }} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
+  return <Avatar person={p?.id ? { id: p.id, name: p.name } : null} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
 }
 
 /** Карточка приглашённой задачи: сама грузит задачу + комментарии, поля read-only,

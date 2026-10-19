@@ -41,7 +41,7 @@ import { CountUp } from "../CountUp";
 const qs = new URLSearchParams(location.search);
 const TODAY = "2026-09-26";
 
-const PEOPLE = ["Анна Смирнова", "Игорь Петров", "Мария Козлова", "Екатерина Волкова", "Алексей Соколов", "Дмитрий Васильев", "Ольга Новикова"].map((name) => ({ name }));
+const PEOPLE = ["Анна Смирнова", "Игорь Петров", "Мария Козлова", "Екатерина Волкова", "Алексей Соколов", "Дмитрий Васильев", "Ольга Новикова"].map((name, index) => ({ id: `demo-${index}`, name }));
 
 const loadPeople = (q: string) =>
   new Promise<ComboOption[]>((res, rej) =>
@@ -157,7 +157,7 @@ export default function DevUI() {
                 ))}
               </div>
             </Concept>
-            <Concept n={6} title="Аватар без «сырых» цветов" text="У человека без фото — иллюстрированный портрет: стабильный по ID, с тоном из общей палитры. Фото пользователя имеет приоритет.">
+            <Concept n={6} title="Аватар без «сырых» цветов" text="У человека без фото — условный портрет без определения пола: стабильный по ID, с двумя тонами из палитры темы. Фото пользователя имеет приоритет.">
               <div className="flex items-center gap-3">
                 <AvatarGroup people={PEOPLE} max={5} size={28} />
                 <Avatar person={PEOPLE[0]} size={32} status="online" />
