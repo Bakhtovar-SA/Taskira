@@ -22,7 +22,7 @@ export function useAnchored(
       const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
       // A popover inside a zoomed subtree (`.list-view { zoom: .9 }` on desktop) inherits that zoom too: its left/top and
       // sizes are multiplied by it. `k` converts root-zoom CSS px (what floating-ui returns below) into the popover's own
-      // px. currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; without it k = 1 (root zoom only, as before).
+      // px. currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 per MDN BCD, see docs/design/BROWSERS.md; without it k = 1 (root zoom only, as before).
       const own = (f as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom;
       const k = own ? own / scale : 1;
       // A loading placeholder must not permanently constrain the loaded panel to its original side.
