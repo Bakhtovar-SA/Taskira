@@ -43,8 +43,8 @@
 
 ### D-04: календарный спайк прошёл техническую приёмку
 
-`slide(grid, dir)` на одном стабильном контейнере сетки: opacity0.4→1, translateX±12px→none за300ms; reduce/cancel/unmount завершают движение. Ячейки, RAF фокуса и keyboard handlers прежние.
-Production Chromium:35 unit,120/120 повторных focus-сценариев, focus-ring1/1 и native pointer DnD2/2 внутри настоящего окна300ms. Ручная браузерная матрица открыта. Подробности — [D04](../tracks/TRACK-O-D04-SPIKE.md).
+`slide(grid, dir)` на одном стабильном контейнере сетки: opacity 0.4→1, translateX ±12 px→none за 300 мс; reduce/cancel/unmount завершают движение. Ячейки, RAF фокуса и keyboard handlers прежние.
+Production Chromium: 35 unit, 120/120 повторных focus-сценариев, focus-ring 1/1 и native pointer DnD 2/2 внутри настоящего окна 300 мс. Слайд — только при явной навигации периода (не при стрелках через границу недели). `e2e/calendar.pw.ts` теперь в `playwright.production.config.ts`. Ручная браузерная матрица открыта. Подробности — [D04](../tracks/TRACK-O-D04-SPIKE.md).
 
 ## Как добавить движение
 

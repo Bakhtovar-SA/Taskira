@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion, userReducedMotion } from "./motion";
+import { DUR_4_MS, EASE_OUT_CSS, EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, slide, stopMotion, userReducedMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -388,5 +388,46 @@ describe("FIX-02: личный выключатель — одна точка и
     systemReduce(true);
     expect(motionReduced()).toBe(true);
     expect(userReducedMotion()).toBe(false);
+  });
+});
+
+describe("D-04: слайд сетки календаря", () => {
+  const grid = () => {
+    const cancel = vi.fn();
+    const node = document.createElement("div");
+    const animate = vi.fn(() => ({ cancel, finished: new Promise<void>(() => undefined) }) as unknown as Animation);
+    node.animate = animate;
+    return { node, animate, cancel };
+  };
+
+  test.each([-1, 1] as const)("направление %i: одна анимация --dur-4, знак сдвига по dir, stopMotion отменяет", (dir) => {
+    const { node, animate, cancel } = grid();
+    slide(node, dir);
+    expect(animate).toHaveBeenCalledExactlyOnceWith(
+      [
+        { opacity: 0.4, transform: `translateX(${dir * 12}px)` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" },
+    );
+    stopMotion(node);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  test("повторный слайд отменяет предыдущий", () => {
+    const { node, animate, cancel } = grid();
+    slide(node, 1);
+    slide(node, -1);
+    expect(animate).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  test("reduce: прежняя анимация отменяется, новая не создаётся", () => {
+    const { node, animate, cancel } = grid();
+    slide(node, 1);
+    setReducedMotion(true);
+    slide(node, -1);
+    expect(animate).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
   });
 });

@@ -81,15 +81,21 @@ export default function CalendarView() {
   const [closed, setClosed] = useState(false);
   const [unscheduled, setUnscheduled] = useState(false);
   const days = useMemo(() => periodDays(date, mode), [date, mode]);
-  // D-04 SPIKE: keep the grid node stable; do not alter the existing RAF focus/keyboard path.
+  // D-04: слайд периода. Сетка обязана оставаться смонтированной (не прятать за веткой загрузки): cleanup и эффект
+  // периода работают с одним узлом, снятым при монтировании. Слайд — только при явной навигации периода; стрелки
+  // через границу недели тоже меняют days[0], но слайдить на каждом шаге нельзя (удержание клавиши перезапускало бы анимацию).
   const grid = useRef<HTMLDivElement>(null);
+  const explicitNav = useRef(false);
+  const navigate = useCallback((to: string | ((d: string) => string)) => { explicitNav.current = true; setDate(to); }, []);
   const previousPeriod = useRef({ mode, first: days[0] });
   useLayoutEffect(() => {
     const previous = previousPeriod.current;
     previousPeriod.current = { mode, first: days[0] };
+    const explicit = explicitNav.current;
+    explicitNav.current = false;
     if (!grid.current) return;
     if (previous.mode !== mode) stopMotion(grid.current);
-    else if (previous.first !== days[0]) slide(grid.current, days[0] > previous.first ? 1 : -1);
+    else if (previous.first !== days[0] && explicit) slide(grid.current, days[0] > previous.first ? 1 : -1);
   }, [mode, days]);
   useLayoutEffect(() => { const node = grid.current; return () => { if (node) stopMotion(node); }; }, []);
   const filters = useMemo(() => ({ q: q || undefined, assignee: assignee || undefined, type: type || undefined, closed: closed ? "hide" as const : undefined }), [q, assignee, type, closed]);
@@ -126,19 +132,19 @@ export default function CalendarView() {
     const deltas: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
     if (e.key in deltas) {
       e.preventDefault(); const next = shiftDay(day, deltas[e.key]);
-      if (next < days[0] || next > days[days.length - 1]) setDate(next);
+      if (next < days[0] || next > days[days.length - 1]) { explicitNav.current = false; setDate(next); }
       focus(next);
-    } else if (e.key === "PageUp" || e.key === "PageDown") { e.preventDefault(); const next = movePeriod(day, mode, e.key === "PageUp" ? -1 : 1); setDate(next); focus(next); }
-    else if (e.key.toLowerCase() === "t" || e.key.toLowerCase() === "е") { e.preventDefault(); setDate(today); focus(today); }
+    } else if (e.key === "PageUp" || e.key === "PageDown") { e.preventDefault(); const next = movePeriod(day, mode, e.key === "PageUp" ? -1 : 1); navigate(next); focus(next); }
+    else if (e.key.toLowerCase() === "t" || e.key.toLowerCase() === "е") { e.preventDefault(); navigate(today); focus(today); }
     else if (e.key === "Enter") { e.preventDefault(); actions.create(day); }
-  }, [days, focus, mode, today, actions]);
+  }, [days, focus, mode, today, actions, navigate]);
   const period = mode === "month" ? dateOf(date).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { month: "long", year: "numeric" }) : `${dateOf(days[0]).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long" })} – ${dateOf(days[6]).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long", year: "numeric" })}`;
   const activeDay = days.includes(focusDay) ? focusDay : days[0];
   return <div className="calendar-view" data-mode={mode}>
     <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-      <Button size="sm" onClick={() => { setDate(today); setFocusDay(today); }}>{t("calendar.today")}</Button>
-      <IconButton label={t("calendar.previous")} onClick={() => setDate(d => movePeriod(d, mode, -1))}><IcChevR className="rotate-180" /></IconButton>
-      <IconButton label={t("calendar.next")} onClick={() => setDate(d => movePeriod(d, mode, 1))}><IcChevR /></IconButton>
+      <Button size="sm" onClick={() => { navigate(today); setFocusDay(today); }}>{t("calendar.today")}</Button>
+      <IconButton label={t("calendar.previous")} onClick={() => navigate(d => movePeriod(d, mode, -1))}><IcChevR className="rotate-180" /></IconButton>
+      <IconButton label={t("calendar.next")} onClick={() => navigate(d => movePeriod(d, mode, 1))}><IcChevR /></IconButton>
       <h1 className="mr-auto text-base font-semibold">{period}</h1>
       <Tabs mode="filter" label={t("calendar.scale")} value={mode} onChange={v => { setMode(v); localStorage.setItem("taskira.calendar.mode", v); }} items={[{ id: "month", label: t("calendar.month") }, { id: "week", label: t("calendar.week") }]} />
     </div>
