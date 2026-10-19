@@ -110,12 +110,12 @@ function ready(): Engine | null {
  *  `clear` — inline-свойства, которые движок (motion/mini) по концу анимации оставляет на элементе последним кадром
  *  (`NativeAnimation.onfinish` → `setStyle`): без снятия inline-стиль навсегда перебивает классы (ширина сайдбара,
  *  `opacity` силуэта при перетаскивании, `transform` призрака). Снимаем только если анимацию не перехватила новая. */
-const running = new WeakMap<Element, { c: Controls; clear: readonly string[] }>();
+const running = new WeakMap<Element, { c: Controls; clear: readonly string[]; kind: "enter" | "other" }>();
 function unstyle(el: Element, clear: readonly string[]): void {
   const st = (el as HTMLElement).style;
   if (st) for (const p of clear) st.removeProperty(p);
 }
-function track(el: Element, c: Controls | null, clear: readonly string[] = []): Controls | null {
+function track(el: Element, c: Controls | null, clear: readonly string[] = [], kind: "enter" | "other" = "other"): Controls | null {
   const prev = running.get(el);
   if (prev) {
     prev.c.cancel();
@@ -124,7 +124,7 @@ function track(el: Element, c: Controls | null, clear: readonly string[] = []): 
     unstyle(el, prev.clear);
   }
   if (c) {
-    running.set(el, { c, clear });
+    running.set(el, { c, clear, kind });
     c.finished.then(
       () => {
         if (running.get(el)?.c !== c) return;
@@ -208,10 +208,12 @@ const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [s
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
 export const SPRING_POP = { visualDuration: 0.25, bounce: 0.3 } as const; // ≤ 500 мс успокоения (проверяет motion.test.ts)
 export function enter(el: HTMLElement, kind: EnterKind = "rise"): void {
-  if (motionReduced() || typeof el.animate !== "function" || running.has(el)) return;
+  if (motionReduced() || typeof el.animate !== "function") return;
+  // Пропускаем только повторный вход; уход, перенос и т.п. вход перехватывает (track отменяет их и снимает inline-кадр).
+  if (running.get(el)?.kind === "enter") return;
   const e = ready();
   if (!e) return;
-  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"]));
+  safe(() => track(el, e.animate(el, ENTER_FRAMES[kind], { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) }), ["opacity", "transform"], "enter"));
 }
 
 /** Уход: обещание, после которого вызывающий снимает элемент. Движение уменьшено, чанка нет или ошибка — сразу.
@@ -277,8 +279,14 @@ export function flash(el: HTMLElement): void {
 export function glideWidth(el: HTMLElement, from: number, to: number): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   // Measure before track() cancels the previous animation and clears its final inline width.
-  if (running.has(el)) {
-    from = safe(() => el.getBoundingClientRect().width / cssZoom(el)) ?? from;
+  const prev = running.get(el);
+  if (prev) {
+    // Видимую ширину берём только у идущего glide по width; у других анимаций (вход, подсветка) ширина не анимируется —
+    // остаётся значение вызывающего. Скрытый элемент (display:none) измеряется как 0 — тоже не подходит.
+    if (prev.clear.includes("width")) {
+      const w = safe(() => el.getBoundingClientRect().width / cssZoom(el));
+      if (w) from = w;
+    }
     track(el, null);
   }
   if (Math.abs(from - to) < 1) return;

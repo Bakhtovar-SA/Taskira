@@ -342,6 +342,19 @@ describe("FIX-01: inline-стиль последнего кадра снимае
     expect(el.style.opacity).toBe("0"); // старый cleanup не стёр кадр ухода
   });
 
+  test("enter не пропускается поверх ухода и пропускается только поверх другого входа", async () => {
+    const { engine, animate } = engineWritingFinalFrame();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    void exit(el);
+    (animate.mock.results[0].value as { finish: () => void }).finish(); // последний кадр ухода (opacity: 0) остался inline
+    enter(el); // тот же узел показан снова до cleanup ухода — вход обязан сыграть
+    expect(animate).toHaveBeenCalledTimes(2);
+    enter(el); // повторный вход во время входа не перезапускает его
+    expect(animate).toHaveBeenCalledTimes(2);
+  });
+
   test("отмена (stopMotion / flipFrom поверх glideWidth) не оставляет inline-кадр, даже если анимация успела дойти до конца", async () => {
     const { engine, animate } = engineWritingFinalFrame();
     __resetMotionForTests(async () => engine);
@@ -473,7 +486,7 @@ describe("C-05/C-11: interruption and restart policy", () => {
     expect(animate).toHaveBeenCalledTimes(2);
   });
 
-  test("exit takes precedence over a pending entry", async () => {
+  test("exit cancels a pending entry; a later enter takes over the exit", async () => {
     const { engine, animate } = pendingEngine();
     __resetMotionForTests(async () => engine);
     await preloadMotion();
@@ -483,9 +496,11 @@ describe("C-05/C-11: interruption and restart policy", () => {
     const exiting = exit(el);
     expect(first.cancel).toHaveBeenCalledOnce();
     expect(animate.mock.calls[1][2]).toEqual(EXIT);
-    enter(el);
-    expect(animate).toHaveBeenCalledTimes(2);
-    animate.mock.results[1].value.finish();
+    enter(el); // вход поверх идущего ухода — не молчаливый пропуск: перехватывает его
+    expect(animate).toHaveBeenCalledTimes(3);
+    expect(animate.mock.results[1].value.cancel).toHaveBeenCalledOnce();
+    animate.mock.results[2].value.finish();
+    animate.mock.results[1].value.finish(); // мок cancel не завершает промис ухода — завершаем сами
     await exiting;
   });
 });
