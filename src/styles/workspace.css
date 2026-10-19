@@ -283,7 +283,7 @@
   overflow-wrap: anywhere;
 }
 .list-table { width: 100%; min-width: var(--list-min); max-width: calc(var(--list-min) + 160px); }
-.list-row { min-height: var(--row-h); }
+.list-row, .list-row-ghost-shell { min-height: var(--row-h); }
 .list-title a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list-head { min-height: 36px; border-radius: 12px 12px 0 0; font-size: 13.5px; color: var(--text-2); }
 .list-actions { min-width: 32px; min-height: 32px; }
@@ -336,11 +336,11 @@
     padding-inline: 12px;
   }
   .list-grid > [data-col]:not([data-col="title"]):not([data-col="status"]):not([data-col="assignee"]):not([data-col="actions"]):not([data-col="select"]) { display: none; }
-  .list-row { min-height: 88px; padding-block: 12px; row-gap: 6px; }
+  .list-row, .list-row-ghost-shell { min-height: 88px; padding-block: 12px; row-gap: 6px; }
   .list-title { grid-column: var(--list-title-start) / -2; grid-row: 1; }
   .list-title a { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; overflow-wrap: anywhere; }
-  .list-row > [data-col="status"] { display: flex; grid-column: var(--list-title-start) / var(--list-status-end); grid-row: 2; }
-  .list-row > [data-col="assignee"] { grid-column: -3 / -2; grid-row: 2; justify-content: flex-end; }
+  .list-row > [data-col="status"], .list-row-ghost-shell > [data-col="status"] { display: flex; grid-column: var(--list-title-start) / var(--list-status-end); grid-row: 2; }
+  .list-row > [data-col="assignee"], .list-row-ghost-shell > [data-col="assignee"] { grid-column: -3 / -2; grid-row: 2; justify-content: flex-end; }
   .list-grid > [data-col="actions"] { grid-column: -2 / -1; grid-row: 1 / span 2; }
   .list-grid > [data-col="select"] { grid-column: 1; grid-row: 1 / span 2; }
   .list-head { min-height: 44px; }
@@ -496,7 +496,7 @@
 .list-view .workspace-view-header { max-width: none; }
 .list-table-wrap { padding: 0 18px 18px; }
 .list-table { border-radius: 12px; }
-.list-row[data-done] { background: var(--bg-group); }
+.list-row[data-done], .list-row-ghost-shell[data-done] { background: var(--bg-group); }
 .list-row:hover { background: var(--bg-hover); }
 .list-title { position: relative; padding-right: 32px; }
 .list-title > span:first-child { font-size: 13px; }
@@ -626,7 +626,7 @@
 .list-select { opacity: 0; }
 .list-select .ds-check { min-width: 28px; min-height: 28px; align-items: center; justify-content: center; }
 .list-row:is(:hover, :focus-within) .list-select, .list-head:hover .list-select, .list-select:focus-within, .list-view[data-selecting] .list-select { opacity: 1; }
-.list-row[aria-selected="true"] { background: var(--accent-subtle); }
+.list-row[aria-selected="true"], .list-row-ghost-shell[aria-selected="true"] { background: var(--accent-subtle); }
 @media (hover: none) { .list-select { opacity: 1; } .list-select .ds-check { min-height: 44px; min-width: 44px; } .list-bulk-bar .ds-btn { min-height: 44px; } }
 
 /* The same quiet surface family serves filters, view preferences and bulk actions. */
@@ -707,7 +707,7 @@
 
 /* Уход строки списка: копия-призрак на прежнем месте (listExit.ts). */
 .list-table { position: relative; }
-.list-table > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }
+.list-table > .list-row-ghost, .inbox-list > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }
 
 /* FIX-03 (трек N): сдвиги и масштабы, которых не было под reduce: выезд панели меню на узком экране, «подъём» фильтра
    участников и увеличение образца цвета (Tailwind v4 ставит `scale`, не `transform`). */
@@ -717,3 +717,7 @@
   .board-member-filter:hover { transform: none; }
   .issue-color-swatch:hover { scale: none; transform: none; }
 }
+
+/* Inbox ghosts remain anchored after the final live row disappears. */
+.inbox-list { position: relative; display: flow-root; }
+.inbox-list > .list-row-ghost { background: var(--bg-panel); }
