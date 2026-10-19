@@ -808,6 +808,18 @@ export default function Board() {
       marks.clearAll();
     };
   }, []);
+  // Массовое действие закончено: панель выделения исчезает вместе с кнопкой, державшей фокус (B-04) — возвращаем его на
+  // первую карточку выделения, если он потерян. Фокус, ушедший осознанно в другое место, `restoreCardFocus` не трогает.
+  const selectedRef = useRef(selectedIds);
+  selectedRef.current = selectedIds;
+  const finishBulk = useCallback(() => {
+    const id = selectedRef.current.values().next().value;
+    clearSelection();
+    if (id === undefined || !boardMounted.current) return;
+    restoreFocusCancel.current?.();
+    const cancel = restoreCardFocus(boardRoot.current, id, null, null, () => { if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null; });
+    restoreFocusCancel.current = cancel;
+  }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
     const flip = snapshotBoard(boardRoot.current, id);
@@ -1054,7 +1066,7 @@ export default function Board() {
       {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
-          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} onBeforeStatus={onBeforeCreate} />
+          <BulkBar floating selectedIds={selectedIds} onDone={finishBulk} onBeforeStatus={onBeforeCreate} />
         </Suspense>
       )}
     </div>
