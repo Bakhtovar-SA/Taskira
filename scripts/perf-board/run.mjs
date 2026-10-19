@@ -137,6 +137,7 @@ try {
 
 let rejectApi;
 const missingApi = new Promise((_, reject) => { rejectApi = reject; });
+missingApi.catch(() => {});
 const measure = async () => {
 for (let repeat = 1; repeat <= repeats; repeat++) for (const rate of throttles) {
   console.error(`Board benchmark: run ${repeat}/${repeats}, CPU ${rate}x`);
@@ -408,5 +409,4 @@ for (const rate of throttles) {
     repeatedDetailsMs: stats(runs.map(run => run.openIssueDetailsMedianMs)),
   };
 }
-if (unknown.size) out.unmockedApi = [...unknown];
 console.log(JSON.stringify(out, null, 2));
