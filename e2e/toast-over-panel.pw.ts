@@ -8,7 +8,7 @@ async function expectAboveDialog(host: Locator) {
   const session = await page.context().newCDPSession(page);
   try {
     const { root } = await session.send("DOM.getDocument");
-    const { nodeId: toastHost } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: '[popover="manual"][aria-hidden="true"]' });
+    const { nodeId: toastHost } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: '[data-toast-host]' });
     const { nodeIds } = await session.send("DOM.getTopLayerElements");
     expect(nodeIds.at(-1)).toBe(toastHost);
   } finally {
@@ -16,14 +16,15 @@ async function expectAboveDialog(host: Locator) {
   }
 }
 
-for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
-  test(`toasts stay above dialogs without reopening on queue updates (${theme}, ${width})`, async ({ page }) => {
+for (const relocation of ["moveBefore", "append"] as const) for (const [theme, width] of [["light", 1280], ["dark", 390]] as const) {
+  test(`toasts stay above dialogs without reopening on queue updates (${theme}, ${width}, ${relocation})`, async ({ page }) => {
+    if (relocation === "append") await page.addInitScript(() => Object.defineProperty(Element.prototype, "moveBefore", { configurable: true, value: undefined }));
     await page.setViewportSize({ width, height: 900 });
     await issueFixture(page, theme);
     await page.goto("/p/CORP/board");
     await page.locator('.board-card[data-issue-id="i1"]').click();
     await expect(page.locator(".issue-detail")).toBeVisible();
-    const host = page.locator('[popover="manual"][aria-hidden="true"]');
+    const host = page.locator('[data-toast-host]');
     const toasts = host.locator("[data-toast-id]");
     const announcer = page.locator('dialog[open]').getByRole("status", { name: "Уведомления" });
     await expect(announcer).toBeEmpty();

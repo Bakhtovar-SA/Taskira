@@ -84,7 +84,8 @@ export async function createIssueInTx(
       input.priorityId, actorId, input.epicId ?? null, reserved?.parentId ?? input.parentId ?? null,
       input.labels, input.complexity, input.dueDate ?? null, rank],
   )).rows[0];
-  await setAssignees(created.id, assigneeIds, actorId, client);
+  const assignedAt = await setAssignees(created.id, assigneeIds, actorId, client);
+  if (assignedAt) created.updated_at = assignedAt;
   if (input.checklistItems.length > 0) {
     await client.query(
       `INSERT INTO checklist_items (issue_id, text, position)

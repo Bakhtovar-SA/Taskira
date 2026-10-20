@@ -51,7 +51,7 @@ class FakeWebSocket {
 
 let unmountCurrent: (() => void) | null = null;
 
-async function boot(opts: { me?: typeof admin | typeof employee; issues?: ServerIssue[]; members?: { userId: string; role: "manager" | "employee" | "viewer" }[] } = {}) {
+async function boot(opts: { me?: typeof admin | typeof employee; issues?: ServerIssue[]; members?: { userId: string; role: "manager" | "employee" | "viewer" }[]; reverse?: boolean } = {}) {
   const me = opts.me ?? admin;
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -60,7 +60,7 @@ async function boot(opts: { me?: typeof admin | typeof employee; issues?: Server
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(bootPayload([admin, employee], opts.members ?? [{ userId: "u2", role: "employee" }]));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({...bootPayload([admin, employee], opts.members ?? [{ userId: "u2", role: "employee" }]), ...(opts.reverse ? {workflow:{...workflow,transitions:[...workflow.transitions,{id:"reverse",from:"s2",to:"s1"}]}} : {})});
   const listSpy = vi.spyOn(issuesApi, "list").mockResolvedValue({ items: opts.issues ?? [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -388,4 +388,31 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     expect(res).toBeNull();
     expect(get().toasts.at(-1)?.kind).toBe("error");
   });
+});
+
+
+describe("Track O: authoritative undo metadata", () => {
+ test("a confirmed reversible status offers Undo and restores through a versioned API request",async()=>{
+  const before=dto("i1",{updatedAt:"2026-10-15T10:00:00.000Z"});
+  const {get}=await boot({issues:[before],reverse:true});
+  const after=dto("i1",{statusId:"s2",updatedAt:"2026-10-15T10:00:00.001Z",undo:{issueId:"i1",statusId:"s1",updatedAt:"2026-10-15T10:00:00.001Z"}});
+  const transition=vi.spyOn(issuesApi,"transition").mockResolvedValueOnce(after).mockResolvedValueOnce(dto("i1",{updatedAt:"2026-10-15T10:00:00.002Z"}));
+  act(()=>get().moveStatus("i1","s2"));await settle();
+  const action=get().toasts.at(-1)!.action!;expect(action.label).toBe("Отменить");
+  await act(async()=>{expect(await action.run()).toBe(true)});
+  expect(transition.mock.calls[1]).toEqual(["p1","i1","s1",null,after.updatedAt]);expect(find(get,"i1")!.statusId).toBe("s1");
+ });
+ test("no reverse edge means no Undo button",async()=>{
+  const {get}=await boot({issues:[dto("i1")],members:[]});
+  vi.spyOn(issuesApi,"transition").mockResolvedValue(dto("i1",{statusId:"s2",undo:{issueId:"i1",statusId:"s1",updatedAt:"2026-10-15T10:00:00.001Z"}}));
+  act(()=>get().moveStatus("i1","s2"));await settle();expect(get().toasts.some(toast=>toast.action)).toBe(false);
+ });
+ test("only server removal metadata offers a field restoration",async()=>{
+  const {get}=await boot({issues:[dto("i1",{labels:["prior"]})]});
+  const after=dto("i1",{labels:[],updatedAt:"2026-10-15T10:00:00.001Z",undo:{issueId:"i1",labels:["prior"],updatedAt:"2026-10-15T10:00:00.001Z"}});
+  const patch=vi.spyOn(issuesApi,"patch").mockResolvedValueOnce(after).mockResolvedValueOnce(dto("i1",{labels:["prior"],updatedAt:"2026-10-15T10:00:00.002Z"}));
+  await act(async()=>{await get().updateIssue("i1",{labels:[]})});
+  await act(async()=>{await get().toasts.at(-1)!.action!.run()});
+  expect(patch.mock.calls[1]).toEqual(["p1","i1",{labels:["prior"],expectedUpdatedAt:after.updatedAt}]);expect(find(get,"i1")!.labels).toEqual(["prior"]);
+ });
 });

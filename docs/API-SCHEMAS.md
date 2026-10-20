@@ -304,6 +304,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `expectedUpdatedAt` | string (datetime) | необязательное |
 | `title` | string | необязательное; длина 1…250 |
 | `description` | string | необязательное; длина 0…5000 |
 | `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
@@ -696,6 +697,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `expectedUpdatedAt` | string (datetime) | необязательное |
 | `to` | string (uuid) |  |
 | `beforeId` | string (uuid) | необязательное, может быть null |
 
@@ -867,6 +869,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `undo` | array&lt;object&gt; | необязательное |
 | `succeeded` | array&lt;string&gt; |  |
 | `failed` | array&lt;object&gt; |  |
 
@@ -1115,6 +1118,38 @@
 | `nextCursor` | string | может быть null |
 | `total` | integer | необязательное; 0…∞ |
 
+### IssueMutationResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `projectId` | string |  |
+| `num` | number |  |
+| `key` | string |  |
+| `title` | string |  |
+| `description` | string |  |
+| `typeId` | enum: `task` \| `bug` \| `request` |  |
+| `statusId` | string |  |
+| `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` |  |
+| `assigneeIds` | array&lt;string&gt; |  |
+| `reporterId` | string |  |
+| `epicId` | string | может быть null |
+| `parentId` | string | может быть null |
+| `sprintId` | string | может быть null |
+| `color` | string | может быть null |
+| `tStart` | number | может быть null |
+| `tSpan` | number | может быть null |
+| `complexity` | enum: `simple` \| `medium` \| `hard` | может быть null |
+| `labels` | array&lt;string&gt; |  |
+| `dueDate` | string | может быть null |
+| `rank` | number |  |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+| `doneAt` | string | может быть null |
+| `archivedAt` | string | может быть null |
+| `subtasksSummary` | object | необязательное |
+| `undo` | object | необязательное |
+
 ### IssueResolveDto
 
 | Поле | Тип | Замечания |
@@ -1135,6 +1170,16 @@
 | `description` | string |  |
 | `statusId` | string | может быть null |
 | `position` | number |  |
+
+### IssueUndoDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `issueId` | string |  |
+| `statusId` | string | необязательное |
+| `labels` | array&lt;string&gt; | необязательное |
+| `assigneeIds` | array&lt;string&gt; | необязательное |
+| `updatedAt` | string (datetime) |  |
 
 ### LoginResultDto
 

@@ -1157,6 +1157,8 @@ html[data-motion="reduce"] *::backdrop {
   scroll-behavior: auto !important;
 }
 
+/* Without atomic DOM moves, relocated toast entrances finish once instead of replaying. */
+.anim-toast[data-toast-relocated] { animation: none; }
 /* Local comment acknowledgement appears only when the shared 150ms mark is applied. */
 .issue-pending-comment { display: none; }
 .issue-pending-comment[data-pending] { display: flex; }
