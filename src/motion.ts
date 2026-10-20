@@ -252,7 +252,7 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
  *  Вход тоста остаётся CSS `anim-toast`; здесь у всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. Повторный вход во время движения не перезапускает его. */
-type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
+type EnterKind = "rise" | "dialog" | "panel" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
   dialog: { opacity: [0, 1], transform: ["translateY(10px)", "none"] },
