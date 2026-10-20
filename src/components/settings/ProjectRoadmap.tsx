@@ -1,7 +1,7 @@
 /** Настройки проекта → «Сроки и вехи» (ТЗ 5.15): даты начала и цели, вехи, проекты, которых этот ждёт — то, что
  *  рисует роадмап. Видят все участники; меняет роль с editRoadmap (администратор и менеджер), сервер проверяет
  *  право сам. Цикл зависимостей отклоняет сервер (409) — здесь показывается его объяснение. */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { RoadmapDto } from "../../../server/src/contract";
 import { roadmapApi } from "../../api";
 import { useStore } from "../../store";
@@ -10,6 +10,7 @@ import { Button, Combobox, DatePicker, EmptyState, Input } from "../../ds";
 import { IcFlag, IcPlus, IcTrash } from "../../icons";
 import { ProjectMark } from "../../ui";
 import { parseDay } from "../../roadmapLayout";
+import { beginRoadmapDateFlash, clearRoadmapDateFlash } from "../../roadmapDateFlash";
 import { LIMITS } from "../../validation";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 
@@ -18,11 +19,17 @@ export function ProjectRoadmap() {
   const { data, toast, can, setView } = useStore();
   const projectId = data.currentProjectId;
   const editable = can("editRoadmap");
+  const live = useRef(false);
+  useEffect(() => { live.current = true; return () => { live.current = false; }; }, [projectId]);
   const [rm, setRm] = useState<RoadmapDto | null | Error>(null);
   const reload = useCallback(() => {
     roadmapApi.get().then(setRm, (e: unknown) => setRm(e instanceof Error ? e : new Error(String(e))));
   }, []);
   useEffect(reload, [reload, projectId]);
+  // Последние ЗАПРОШЕННЫЕ даты: пока PATCH в полёте, p — ещё старая загрузка, и сравнение с ней съело бы возврат к прежнему значению.
+  const asked = useRef<{ startDate: string | null; targetDate: string | null } | null>(null);
+  const inflight = useRef(0);
+  useEffect(() => { if (inflight.current === 0) asked.current = null; }, [rm, projectId]);
 
   const [name, setName] = useState("");
   const [date, setDate] = useState<string | null>(null);
@@ -58,7 +65,18 @@ export function ProjectRoadmap() {
   if (!p) return null;
 
   const fmt = (s: string) => parseDay(s).toLocaleDateString(lang === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "long", year: "numeric" });
-  const setDates = (patch: { startDate?: string | null; targetDate?: string | null }) => void run(() => roadmapApi.setDates(p.id, patch));
+  const setDates = (patch: { startDate?: string | null; targetDate?: string | null }) => {
+    const base = asked.current ?? p;
+    const dates = { startDate: patch.startDate === undefined ? base.startDate : patch.startDate, targetDate: patch.targetDate === undefined ? base.targetDate : patch.targetDate };
+    if (dates.startDate === base.startDate && dates.targetDate === base.targetDate) { clearRoadmapDateFlash(); return; }
+    asked.current = dates;
+    inflight.current++;
+    const confirmed = beginRoadmapDateFlash(data.currentUserId, p.id, dates);
+    void run(async () => {
+      try { await roadmapApi.setDates(p.id, patch); } catch (e) { asked.current = null; throw e; } finally { inflight.current--; }
+      if (live.current) confirmed();
+    });
+  };
   const waits = rm.dependencies.filter((d) => d.dependentId === p.id).map((d) => rm.projects.find((x) => x.id === d.sourceId)).filter((x) => !!x);
   const candidates = rm.projects.filter((x) => x.id !== p.id && !waits.some((w) => w.id === x.id));
   const addMilestone = () => {
