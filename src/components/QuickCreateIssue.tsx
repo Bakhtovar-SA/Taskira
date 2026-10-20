@@ -28,7 +28,7 @@ export default function QuickCreate({ status, onDone, onBeforeSubmit }: { status
     setText("");
   };
   return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
+    <div className="anim-view rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
       <textarea
         autoFocus
         aria-label={t("board.quickCreatePlaceholder", { status: workflowStatusName(status, t) })}

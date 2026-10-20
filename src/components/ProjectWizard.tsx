@@ -321,7 +321,7 @@ function Access({
     () => async (q: string): Promise<ComboOption[]> => {
       if (q.trim().length < 2) return [];
       const list = await usersApi.pickable(q.trim());
-      return list.filter((u) => !members.some((m) => m.userId === u.id)).map((u) => ({ id: u.id, label: u.name, description: u.jobRole, icon: <Avatar person={{ name: u.name }} size={20} /> }));
+      return list.filter((u) => !members.some((m) => m.userId === u.id)).map((u) => ({ id: u.id, label: u.name, description: u.jobRole, icon: <Avatar person={{ id: u.id, name: u.name }} size={20} /> }));
     },
     [members],
   );
@@ -345,7 +345,7 @@ function Access({
           <div className="mt-1 flex flex-col divide-y divide-linesoft rounded-xl ring-1 ring-inset ring-linesoft">
             {members.map((m) => (
               <div key={m.userId} className="flex items-center gap-3 px-3 py-2">
-                <Avatar person={{ name: m.name }} size={24} />
+                <Avatar person={{ id: m.userId, name: m.name }} size={24} />
                 <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{m.name}</span>
                 <Select<ProjectRole>
                   aria-label={t("wizard.roleFor", { name: m.name })}

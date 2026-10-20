@@ -11,7 +11,7 @@ export interface StoreCtx {
   dataRef: MutableRefObject<Data>;
   /** id текущего проекта (читает dataRef, поэтому не привязан к рендеру). */
   pid: () => string;
-  toast: (kind: Toast["kind"], text: string) => void;
+  toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   handleApiError: (err: unknown, fallback?: string) => void;
   requirePerm: (perm: PermId, issue?: Issue) => boolean;
   /** RU/EN по текущему языку (читает langRef). */

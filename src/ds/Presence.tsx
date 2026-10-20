@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { motionReduced } from "../motion";
 
-/** Страховка Dialog: сколько ждать animationend при закрытии (уход — --dur-2, 200 мс). Живёт здесь, а не в Dialog.tsx,
+/** Страховка Dialog: сколько ждать animationend при закрытии (уход — --dur-2, 150 мс; страховка 300 мс). Живёт здесь, а не в Dialog.tsx,
  *  чтобы App.tsx во входном чанке не тянул Dialog ради одной константы. */
 export const DIALOG_EXIT_MS = 300;
 

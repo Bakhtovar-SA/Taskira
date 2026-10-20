@@ -3,7 +3,7 @@ import { cleanup, render } from "@testing-library/react";
 import { EnterScope } from "./EnterScope";
 
 const enter = vi.fn();
-vi.mock("./motion", () => ({ enter: (...a: unknown[]) => enter(...a), motionReduced: () => false }));
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), enter: (...a: unknown[]) => enter(...a), motionReduced: () => false }));
 
 afterEach(() => {
   cleanup();
