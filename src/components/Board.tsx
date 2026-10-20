@@ -818,6 +818,30 @@ export default function Board() {
       clearBoardFlip(root);
     };
   }, []);
+  // Массовое действие закончено: панель выделения исчезает вместе с кнопкой, державшей фокус (B-04) — возвращаем его на
+  // первую карточку выделения, если он потерян. Фокус, ушедший осознанно в другое место, `restoreCardFocus` не трогает.
+  const selectedRef = useRef(selectedIds);
+  selectedRef.current = selectedIds;
+  // Фокус возвращаем на первую ВЫБРАННУЮ карточку (порядок вставки), а не на первую в доске: после смены статуса она может
+  // оказаться в другой колонке. Удалённой карточки нет — остаётся запасной фокус по таймауту restoreCardFocus.
+  const finishBulk = useCallback(() => {
+    const id = selectedRef.current.values().next().value;
+    clearSelection();
+    if (id === undefined || !boardMounted.current) return;
+    restoreFocusCancel.current?.();
+    // Смена статуса пересаживает карточку в другую колонку — ждём НОВУЮ кнопку (stale = нынешняя), иначе фокус встанет на
+    // уходящую и пропадёт. Если карточка не пересаживалась (другое действие), после ожидания берём ту же кнопку.
+    const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
+    const stale = boardRoot.current?.querySelector<HTMLElement>(sel) ?? null;
+    const cancel = restoreCardFocus(boardRoot.current, id, null, stale, () => {
+      if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null;
+      const active = document.activeElement;
+      if (!boardMounted.current || (active && active !== document.body && active !== stale)) return;
+      // Карточки нет (массовое удаление) — фокус на первую оставшуюся, чтобы не оставлять его на body.
+      (boardRoot.current?.querySelector<HTMLElement>(sel) ?? boardRoot.current?.querySelector<HTMLElement>(".board-card-open"))?.focus({ preventScroll: true });
+    });
+    restoreFocusCancel.current = cancel;
+  }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
     const flip = snapshotBoard(boardRoot.current, id);
@@ -1064,7 +1088,7 @@ export default function Board() {
       {selectMode && !selectedIds.size && <Hint id="board-select" className="board-select-hint absolute inset-x-4 bottom-4 z-20 mx-auto w-fit">{t("board.selectHint")}</Hint>}
       {selectMode && selectedIds.size > 0 && (
         <Suspense fallback={null}>
-          <BulkBar floating selectedIds={selectedIds} onDone={clearSelection} onBeforeStatus={onBeforeCreate} />
+          <BulkBar floating selectedIds={selectedIds} onDone={finishBulk} onBeforeStatus={onBeforeCreate} />
         </Suspense>
       )}
     </div>
