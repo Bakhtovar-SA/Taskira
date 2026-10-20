@@ -29,7 +29,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ds/ds.css:363 | css-transition | .ds-switch > span: transform | transform var(--dur-3) var(--ease-out) | личный выключатель | src/ds/Field.tsx |
 | src/ds/ds.css:377 | css-transition | .ds-switch > span svg: opacity | opacity var(--dur-2) | личный выключатель | src/ds/Field.tsx |
 | src/ds/ds.css:446 | css-transition | .ds-tab: background-color, color, box-shadow | background-color var(--dur-2), color var(--dur-2), box-shadow var(--dur-2) | личный выключатель | src/ds/Tabs.tsx |
-| src/ds/ds.css:46 | css-transition | .ds-btn: background-color, box-shadow, color, transform | background-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard), transform var(--dur-1) var(--ease-standard) | личный выключатель | src/components/settings/OrgSettings.tsx, src/ds/Button.tsx |
+| src/ds/ds.css:46 | css-transition | .ds-btn: background-color, box-shadow, color, transform | background-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard), transform var(--dur-1) var(--ease-standard) | личный выключатель | src/components/settings/OrgSettings.tsx, src/ds/Button.tsx, src/ui.tsx |
 | src/ds/ds.css:521 | css-transition | .ds-pop: opacity, transform, overlay, display | opacity var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-standard), overlay var(--dur-2) allow-discrete, display var(--dur-2) allow-discrete | @media + личный выключатель | src/ds/Combobox.tsx, src/ds/Overlay.tsx, src/ds/Select.tsx |
 | src/ds/ds.css:531 | css-transition | .ds-pop:popover-open: opacity, transform, overlay, display | opacity var(--dur-3) var(--ease-out), transform var(--dur-4) var(--ease-spring), overlay var(--dur-4) allow-discrete, display var(--dur-4) allow-discrete | @media + личный выключатель | src/ds/Combobox.tsx, src/ds/Overlay.tsx, src/ds/Select.tsx |
 | src/ds/ds.css:612 | css-animation | .ds-tip:popover-open: opacity | dsTipIn var(--dur-2) var(--ease-out) | @media + личный выключатель | src/ds/Overlay.tsx, src/titleHints.ts |
@@ -111,8 +111,8 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/motion.ts:369 | waapi-wrapper | animate: frames | { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/motion.ts:416 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/roadmapDateFlash.ts:35 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/roadmapDateFlash.ts |
-| src/store.tsx:458 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
-| src/store.tsx:471 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:457 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:470 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store/session.ts:341 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/store/session.ts:465 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/styles/reports.css:56 | css-animation | .reports-metrics > *, .reports-panels > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
@@ -126,6 +126,6 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/styles/workspace.css:753 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
 | src/theme.ts:147 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/theme.ts:150 | waapi-raw | animate: { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.ceil(r)}px at ${x}px ${y}px)`] } | { duration: 420, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" } | JS guard в модуле; проверяется motion:check | src/theme.ts |
-| src/ui.tsx:109 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
-| src/ui.tsx:112 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
+| src/ui.tsx:127 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
+| src/ui.tsx:130 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
 | src/usePulse.ts:12 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/usePulse.ts |
