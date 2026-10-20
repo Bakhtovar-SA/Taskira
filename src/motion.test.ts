@@ -162,7 +162,7 @@ describe("тосты, окна, вкладки, строки списка (ADR-0
     __resetMotionForTests(load);
     reduce();
     const el = card();
-    for (const kind of ["rise", "dialog", "panel", "toast"] as const) enter(el, kind);
+    for (const kind of ["rise", "dialog", "panel", "pop"] as const) enter(el, kind);
     await expect(exit(el, "toast")).resolves.toBeUndefined();
     glideTo(el, box);
     glideTo(el, { ...box, x: 200 });

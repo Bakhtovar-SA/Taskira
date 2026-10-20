@@ -509,18 +509,20 @@ html.vt-theme::view-transition-new(root) {
 /* Подсказка появляется, когда данные уже пришли (например, на доске — после задач), и раньше толкала содержимое вниз
    одним кадром (видео владельца, часть F). Теперь раскрывается по высоте — доска съезжает плавно. */
 .hint-line {
+  display: grid;
+  grid-template-rows: 1fr;
   overflow: hidden;
   animation: hintIn var(--dur-3) var(--ease-out);
 }
+.hint-clip { min-height: 0; overflow: hidden; }
 @keyframes hintIn {
   from {
-    max-height: 0;
+    grid-template-rows: 0fr;
     opacity: 0;
-    padding-block: 0;
     margin-block: 0;
   }
   to {
-    max-height: 48px;
+    grid-template-rows: 1fr;
     opacity: 1;
   }
 }

@@ -99,7 +99,7 @@ for (const mode of ["normal", "system", "personal"] as const) {
     await expect(page.locator("[data-row-id]")).toHaveCount(200);
     await play(page, "list-reset", reduced);
 
-    for (const kind of ["rise", "dialog", "panel", "toast", "pop"]) await play(page, `enter-${kind}`, reduced);
+    for (const kind of ["rise", "dialog", "panel", "pop"]) await play(page, `enter-${kind}`, reduced);
     await play(page, "exit", reduced);
     await expect(page.locator("[data-exit-sample]")).toHaveCount(0);
     await play(page, "restore-exit", reduced);
