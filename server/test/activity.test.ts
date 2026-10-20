@@ -103,7 +103,7 @@ test.each([false, true])("переход статуса сохраняет ид�
       : { to: fx.p1status.inprogress },
   });
   expect(r.statusCode).toBe(200);
-  if (bulk) expect(JSON.parse(r.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [] });
+  if (bulk) expect(JSON.parse(r.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [], undo: [{ issueId: fx.issues.p1issue, statusId: fx.p1status.todo, updatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/) }] });
 
   const rows = await q<{ payload: Record<string, unknown> }>(
     `SELECT payload FROM activity WHERE issue_id = $1 AND kind = 'status'`, [fx.issues.p1issue],

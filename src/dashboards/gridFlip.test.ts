@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { flipFrom, motionReduced, stopMotion } from "../motion";
 import { createGridFlip, MAX_TRACKED } from "./gridFlip";
 
-vi.mock("../motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), motionReduced: vi.fn(() => false), stopMotion: vi.fn() }));
+vi.mock("../motion", async importOriginal => ({ ...(await importOriginal<typeof import("../motion")>()), cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), motionReduced: vi.fn(() => false), stopMotion: vi.fn() }));
 // Настоящий stopMotion снимает идущую анимацию — у виджета пропадает сдвиг.
 vi.mocked(stopMotion).mockImplementation((e) => void moving.delete((e as HTMLElement).dataset.widget!));
 

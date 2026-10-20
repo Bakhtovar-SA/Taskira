@@ -17,8 +17,9 @@ import {
 import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
-import { flipFrom } from "./motion";
-vi.mock("./motion", () => ({ cssZoom: () => 1, flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
+import { flipFrom, stopMotion } from "./motion";
+import { flipPending, playBoardFlip, snapshotBoard } from "./boardFlip";
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), preloadMotionIdle: vi.fn(() => () => undefined), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
@@ -422,9 +423,8 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
     expect(within(card).queryByText("billing")).toBeNull();
-    // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
-    expect(within(card).getByRole("img", { name: "Борис Петров" })).toBeTruthy();
-    expect(within(card).getByText("БП")).toBeTruthy();
+    // Исполнитель остаётся доступен по имени, а вместо инициалов показан портрет.
+    expect(within(card).getByRole("img", { name: "Борис Петров" }).querySelector(".ds-av-portrait")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     fireEvent.click(card);
@@ -525,20 +525,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("8b. «Ранее закрыто» снимает окно и перечитывает колонку «Готово» без closed-фильтра", async () => {
+  test("8b. «Ранее закрыто» загружает отдельное older-окно, сохраняя недавние карточки и кнопку фокуса", async () => {
     const h = await setup({
-      pageImpl: async (_p, params) => ({ items: params.status === "s3" ? [dto("done1", { statusId: "s3" })] : [], hasMore: false, nextCursor: null }),
-      countsImpl: async (_p, params) => (params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> }),
+      pageImpl: async (_p, params) => ({
+        items:
+          params.status !== "s3"
+            ? []
+            : params.closed === "older"
+              ? Array.from({ length: 5 }, (_, i) => dto("doneOld" + i, { statusId: "s3", doneAt: "2026-09-01T12:00:00Z" }))
+              : [dto("done1", { statusId: "s3" })],
+        hasMore: false,
+        nextCursor: null,
+      }),
+      countsImpl: async (_p, params) =>
+        params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> },
     });
+    const recent = screen.getByRole("article", { name: /A21-done1/ });
+    const toggle = screen.getByRole("button", { name: "Ранее закрыто: 5" });
+    toggle.focus();
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByText("Ранее закрыто: 5"));
+    fireEvent.click(toggle);
     await settle();
-    const s3Calls = h.pageCalls.filter((c) => c.status === "s3");
-    expect(s3Calls.length).toBeGreaterThan(0);
-    expect(s3Calls[s3Calls.length - 1].closed).toBeUndefined();
-    expect(s3Calls[s3Calls.length - 1].closedDays).toBeUndefined();
-    // теперь предложено свернуть обратно к окну в 14 дней
-    expect(screen.getByText("Свернуть до последних 14 дней")).toBeTruthy();
+    const calls = h.pageCalls.filter((c) => c.status === "s3");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ closed: "older", closedDays: 14 });
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(screen.getAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Свернуть до последних 14 дней" })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);
+    await settle();
+    expect(screen.queryAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(0);
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(document.activeElement).toBe(toggle);
+    expect(h.pageCalls.filter((c) => c.status === "s3")).toHaveLength(1);
     h.ui.unmount();
   });
 
@@ -581,4 +601,27 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(screen.getByRole("article", { name: /A21-a1/ }).getAttribute("draggable")).toBe("true");
     h.ui.unmount();
   });
+});
+
+
+test("B-05: Board unmount cancels its pending flight and releases its scroll listener", async () => {
+  const h = await setup({ pageImpl: async (_p, params) => ({ items: params.status === "s1" ? [dto("unmount")] : [], hasMore: false, nextCursor: null }) });
+  const root = h.ui.container.querySelector<HTMLElement>(".board-view")!;
+  const card = root.querySelector<HTMLElement>('article[data-issue-id="unmount"]')!;
+  let top = 0;
+  vi.spyOn(card, "getBoundingClientRect").mockImplementation(() => ({ left: 0, top, width: 280, height: 80 }) as DOMRect);
+  const add = vi.spyOn(document, "addEventListener");
+  snapshotBoard(root, "unmount");
+  const scrollListener = add.mock.calls.find(call => call[0] === "scroll")![1];
+  vi.mocked(flipFrom).mockImplementationOnce(() => new Promise<void>(() => undefined));
+  top = 100;
+  playBoardFlip();
+  const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
+  expect(clone).toBeTruthy();
+  const remove = vi.spyOn(document, "removeEventListener");
+  h.ui.unmount();
+  expect(document.querySelector(".flip-flight")).toBeNull();
+  expect(stopMotion).toHaveBeenCalledWith(clone);
+  expect(remove).toHaveBeenCalledWith("scroll", scrollListener, true);
+  expect(flipPending("unmount")).toBe(false);
 });

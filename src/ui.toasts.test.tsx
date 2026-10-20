@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { I18nProvider } from "./i18n";
 import type { Toast } from "./types";
 import { Toasts } from "./ui";
@@ -25,7 +25,7 @@ test("permanent announcer and visual host survive queue updates; dialogs raise t
     const view = () => <StrictMode><I18nProvider><Toasts /></I18nProvider></StrictMode>;
     const ui = render(view());
     const region = screen.getByRole("status");
-    const host = ui.container.querySelector<HTMLElement>("[popover]")!;
+    const host = document.querySelector<HTMLElement>("[data-toast-host]")!;
     expect(region.textContent).toBe("");
     expect(open.has(host)).toBe(true);
     show.mockClear(); hide.mockClear();
@@ -147,4 +147,54 @@ test("unsupported popover selectors do not break dialog announcements or cleanup
   ui.rerender(view(true));
   expect(screen.getByRole("status", { name: "Уведомления" }).textContent).toContain("New message");
   expect(() => ui.unmount()).not.toThrow();
+});
+
+
+test("Undo is accessible, single-flight, and stays paused during an unfocused request", async () => {
+  let finish!: (done: boolean) => void;
+  const run = vi.fn(() => new Promise<boolean>(resolve => {finish = resolve;}));
+  const pause = vi.fn(), resume = vi.fn(), dismiss = vi.fn();
+  state.toasts = [{id:1,kind:"success",text:"Moved",action:{label:"Undo",run},pause,resume,dismiss}];
+  render(<I18nProvider><Toasts /></I18nProvider>);
+  // jsdom has no native showPopover: model its visible state; browser tests cover actual top-layer access.
+  (document.querySelector("[data-toast-host]") as HTMLElement).style.display = "block";
+  const button = screen.getByRole("button",{name:"Undo",description:/Moved/});
+  act(() => button.focus()); fireEvent.click(button); fireEvent.click(button);
+  expect(run).toHaveBeenCalledOnce();expect(button.getAttribute("aria-busy")).toBe("true");
+  act(() => button.blur());expect(resume).not.toHaveBeenCalled();
+  await act(async () => finish(false));
+  expect(resume).toHaveBeenCalledOnce();expect(dismiss).not.toHaveBeenCalled();
+  expect(button.getAttribute("aria-busy")).toBeNull();
+});
+
+test("a successful Undo dismisses once and preserves focus while pending", async () => {
+  let finish!: (done: boolean) => void;
+  const dismiss=vi.fn(),resume=vi.fn();
+  state.toasts=[{id:1,kind:"success",text:"Moved",action:{label:"Undo",run:()=>new Promise(resolve=>{finish=resolve;})},dismiss,resume}];
+  render(<I18nProvider><Toasts /></I18nProvider>);
+  // jsdom has no native showPopover: model the visible state, retaining default accessible-role queries.
+  (document.querySelector("[data-toast-host]") as HTMLElement).style.display = "block";
+  const button=screen.getByRole("button",{name:"Undo"});act(()=>button.focus());fireEvent.click(button);
+  expect(document.activeElement).toBe(button);await act(async()=>finish(true));
+  expect(dismiss).toHaveBeenCalledOnce();expect(resume).not.toHaveBeenCalled();
+});
+
+
+test.each(["moveBefore","append"])("stable toast portal follows nested modal roots and cleans up (%s)",mode=>{
+ const original=Object.getOwnPropertyDescriptor(HTMLElement.prototype,"moveBefore");
+ const move=vi.fn(function(this:HTMLElement,node:Node,before:Node|null){this.insertBefore(node,before)});
+ Object.defineProperty(HTMLElement.prototype,"moveBefore",{configurable:true,value:mode==="moveBefore"?move:undefined});
+ try {
+  state.toasts=[{id:1,kind:"info",text:"Stable",action:{label:"Undo",run:()=>true}}];
+  const view=(open:boolean)=><StrictMode><I18nProvider><Toasts/>{open&&<Dialog open title="Active" onClose={()=>{}}><input aria-label="Dialog input"/></Dialog>}</I18nProvider></StrictMode>;
+  const ui=render(view(false)),host=document.querySelector<HTMLElement>("[data-toast-host]")!,toast=host.querySelector("[data-toast-id]");
+  expect(host.parentElement).toBe(document.body);
+  ui.rerender(view(true));expect(host.parentElement).toBe(screen.getByRole("dialog",{name:"Active"}));
+  expect(document.querySelector("[data-toast-host]")).toBe(host);expect(host.querySelector("[data-toast-id]")).toBe(toast);
+  if(mode==="append")expect(toast?.hasAttribute("data-toast-relocated")).toBe(true);
+  ui.rerender(view(false));expect(host.parentElement).toBe(document.body);expect(host.querySelector("[data-toast-id]")).toBe(toast);
+  ui.unmount();expect(document.querySelector("[data-toast-host]")).toBeNull();
+ } finally {
+  cleanup();if(original)Object.defineProperty(HTMLElement.prototype,"moveBefore",original);else Reflect.deleteProperty(HTMLElement.prototype,"moveBefore");
+ }
 });
