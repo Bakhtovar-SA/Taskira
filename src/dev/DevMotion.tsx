@@ -211,7 +211,7 @@ export default function DevMotion() {
         if (!timing || timing.iterations === Infinity || !Number.isFinite(Number(timing.endTime))) continue;
         animation.updatePlaybackRate(slow ? 0.2 : 1);
         if (paused && animation.playState === "running") {
-          animation.pause(); animation.currentTime = Number(timing.endTime) / 2; pausedAnimations.current.add(animation);
+          animation.pause(); animation.currentTime = (timing.delay ?? 0) + Number(timing.activeDuration) / 2; pausedAnimations.current.add(animation);
         }
       }
       if (slow || paused) raf = requestAnimationFrame(tune);

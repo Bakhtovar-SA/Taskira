@@ -20,9 +20,8 @@ import { workflowStatusName } from "../workflowStatus";
  *  проекта, но приглашённый (issue collaborator) к отдельным задачам. Урезанная
  *  оболочка — «Мои подключения» + карточка задачи с комментариями, без проекта. */
 
-function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: string } | undefined; size?: number }) {
-  const { t } = useT();
-  return <Avatar person={{ name: p?.name ?? t("createIssue.unassigned") }} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
+function Ava({ p, size = 24 }: { p: { id?: string; name: string; initials: string; color: string } | undefined; size?: number }) {
+  return <Avatar person={p ? { id: p.id ?? null, name: p.name } : null} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
 }
 
 /** Карточка приглашённой задачи: сама грузит задачу + комментарии, поля read-only,

@@ -26,7 +26,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "playwright test",
-    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts"
+    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts",
+    "perf:motion": "node scripts/perf-motion/run.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
@@ -46,6 +47,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.1",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4.1.7",
     "tsx": "^4.23.15",
