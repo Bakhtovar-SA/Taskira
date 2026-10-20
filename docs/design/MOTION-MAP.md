@@ -10,7 +10,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/boardFlip.ts:220 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/boardFlip.ts:223 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
-| src/components/Board.tsx:139 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
+| src/components/Board.tsx:140 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
 | src/components/Sidebar.tsx:191 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
@@ -57,6 +57,8 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:1085 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
 | src/index.css:1089 | css-animation | .reports-chart rect[data-series]: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/index.css:1092 | css-animation | .ds-empty: opacity | viewIn var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/dashboards/widgets.tsx, src/ds/Display.tsx |
+| src/index.css:1101 | css-animation | .anim-done-tail: grid-template-rows, opacity | doneTailIn var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/BoardDoneTail.tsx |
+| src/index.css:1102 | css-keyframes | doneTailIn: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:176 | css-transition | body: background-color, color | background-color var(--dur-4) var(--ease-standard), color var(--dur-4) var(--ease-standard) | личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:345 | css-transition | .board-card: box-shadow | box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1) | личный выключатель | src/components/Board.tsx |
 | src/index.css:440 | css-transition | .theme-choice: box-shadow, background-color | box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) | личный выключатель | src/components/ProjectLookPicker.tsx |
