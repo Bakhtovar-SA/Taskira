@@ -307,6 +307,15 @@ for (const value of ["normal", "system", "personal"] as const) test(`B04 Chromiu
   } finally { await session.detach(); await page.clock.resume(); }
   await settle(page);
 });
+test("B04 live board: clearing a bulk selection keeps focus on a card", async ({ page }) => {
+  await mode(page, "system"); await board(page, true);
+  await page.getByRole("button", { name: "Выделить", exact: true }).click();
+  for (const id of ["i1", "i2"]) await page.locator(`article[data-issue-id="${id}"]`).click();
+  await page.locator(".list-bulk-bar").getByRole("button", { name: "Очистить" }).click();
+  // Prompt restore: well below the ~1.2s retry budget of restoreCardFocus.
+  await expect.poll(() => page.evaluate(() => document.activeElement?.closest("article")?.getAttribute("data-issue-id")), { timeout: 500 }).toMatch(/^i[12]$/);
+});
+
 for (const value of ["system", "personal"] as const) test(`B04 A08: reduced motion after each supported scenario (${value})`, async ({ page }) => {
   await mode(page, value); await page.goto("/dev/motion");
   await expect(page.locator("[data-motion-stand]")).toHaveAttribute("data-ready", "true");

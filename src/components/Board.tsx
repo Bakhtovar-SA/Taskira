@@ -841,6 +841,12 @@ export default function Board() {
       (boardRoot.current?.querySelector<HTMLElement>(sel) ?? boardRoot.current?.querySelector<HTMLElement>(".board-card-open"))?.focus({ preventScroll: true });
     });
     restoreFocusCancel.current = cancel;
+    // Действие без пересадки (назначение, приоритет, «Очистить»): панель уходит, фокус падает на body — вернём на ту же
+    // кнопку сразу, не дожидаясь исчерпания повторов. Если карточка пересядет, restoreCardFocus всё равно перехватит.
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (boardMounted.current && stale?.isConnected && (!active || active === document.body)) stale.focus({ preventScroll: true });
+    }, 0);
   }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
