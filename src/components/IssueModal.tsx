@@ -37,6 +37,7 @@ import { VIEW_LABEL } from "./Topbar";
 import { issuesApi, usersApi } from "../api";
 import { EnterScope } from "../EnterScope";
 import { Flash } from "../Flash";
+import { ChecklistCount } from "../ChecklistCount";
 
 /** Палитра направлений (issues.color) — те же тона, что уже использует бренд
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
@@ -65,7 +66,7 @@ export function MentionText({ text }: { text: string }) {
 /** Родителем может быть только задача без своего родителя — не больше двух уровней. */
 const canBeParent = (i: Issue) => !i.parentId;
 
-function Field({ label, children, tile = false, action }: { label: string; children: React.ReactNode; tile?: boolean; action?: React.ReactNode }) {
+function Field({ label, children, tile = false, action }: { label: React.ReactNode; children: React.ReactNode; tile?: boolean; action?: React.ReactNode }) {
   return <div className={tile ? "issue-tile" : "issue-field"}>
     <div className="issue-field-label"><span>{label}</span>{action}</div>
     <div className="issue-field-value">{children}</div>
@@ -256,7 +257,7 @@ function ChecklistField({ issue }: { issue: Issue }) {
   };
 
   return (
-    <Field tile label={t("issue.checklistCount", { done, total: items.length })} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
+    <Field tile label={<ChecklistCount issueId={issue.id} done={done} total={items.length}>{t("issue.checklistCount", { done, total: items.length })}</ChecklistCount>} action={canEdit && <Button variant="ghost" size="sm" onClick={() => setAdding(true)}>{t("issue.checklistAdd")}</Button>}>
       {items.length > 0 && (
         <EnterScope className="space-y-1" ids={items.map((i) => i.id)} resetKey={issue.id}>
           {items.map((item) => (
@@ -692,7 +693,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
       <div className="issue-layout">
         <section className="issue-heading min-w-0">
           {issue.parentId && <button type="button" className="issue-parent-link ds-focus" onClick={() => openIssue(issue.parentId)} aria-label={parentIssue ? t("issue.subtaskOf", { key: parentIssue.key }) + ": " + parentIssue.title : t("issue.parent")}><IcSubtasks size={16} /><span>{t("issue.subtask")}</span>{parentIssue ? <><b>{parentIssue.key}</b><span className="issue-parent-title">{parentIssue.title}</span></> : <span>{t("solo.loadingIssue")}</span>}</button>}
-          <EditableTitle issue={issue} readOnly={!editOk} />
+          <EditableTitle issue={issue} readOnly={!editOk} viewHeading={page} />
           <div className="issue-action-row">
             <Flash key={issue.id} value={issue.statusId} className="inline-flex">{statusControl}</Flash>
             <AutomationFields compact value={automation.value??{recurrence:null,remindAt:null}} canRepeat={can("manageRecurring")} onOpen={openAutomation}/>
@@ -1155,14 +1156,17 @@ function Locked({ reason, children }: { reason: string; children: React.ReactNod
   );
 }
 
-function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: boolean }) {
+/** `viewHeading` — только в режиме страницы: заголовок становится целью фокуса после смены вида
+ *  (`focusViewHeading` в motion.ts). В боковой панели (`?issue=KEY`) метки нет, иначе смена вида
+ *  при открытой панели увела бы фокус в её заголовок. */
+function EditableTitle({ issue, readOnly = false, viewHeading = false }: { issue: Issue; readOnly?: boolean; viewHeading?: boolean }) {
   const { t } = useT();
   const { updateIssue } = useStore();
   const [draft, setDraft] = useState(issue.title);
   const [editing, setEditing] = useState(false);
   useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
 
-  if (readOnly) return <h2 className="px-0 py-1 issue-title font-bold leading-snug text-ink">{issue.title}</h2>;
+  if (readOnly) return <h2 data-view-heading={viewHeading || undefined} className="px-0 py-1 issue-title font-bold leading-snug text-ink">{issue.title}</h2>;
 
   if (editing)
     return (
@@ -1190,7 +1194,7 @@ function EditableTitle({ issue, readOnly = false }: { issue: Issue; readOnly?: b
   // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
   // без tabIndex/роли переименовать задачу без мыши было нельзя (аудит UX-04).
   return (
-    <h2 className="-mx-2">
+    <h2 data-view-heading={viewHeading || undefined} className="-mx-2">
       <span
         role="button"
         tabIndex={0}
