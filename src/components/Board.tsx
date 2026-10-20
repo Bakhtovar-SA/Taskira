@@ -824,7 +824,7 @@ export default function Board() {
   selectedRef.current = selectedIds;
   // Фокус возвращаем на первую ВЫБРАННУЮ карточку (порядок вставки), а не на первую в доске: после смены статуса она может
   // оказаться в другой колонке. Удалённой карточки нет — остаётся запасной фокус по таймауту restoreCardFocus.
-  const finishBulk = useCallback((statusMoved?: boolean) => {
+  const finishBulk = useCallback((cardLeaves?: boolean) => {
     const id = selectedRef.current.values().next().value;
     clearSelection();
     if (id === undefined || !boardMounted.current) return;
@@ -833,22 +833,23 @@ export default function Board() {
     // уходящую и пропадёт. Если карточка не пересаживалась (другое действие), после ожидания берём ту же кнопку.
     const sel = `article[data-issue-id="${CSS.escape(id)}"] .board-card-open`;
     const stale = boardRoot.current?.querySelector<HTMLElement>(sel) ?? null;
+    let quick = 0;
+    const handle = () => { window.clearTimeout(quick); cancel(); };
     const cancel = restoreCardFocus(boardRoot.current, id, null, stale, () => {
-      if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null;
+      if (restoreFocusCancel.current === handle) restoreFocusCancel.current = null;
       const active = document.activeElement;
       if (!boardMounted.current || (active && active !== document.body && active !== stale)) return;
       // Карточки нет (массовое удаление) — фокус на первую оставшуюся, чтобы не оставлять его на body.
       (boardRoot.current?.querySelector<HTMLElement>(sel) ?? boardRoot.current?.querySelector<HTMLElement>(".board-card-open"))?.focus({ preventScroll: true });
     });
-    restoreFocusCancel.current = cancel;
-    if (statusMoved) return; // карточка пересядет в другую колонку — старую кнопку не трогаем, ждёт restoreCardFocus
+    restoreFocusCancel.current = handle;
+    if (cardLeaves) return; // смена статуса пересаживает карточку, удаление её убирает — старую кнопку не трогаем
     // Действие без пересадки (назначение, приоритет, «Очистить»): панель уходит, фокус падает на body — вернём на ту же
-    // кнопку сразу, не дожидаясь исчерпания повторов. Таймер входит в тот же handle отмены, что и цепочка повторов.
-    const quick = window.setTimeout(() => {
+    // кнопку сразу, не дожидаясь исчерпания повторов. Таймер отменяется тем же handle, что и цепочка повторов.
+    quick = window.setTimeout(() => {
       const active = document.activeElement;
       if (boardMounted.current && stale?.isConnected && (!active || active === document.body)) stale.focus({ preventScroll: true });
     }, 0);
-    restoreFocusCancel.current = () => { window.clearTimeout(quick); cancel(); };
   }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
     if (!canMove) return;
