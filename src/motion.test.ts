@@ -401,6 +401,13 @@ describe("FIX-02: личный выключатель — одна точка и
   });
 });
 
+test("C-02: premeasured FLIP avoids reading geometry after writes", async () => {
+  const {engine,animate}=fakeEngine();__resetMotionForTests(async()=>engine);await preloadMotion();
+  const el=card();const read=vi.fn(()=>{throw new Error("unexpected geometry read");});el.getBoundingClientRect=read;
+  await flipFrom(el,10,20,{lift:false,last:{left:300,top:100}});expect(read).not.toHaveBeenCalled();
+  expect(animate).toHaveBeenCalledWith(el,{transform:["translate(-290px, -80px)","translate(0px, 0px)"]},expect.any(Object));
+});
+
 describe("D-04: слайд сетки календаря", () => {
   const grid = () => {
     const cancel = vi.fn();

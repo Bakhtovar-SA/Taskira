@@ -25,6 +25,7 @@ type Pos = { left: number; top: number };
  *  место (до ответа сервера она стоит на старом, и коммиты в это время не должны её никуда «возвращать»). */
 type Snap = { root: HTMLElement; at: number; pos: Map<string, Pos>; lifted: string | null; landing: Pos | null; dead?: boolean; renewed?: boolean };
 const snaps = new Set<Snap>();
+let played = false;
 const MAX_SNAPSHOTS = 4;
 let landing: { id: string; left: number; top: number } | null = null;
 let scrollWatch = false;
@@ -76,6 +77,7 @@ const layoutOf = (el: Element, v: DOMRect): Pos => {
 export function snapshotBoard(root: HTMLElement | null, movedId: string | null): object | null {
   const l = landing;
   landing = null;
+  played = false;
   pruneSnapshots();
   if (!root?.isConnected || motionReduced()) return null;
   void preloadMotion();
@@ -132,10 +134,16 @@ export function playBoardFlip(): void {
     stopScrollWatch();
     return;
   }
+  // Эффекты колонок одного коммита делят фазу мутаций — один проход чтения геометрии. Защёлка сбрасывается в микрозадаче:
+  // второй коммит в том же синхронном отрезке (например, flushSync) пропустит проигрыш — осознанная цена.
+  if (played) return;
+  played = true;
+  queueMicrotask(() => { played = false; });
+  let any = false;
   const roots = new Set([...snaps].map(s => s.root));
   for (const root of roots) {
     const live = [...snaps].filter(s => s.root === root);
-    const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean; owner: Snap }[] = [];
+    const moved: { el: HTMLElement; from: Pos; to: Pos; id: string; seen: boolean; owner: Snap; width: number }[] = [];
     const vh = window.innerHeight;
     const seen = (p: Pos) => p.top > -200 && p.top < vh + 200;
     for (const el of root.querySelectorAll<HTMLElement>(SELECTOR)) {
@@ -155,14 +163,16 @@ export function playBoardFlip(): void {
         from = owner.landing;
         owner.landing = null;
       }
-      moved.push({ el, from, to, id, seen: seen(prev) || seen(to), owner });
+      moved.push({ el, from, to, id, seen: seen(prev) || seen(to), owner, width: el.offsetWidth });
     }
     if (!moved.length) continue;
+    any = true;
     const animate = moved.length <= MAX_ANIMATED;
     const waves = new Map(live.filter(s => s.renewed).map(s => [s,
       moved.filter(m => m.owner === s && Math.abs(m.to.left - m.from.left) > 4)
         .sort((a, b) => a.from.top - b.from.top || a.from.left - b.from.left),
     ]));
+    const layerZoom = cssZoom(document.body);
     const committed = new Set<Snap>();
     for (const m of moved) {
       if (animate && m.seen) {
@@ -170,8 +180,8 @@ export function playBoardFlip(): void {
         const rank = wave.indexOf(m);
         const step = wave.length > 1 ? Math.min(WAVE_STEP_MS, WAVE_TOTAL_MS / (wave.length - 1)) : 0;
         const lift = m.id === m.owner.lifted || rank >= 0;
-        if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(root, m.owner, m.el, m.from, m.to, lift, rank >= 0 ? { delay: Math.min(WAVE_TOTAL_MS, rank * step), z: wave.length - rank } : undefined);
-        else void flipFrom(m.el, m.from.left, m.from.top, { lift });
+        if (lift || Math.abs(m.to.left - m.from.left) > 4) fly(root, m.owner, m.el, m.from, m.to, lift, { width: m.width, zoom: layerZoom }, rank >= 0 ? { delay: Math.min(WAVE_TOTAL_MS, rank * step), z: wave.length - rank } : undefined);
+        else void flipFrom(m.el, m.from.left, m.from.top, { lift, last: m.to });
       }
       // Ответы могут прийти в обратном порядке: ни один оставшийся снимок не должен повторить уже сыгранный сдвиг.
       for (const s of live) if (s.pos.has(m.id)) s.pos.set(m.id, m.to);
@@ -179,6 +189,8 @@ export function playBoardFlip(): void {
     }
     for (const s of committed) if (s.renewed) snaps.delete(s);
   }
+  // Пустой проход не должен блокировать настоящий коммит в той же микрозадаче.
+  if (!any) played = false;
   stopScrollWatch();
 }
 
@@ -186,7 +198,7 @@ export function playBoardFlip(): void {
  *  Поэтому летит копия в фиксированном слое поверх доски (как «призрак» перетаскивания — `.drag-ghost`), а сама
  *  карточка на новом месте скрыта до посадки. Место, размеры и стили копии — CSSOM, движение — WAAPI (ADR-0010). */
 const flights = new Map<HTMLElement, { root: HTMLElement; owner: Snap; cancel: () => void }>();
-function fly(root: HTMLElement, owner: Snap, el: HTMLElement, from: Pos, to: Pos, lift: boolean, wave?: { delay: number; z: number }): void {
+function fly(root: HTMLElement, owner: Snap, el: HTMLElement, from: Pos, to: Pos, lift: boolean, measured: { width: number; zoom: number }, wave?: { delay: number; z: number }): void {
   flights.get(el)?.cancel();
   // Стили слоя и скрытие карточки — CSSOM (разрешён CSP, ADR-0010), без нового CSS: бюджет CSS исчерпан.
   const wrap = document.createElement("div");
@@ -203,8 +215,8 @@ function fly(root: HTMLElement, owner: Snap, el: HTMLElement, from: Pos, to: Pos
   wrap.appendChild(clone);
   document.body.appendChild(wrap);
   // Координаты viewport → CSS px слоя (корневой zoom на широких экранах умножает left/top/width).
-  const z = cssZoom(wrap);
-  clone.style.width = `${el.offsetWidth}px`; // ширина раскладки: rect включал бы scale «приземления»
+  const z = measured.zoom;
+  clone.style.width = `${measured.width}px`; // ширина раскладки: rect включал бы scale «приземления»
   wrap.style.left = `${to.left / z}px`;
   wrap.style.top = `${to.top / z}px`;
   const visibility = el.style.visibility;
@@ -222,7 +234,7 @@ function fly(root: HTMLElement, owner: Snap, el: HTMLElement, from: Pos, to: Pos
     if (completed && root.isConnected && el.isConnected && root.contains(el) && getComputedStyle(el).visibility === "visible" && getComputedStyle(el).display !== "none" && !motionReduced()) flash(el);
   };
   flights.set(el, { root, owner, cancel: () => land() });
-  void flipFrom(clone, from.left, from.top, wave && wave.delay > 0 ? { lift, delay: wave.delay } : { lift }).then(() => land(true), () => land());
+  void flipFrom(clone, from.left, from.top, { lift, last: to, ...(wave && wave.delay > 0 ? { delay: wave.delay } : {}) }).then(() => land(true), () => land());
   // Страховка: что бы ни случилось с анимацией, карточка не останется скрытой.
   guard = window.setTimeout(() => land(), 1000 + (wave?.delay ?? 0));
 }
