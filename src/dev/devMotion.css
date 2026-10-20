@@ -24,6 +24,7 @@
 .ms-result { color: var(--c-sub); font-variant-numeric: tabular-nums; margin-top: 12px; }
 .ms-scroll { max-height: 340px; overflow: auto; }
 .ms-list { position: relative; }
+.ms-list > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }
 .ms-row { display: flex; justify-content: space-between; gap: 16px; min-height: 40px; align-items: center; border-bottom: 1px solid var(--c-line); background: var(--c-panel); padding: 8px 12px; }
 .ms-samples { display: flex; gap: 16px; flex-wrap: wrap; }
 .ms-sample { padding: 16px; background: var(--c-panel); border-radius: 8px; margin-bottom: 8px; }

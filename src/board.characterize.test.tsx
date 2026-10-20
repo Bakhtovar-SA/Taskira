@@ -423,9 +423,8 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
     expect(within(card).queryByText("billing")).toBeNull();
-    // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
-    expect(within(card).getByRole("img", { name: "Борис Петров" })).toBeTruthy();
-    expect(within(card).getByText("БП")).toBeTruthy();
+    // Исполнитель остаётся доступен по имени, а вместо инициалов показан портрет.
+    expect(within(card).getByRole("img", { name: "Борис Петров" }).querySelector(".ds-av-portrait")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     fireEvent.click(card);

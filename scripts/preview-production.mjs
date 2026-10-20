@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { resolve, extname, sep } from "node:path";
-const root = resolve("dist");
+const root = resolve(process.env.DIST_DIR || "dist");
 const csp = /add_header Content-Security-Policy "([^"]+)"/.exec(readFileSync("nginx.conf", "utf8"))?.[1];
 if (!csp) throw new Error("Production CSP missing");
 const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".png": "image/png", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".json": "application/json", ".webp": "image/webp", ".ico": "image/x-icon" };
