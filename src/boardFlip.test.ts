@@ -382,7 +382,7 @@ function holdFlights() {
   return finishes;
 }
 
-test("C-01: reverse responses preserve both lifted cards and their own landing points", () => {
+test("C-01: reverse responses preserve both lifted cards and their own landing points", async () => {
   holdFlights();
   tops.set("a", 0).set("b", 100);
   const root = board(["a", "b"]);
@@ -392,11 +392,12 @@ test("C-01: reverse responses preserve both lifted cards and their own landing p
   snapshotBoard(root, "b");
   tops.set("b", 200); // second response first
   playBoardFlip();
+  await Promise.resolve(); // ответы приходят в разных микрозадачах
   tops.set("a", 250); // first response last
   playBoardFlip();
   expect(flipFrom).toHaveBeenCalledTimes(2);
   expect(vi.mocked(flipFrom).mock.calls.map(call => call.slice(1))).toEqual([
-    [600, 400, { lift: true }], [500, 300, { lift: true }],
+    [600, 400, { lift: true, last: expect.any(Object) }], [500, 300, { lift: true, last: expect.any(Object) }],
   ]);
   expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
 });
@@ -409,7 +410,7 @@ test("C-01: earliest known position wins and all snapshots advance after a commi
   snapshotBoard(root, "b");
   tops.set("b", 250);
   playBoardFlip();
-  expect(vi.mocked(flipFrom).mock.calls[0].slice(1)).toEqual([10, 100, { lift: true }]);
+  expect(vi.mocked(flipFrom).mock.calls[0].slice(1)).toEqual([10, 100, { lift: true, last: expect.any(Object) }]);
   cancelBoardFlip(first);
   vi.mocked(flipFrom).mockClear();
   playBoardFlip();
