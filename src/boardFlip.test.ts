@@ -154,12 +154,31 @@ test("массовая смена статуса: карточки сменил�
   expect(delays[0]).toBe(0);
   expect(delays[1]).toBeGreaterThan(0);
   expect(delays[2]).toBeGreaterThan(delays[1]);
-  expect(Math.max(...delays)).toBeLessThanOrEqual(220);
+  expect(Math.max(...delays)).toBeLessThanOrEqual(100);
   expect(calls.every((c) => (c[3] as { lift?: boolean }).lift === true)).toBe(true);
   // Лидер поверх остальных.
   const zs = flights.map((f) => Number(f.style.zIndex));
   expect(zs[0]).toBeGreaterThan(zs[1]);
   expect(zs[1]).toBeGreaterThan(zs[2]);
+});
+
+test("волна из многих карточек: шаг сжимается пропорционально, задержки различимы и не выходят за потолок flipFrom", () => {
+  const ids = Array.from({ length: 12 }, (_, i) => "k" + i);
+  for (const [i, id] of ids.entries()) tops.set(id, i * 100);
+  const root = board(ids);
+  const lefts = new Map<string, number>(ids.map((id) => [id, 10]));
+  for (const id of ids) el(root, id).getBoundingClientRect = () => ({ left: lefts.get(id)!, top: tops.get(id) ?? 0 }) as DOMRect;
+  const owner = snapshotBoard(root, null);
+  renewBoardFlip(owner);
+  for (const [i, id] of ids.entries()) {
+    lefts.set(id, 400);
+    tops.set(id, i * 80);
+  }
+  playBoardFlip();
+  const delays = vi.mocked(flipFrom).mock.calls.map((c) => (c[3] as { delay?: number } | undefined)?.delay ?? 0);
+  expect(delays).toHaveLength(12);
+  for (let i = 1; i < delays.length; i++) expect(delays[i]).toBeGreaterThan(delays[i - 1]);
+  expect(Math.max(...delays)).toBeLessThanOrEqual(100);
 });
 
 test("FIX-12: после переезда карточки фокус возвращается на новую кнопку; чужой фокус не перехватывается", () => {
