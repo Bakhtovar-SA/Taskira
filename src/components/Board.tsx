@@ -836,7 +836,9 @@ export default function Board() {
     const cancel = restoreCardFocus(boardRoot.current, id, null, stale, () => {
       if (restoreFocusCancel.current === cancel) restoreFocusCancel.current = null;
       const active = document.activeElement;
-      if (boardMounted.current && (!active || active === document.body || active === stale)) boardRoot.current?.querySelector<HTMLElement>(sel)?.focus({ preventScroll: true });
+      if (!boardMounted.current || (active && active !== document.body && active !== stale)) return;
+      // Карточки нет (массовое удаление) — фокус на первую оставшуюся, чтобы не оставлять его на body.
+      (boardRoot.current?.querySelector<HTMLElement>(sel) ?? boardRoot.current?.querySelector<HTMLElement>(".board-card-open"))?.focus({ preventScroll: true });
     });
     restoreFocusCancel.current = cancel;
   }, [clearSelection]);
