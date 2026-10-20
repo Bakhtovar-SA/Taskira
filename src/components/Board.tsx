@@ -848,7 +848,9 @@ export default function Board() {
     // кнопку сразу, не дожидаясь исчерпания повторов. Таймер отменяется тем же handle, что и цепочка повторов.
     quick = window.setTimeout(() => {
       const active = document.activeElement;
-      if (boardMounted.current && stale?.isConnected && (!active || active === document.body)) stale.focus({ preventScroll: true });
+      // Выход из режима выделения мог перерисовать кнопку — ищем заново, как в повторах.
+      const target = stale?.isConnected ? stale : boardRoot.current?.querySelector<HTMLElement>(sel);
+      if (boardMounted.current && target && (!active || active === document.body)) target.focus({ preventScroll: true });
     }, 0);
   }, [clearSelection]);
   const moveOnBoard = useCallback((id: string, to: string, before?: string | null) => {
