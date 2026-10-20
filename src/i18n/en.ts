@@ -849,6 +849,7 @@ const en: Record<keyof Dict, string> = {
   "issue.commentsCount": "Comments · {count}",
   "issue.activityCount": "Activity · {count}",
   "issue.commentPlaceholder": "Comment, @ to mention",
+  "issue.commentSending": "Sending…",
   "issue.send": "Send",
   "issue.commentDenied": "Your role doesn't allow comments",
   "issue.noComments": "No comments yet — start the discussion.",
