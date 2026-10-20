@@ -18,8 +18,11 @@ import { ProjectMark, projectTone } from "../ui";
 import "../styles/roadmap.css";
 
 import { barWidth, connectionPath, useRoadmapConnections } from "./useRoadmapConnections";
+import { clearRoadmapDateFlash, flashConfirmedRoadmapDates } from "../roadmapDateFlash";
 import { motionReduced } from "../motion";
 
+// Ширина зоны ручки связи — зеркалит .roadmap-connect { width } в styles/roadmap.css (на узком экране там 44px, запас не нужен).
+const CONNECT_HANDLE_W = 28;
 const ZOOM_KEY = "taskira.roadmap.zoom";
 const readZoom = (): Zoom => {
   try { const z = localStorage.getItem(ZOOM_KEY) as Zoom; return ZOOMS.includes(z) ? z : "month"; }
@@ -91,6 +94,11 @@ export default function RoadmapView() {
   const positioned = useRef("");
   useEffect(() => { const key = `${zoom}:${range.origin.getTime()}:${win.w}`; if (win.w && positioned.current !== key) { positioned.current = key; scrollToToday(false); } }, [scrollToToday, win.w, zoom, range]);
   useEffect(() => { if (right.current) { right.current.scrollTop = 0; measure(right.current); } }, [department, measure]);
+  useEffect(() => {
+    if (state.error) { clearRoadmapDateFlash(); return; }
+    if (state.loading || !state.data || !win.w || !right.current) return;
+    flashConfirmedRoadmapDates(data.currentUserId, data.currentProjectId, state.data.projects, right.current);
+  }, [state.data, state.loading, state.error, win.w, data.currentUserId, data.currentProjectId]);
   const connection = useRoadmapConnections(projects, deps, scale, spans, rowY, right, load);
   const returnToProject = (id: string) => { const span = spans.get(id); if (!span) return; right.current?.querySelector<HTMLButtonElement>(`.roadmap-timeline-row[data-project-id="${id}"] .roadmap-bar`)?.focus({ preventScroll: true }); right.current?.scrollTo({ left: Math.max(0, TIME_PAD + scale.x(span.from) - 24), behavior: motionReduced() ? "auto" : "smooth" }); };
   const store = useRef({ data, setView, switchProject }); store.current = { data, setView, switchProject };
@@ -176,8 +184,8 @@ const TimelineRow = memo(function TimelineRow({ y, p, span, scale, todayX, waits
   const progress = Math.min(1, Math.max(0, p.total ? p.done / p.total : 0));
   const confirmed = span?.solidFrom && span.solidTo ? scale.x(addDays(span.solidTo, 1)) - scale.x(span.solidFrom) : 0;
   const title = [p.name, `${p.startDate ? format(p.startDate, locale) : "…"} — ${p.targetDate ? format(p.targetDate, locale) : "…"}`, t("roadmap.progress", { done: p.done, total: p.total }), waits ? t("roadmap.waits", { names: waits }) : ""].filter(Boolean).join(" · ");
-  // Keep the connect handle until its entire 28px hit area leaves the viewport.
-  const before = !!span && x(span.from) + width + 28 < viewport.x, after = !!span && x(span.from) > viewport.x + viewport.w - 16;
+  // Ручка остаётся, пока вся её зона (CONNECT_HANDLE_W) не уйдёт за левый край. Справа ручка стоит на конце полоски, а конец правее начала, поэтому достаточно условия по началу.
+  const before = !!span && x(span.from) + width + CONNECT_HANDLE_W < viewport.x, after = !!span && x(span.from) > viewport.x + viewport.w - 16;
   const candidates = projects.filter(target => target.canEdit && (connection.canTarget(p.id, target) || dependencies.some(d => d.sourceId === p.id && d.dependentId === target.id)));
   return <div className="rm-row roadmap-timeline-row" data-project-id={p.id} data-tone={p.color ?? projectTone(p.key)} ref={cssVars({ "--row-y": y })}>
     {span ? <button data-complete={progress === 1 || undefined} className="roadmap-bar ds-focus" onClick={() => onOpen(p.id)} aria-label={title} title={title}
