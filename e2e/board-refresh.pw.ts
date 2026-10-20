@@ -189,6 +189,14 @@ for (const width of [390, 320]) test(`board refresh: mobile targets and no overf
   await expect(page.locator(".board-col").last()).toBeVisible();
 });
 
+test("подсказка о переносе касанием скрыта на устройстве с наведением", async ({ page }) => {
+  await boardFixture(page);
+  await page.goto("/p/CORP/board");
+  await expect(page.locator(".board-card")).toHaveCount(8);
+  await expect(page.locator(".board-move-touch-hint")).toHaveCount(1);
+  await expect(page.locator(".board-move-touch-hint")).toBeHidden();
+});
+
 test.describe("touch board guidance", () => {
   test.use({ hasTouch: true });
   test("move guidance and card action remain visible without hover", async ({ page }) => {

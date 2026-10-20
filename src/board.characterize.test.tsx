@@ -19,7 +19,7 @@ import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom, stopMotion } from "./motion";
 import { flipPending, playBoardFlip, snapshotBoard } from "./boardFlip";
-vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), preloadMotionIdle: vi.fn(() => () => undefined), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
