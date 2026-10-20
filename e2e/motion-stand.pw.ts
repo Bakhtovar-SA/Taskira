@@ -99,7 +99,7 @@ for (const mode of ["normal", "system", "personal"] as const) {
     await expect(page.locator("[data-row-id]")).toHaveCount(200);
     await play(page, "list-reset", reduced);
 
-    for (const kind of ["rise", "dialog", "panel", "toast", "pop"]) await play(page, `enter-${kind}`, reduced);
+    for (const kind of ["rise", "dialog", "panel", "pop"]) await play(page, `enter-${kind}`, reduced);
     await play(page, "exit", reduced);
     await expect(page.locator("[data-exit-sample]")).toHaveCount(0);
     await play(page, "restore-exit", reduced);
@@ -162,7 +162,7 @@ test("motion stand: pause, slow playback and reduce changed during motion", asyn
   await page.locator('[data-action="pause"]').click();
   await page.locator('[data-action="enter-rise"]').click();
   await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").length)).toBeGreaterThan(0);
-  const halfway = await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").every(animation => Math.abs(Number(animation.currentTime) - Number(animation.effect?.getComputedTiming().endTime) / 2) < 1));
+  const halfway = await page.evaluate(() => document.getAnimations().filter(animation => animation.playState === "paused").every(animation => (() => { const timing = animation.effect!.getComputedTiming(); return Math.abs(Number(animation.currentTime) - (timing.delay + Number(timing.activeDuration) / 2)) < 1; })()));
   expect(halfway).toBe(true);
   await page.locator('[data-action="pause"]').click();
   await residue(page);

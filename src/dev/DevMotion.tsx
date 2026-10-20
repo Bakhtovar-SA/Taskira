@@ -91,7 +91,7 @@ function ListScene() {
   </Section>;
 }
 
-const kinds = ["rise", "dialog", "panel", "toast", "pop"] as const;
+const kinds = ["rise", "dialog", "panel", "pop"] as const;
 function PrimitivesScene() {
   const samples = useRef(new Map<string, HTMLDivElement>());
   const exitSample = useRef<HTMLDivElement>(null);

@@ -2,7 +2,7 @@
 // пресеты пружин укладываются в 500 мс успокоения.
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { spring } from "motion";
-import { EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, stopMotion, userReducedMotion } from "./motion";
+import { DUR_4_MS, EASE_OUT_CSS, EXIT, SPRING, SPRING_ENTER, SPRING_POP, __resetMotionForTests, enter, exit, flash, flipFrom, glideTo, glideWidth, motionReduced, preloadMotion, preloadMotionIdle, setReducedMotion, slide, stopMotion, userReducedMotion } from "./motion";
 import { createEnterTracker } from "./listEnter";
 
 const systemReduce = (on: boolean) => vi.stubGlobal("matchMedia", (q: string) => ({ matches: on && q.includes("reduce") }));
@@ -162,7 +162,7 @@ describe("тосты, окна, вкладки, строки списка (ADR-0
     __resetMotionForTests(load);
     reduce();
     const el = card();
-    for (const kind of ["rise", "dialog", "panel", "toast"] as const) enter(el, kind);
+    for (const kind of ["rise", "dialog", "panel", "pop"] as const) enter(el, kind);
     await expect(exit(el, "toast")).resolves.toBeUndefined();
     glideTo(el, box);
     glideTo(el, { ...box, x: 200 });
@@ -401,6 +401,78 @@ describe("FIX-02: личный выключатель — одна точка и
   });
 });
 
+test("C-02: premeasured FLIP avoids reading geometry after writes", async () => {
+  const {engine,animate}=fakeEngine();__resetMotionForTests(async()=>engine);await preloadMotion();
+  const el=card();const read=vi.fn(()=>{throw new Error("unexpected geometry read");});el.getBoundingClientRect=read;
+  await flipFrom(el,10,20,{lift:false,last:{left:300,top:100}});expect(read).not.toHaveBeenCalled();
+  expect(animate).toHaveBeenCalledWith(el,{transform:["translate(-290px, -80px)","translate(0px, 0px)"]},expect.any(Object));
+});
+
+describe("D-04: слайд сетки календаря", () => {
+  const grid = () => {
+    const cancel = vi.fn();
+    const node = document.createElement("div");
+    const animate = vi.fn(() => ({ cancel, finished: new Promise<void>(() => undefined) }) as unknown as Animation);
+    node.animate = animate;
+    return { node, animate, cancel };
+  };
+
+  test.each([-1, 1] as const)("направление %i: одна анимация --dur-4, знак сдвига по dir, stopMotion отменяет", (dir) => {
+    const { node, animate, cancel } = grid();
+    slide(node, dir);
+    expect(animate).toHaveBeenCalledExactlyOnceWith(
+      [
+        { opacity: 0.4, transform: `translateX(${dir * 12}px)` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" },
+    );
+    stopMotion(node);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  test("повторный слайд отменяет предыдущий", () => {
+    const { node, animate, cancel } = grid();
+    slide(node, 1);
+    slide(node, -1);
+    expect(animate).toHaveBeenCalledTimes(2);
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  test("reduce: прежняя анимация отменяется, новая не создаётся", () => {
+    const { node, animate, cancel } = grid();
+    slide(node, 1);
+    setReducedMotion(true);
+    slide(node, -1);
+    expect(animate).toHaveBeenCalledOnce();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+});
+
+describe("delayed FLIP budget (Track O A-04)", () => {
+  test.each([220, 1000, Number.POSITIVE_INFINITY, Number.NaN, -20])("fallback delay %s stays finite within 450 ms total", async (delay) => {
+    __resetMotionForTests(() => Promise.reject(new Error("offline")));
+    await preloadMotion();
+    const el = card();
+    await flipFrom(el, 0, 0, { delay });
+    const options = vi.mocked(el.animate).mock.calls[0][1] as KeyframeAnimationOptions;
+    expect(Number.isFinite(options.delay)).toBe(true);
+    expect(options.delay).toBeGreaterThanOrEqual(0);
+    expect(Number(options.duration) + Number(options.delay)).toBeLessThanOrEqual(450);
+  });
+
+  test("delayed spring uses a shorter preset and includes its delay in the 450 ms ceiling", async () => {
+    const { engine, animate } = fakeEngine();
+    __resetMotionForTests(async () => engine);
+    await preloadMotion();
+    const el = card();
+    await flipFrom(el, 0, 0, { delay: 220 });
+    const options = animate.mock.calls[0][2] as typeof SPRING_ENTER & { delay: number };
+    expect(options).toMatchObject({ ...SPRING_ENTER, delay: 0.1 });
+    const settled = spring.applyToOptions!({ ...SPRING_ENTER }) as { duration: number };
+    expect(settled.duration + options.delay * 1000).toBeLessThanOrEqual(450);
+  });
+});
 
 describe("C-05/C-11: interruption and restart policy", () => {
   function pendingEngine() {

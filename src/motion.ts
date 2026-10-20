@@ -68,6 +68,9 @@ export const MOTION_CAPS = { flip: 40, ghosts: 6, enter: 8, track: 200 } as cons
 export const SPRING = { visualDuration: 0.3, bounce: 0.15 } as const; // ≈ 500 мс, перелёт ≈ 2 %
 export const SPRING_ENTER = { visualDuration: 0.25, bounce: 0.1 } as const; // ≈ 330 мс
 /** Уход быстрее появления: --dur-3, без пружины. `duration` у motion — в секундах. */
+/** Общие значения --dur-4: 300 мс и ease-out (токен). Один источник для входа, слайда периода, ширины и теста. */
+export const DUR_4_MS = 300;
+export const EASE_OUT_CSS = "cubic-bezier(0.16, 1, 0.3, 1)";
 export const EXIT = { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] };
 
 let engine: Engine | null = null;
@@ -216,30 +219,35 @@ export function viewTransition(update: () => void): void {
   });
 }
 
+const MAX_FLIP_DELAY_MS = 150; // 300 ms fallback + delay <= 450 ms.
+const MAX_SPRING_DELAY_MS = 100; // SPRING_ENTER settles in 350 ms: total <= 450 ms.
+
 /** FLIP: элемент уже на новом месте; анимируем его из старой точки (left/top во viewport). Пружина `SPRING`, если
  *  чанк загружен, иначе прежняя кривая (--dur-4, ease-out). `lift` — лёгкое «опускание» (scale) брошенной карточки;
  *  соседям, которые просто сдвинулись, — без него. Прерывает текущую анимацию элемента: `left/top` вызывающий берёт
  *  из видимого положения (с учётом transform), поэтому движение продолжается с того места, где элемент виден.
  *  `delay` (мс) — старт позже (волна карточек при массовой смене статуса): до старта элемент стоит в начальной точке.
  *  Обещание — конец движения (сразу, если двигать нечего). */
-export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0 }: { lift?: boolean; delay?: number } = {}): Promise<void> {
+export function flipFrom(el: HTMLElement, left: number, top: number, { lift = true, delay = 0, last }: { lift?: boolean; delay?: number; last?: Pick<DOMRect, "left" | "top"> } = {}): Promise<void> {
   if (motionReduced() || typeof el.animate !== "function") return Promise.resolve();
   const e = ready();
+  const delayMs = Math.min(e ? MAX_SPRING_DELAY_MS : MAX_FLIP_DELAY_MS, Math.max(0, Number.isFinite(delay) ? delay : 0));
   track(el, null);
-  const last = el.getBoundingClientRect();
+  const target = last ?? el.getBoundingClientRect();
   // Координаты viewport → CSS px элемента: под zoom (корневой 1.1 на ≥ 2560 px) translate умножается на него.
   const z = cssZoom(el);
-  const dx = (left - last.left) / z;
-  const dy = (top - last.top) / z;
+  const dx = (left - target.left) / z;
+  const dy = (top - target.top) / z;
   if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return Promise.resolve();
   const from = `translate(${dx}px, ${dy}px)${lift ? " scale(1.035)" : ""}`;
   // До отложенного старта элемент уже должен стоять в начальной точке, а не на новом месте.
-  if (delay > 0) el.style.transform = from;
+  if (delayMs > 0) el.style.transform = from;
   const c = safe(() =>
     e
-      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) }), ["transform"])
-      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
+      ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...(delayMs > 0 ? SPRING_ENTER : SPRING), ...(delayMs > 0 ? { delay: delayMs / 1000 } : {}) }), ["transform"])
+      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: DUR_4_MS, delay: delayMs, fill: "backwards", easing: EASE_OUT_CSS }), ["transform"]),
   );
+  if (!c && delayMs > 0) el.style.transform = ""; // анимация не стартовала: не оставляем элемент смещённым
   return done(c);
 }
 /** Итоговый CSS zoom элемента (currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 по MDN BCD, см. docs/design/BROWSERS.md; без него — 1, как ds/floating). */
@@ -249,15 +257,14 @@ const done = (c: Controls | null): Promise<void> => (c ? Promise.resolve(c.finis
 
 /** Появление на пружине. `kind`: `rise` — карточка/строка (подъём 8 px, как было у доски); `dialog` — окно
  *  (подъём без масштаба: scale в хвосте пружины меняет getBoundingClientRect содержимого, а e2e меряет размеры сразу после показа); `panel` — боковая панель (выезд справа, как `dsPanelIn`);
- *  `toast` — тост (выезд справа, как `toastIn`). У всех видов последний кадр — `transform: none`: motion по концу
+ *  Вход тоста остаётся CSS `anim-toast`; здесь у всех видов последний кадр — `transform: none`: motion по концу
  *  пишет его в inline-стиль (CSSOM), а не-`none` transform сделал бы окно контейнером для fixed-потомков.
  *  Чанк не загружен или движение уменьшено — мгновенно. Повторный вход во время движения не перезапускает его. */
-type EnterKind = "rise" | "dialog" | "panel" | "toast" | "pop";
+type EnterKind = "rise" | "dialog" | "panel" | "pop";
 const ENTER_FRAMES: Record<EnterKind, { opacity: [number, number]; transform: [string, string] }> = {
   rise: { opacity: [0, 1], transform: ["translateY(8px) scale(0.98)", "none"] },
   dialog: { opacity: [0, 1], transform: ["translateY(10px)", "none"] },
   panel: { opacity: [0.4, 1], transform: ["translateX(32px)", "none"] },
-  toast: { opacity: [0, 1], transform: ["translateX(28px)", "none"] },
   pop: { opacity: [0.5, 1], transform: ["scale(0.55)", "none"] },
 };
 /** Бейдж «подпрыгивает» заметнее остального: больше перелёт. */
@@ -281,13 +288,24 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
   return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
 }
 
+/** D-04: слайд сетки календаря при явной смене периода (кнопки, PageUp/PageDown, «Сегодня»): сдвиг 12 px и 0.4→1 по
+ *  прозрачности за --dur-4. Сетка остаётся тем же узлом (фокус, клавиатура и нативный DnD не страдают). */
+export function slide(el: HTMLElement, dir: -1 | 1): void {
+  track(el, null);
+  if (motionReduced() || typeof el.animate !== "function") return;
+  safe(() => track(el, el.animate([
+    { opacity: 0.4, transform: `translateX(${dir * 12}px)` },
+    { opacity: 1, transform: "none" },
+  ], { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" }), ["opacity", "transform"]));
+}
+
 /** Счётчик (COV-01): число на `el` «дорастает» от `from` до `to` за --dur-4 (300 мс, ease-out, без перелёта: цифры не
  *  должны уходить выше итога). Текст элемента — итоговое число — не трогается вообще: кадры пишутся только в атрибут
  *  `data-shown`, а видимой его делает CSS (`.count-up[data-counting]::after { content: attr(data-shown) }`). Поэтому
  *  `textContent` и дерево доступности всё время содержат итог, а читатель с экрана и одноразовые чтения e2e не видят
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
-export const COUNT_MS = 300;
+export const COUNT_MS = DUR_4_MS;
 const MAX_COUNTING = 3;
 const counting = new Map<HTMLElement, () => void>();
 function countVisible(el: HTMLElement): boolean {
@@ -366,7 +384,7 @@ export function glideWidth(el: HTMLElement, from: number, to: number): void {
   if (Math.abs(from - to) < 1) return;
   const e = ready();
   const frames = { width: [`${from}px`, `${to}px`] };
-  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["width"]));
+  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: DUR_4_MS, easing: EASE_OUT_CSS }), ["width"]));
 }
 
 /** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта

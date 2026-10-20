@@ -371,7 +371,7 @@ body {
 }
 
 /* NEW-02: перенос отправлен, ответа сервера ещё нет (boardFlip.markPending). Без анимации: смена, а не движение. */
-.board-card[data-pending] {
+[data-pending] {
   opacity: 0.7;
   cursor: progress;
 }
@@ -509,18 +509,20 @@ html.vt-theme::view-transition-new(root) {
 /* Подсказка появляется, когда данные уже пришли (например, на доске — после задач), и раньше толкала содержимое вниз
    одним кадром (видео владельца, часть F). Теперь раскрывается по высоте — доска съезжает плавно. */
 .hint-line {
+  display: grid;
+  grid-template-rows: 1fr;
   overflow: hidden;
   animation: hintIn var(--dur-3) var(--ease-out);
 }
+.hint-clip { min-height: 0; overflow: hidden; }
 @keyframes hintIn {
   from {
-    max-height: 0;
+    grid-template-rows: 0fr;
     opacity: 0;
-    padding-block: 0;
     margin-block: 0;
   }
   to {
-    max-height: 48px;
+    grid-template-rows: 1fr;
     opacity: 1;
   }
 }
@@ -1092,8 +1094,18 @@ button {
 .ds-empty {
   animation: viewIn var(--dur-4) var(--ease-out) both;
 }
+/* Old closed cards disclose independently; recent cards never leave their scroll body. */
+.board-done-tail { display: grid; grid-template-rows: 1fr; }
+.board-done-tail-body { min-height: 0; }
+.anim-done-tail .board-done-tail-body { overflow: hidden; }
+.board-done-tail-body > :not(:last-child) { margin-block-end: calc(var(--spacing) * 1.5); }
+[data-done-disclosure]:focus-visible { outline-offset: -2px; }
+.anim-done-tail { animation: doneTailIn var(--dur-3) var(--ease-out); }
+@keyframes doneTailIn { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .anim-view,
+  .anim-done-tail,
   .success-check path,
   .anim-stagger > *,
   .chart-line,
@@ -1145,6 +1157,11 @@ html[data-motion="reduce"] *::backdrop {
   scroll-behavior: auto !important;
 }
 
+/* Without atomic DOM moves, relocated toast entrances finish once instead of replaying. */
+.anim-toast[data-toast-relocated] { animation: none; }
+/* Local comment acknowledgement appears only when the shared 150ms mark is applied. */
+.issue-pending-comment { display: none; }
+.issue-pending-comment[data-pending] { display: flex; }
 html[data-motion="reduce"],
 html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span),
 html[data-motion="reduce"] :not(.ds-spinner, .ds-spinner *, .ds-progress[data-indeterminate] > span)::before,

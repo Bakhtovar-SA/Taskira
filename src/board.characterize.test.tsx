@@ -19,7 +19,7 @@ import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
 import { flipFrom, stopMotion } from "./motion";
 import { flipPending, playBoardFlip, snapshotBoard } from "./boardFlip";
-vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), motionReduced: () => false }));
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), preloadMotionIdle: vi.fn(() => () => undefined), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
@@ -264,7 +264,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     // Spring FLIP (ADR-0035 prototype): the landed card flies in from its old place, once, and nothing in the source moves.
     // It crosses columns, so a copy flies in a fixed layer above the board (the column body would clip the card).
     const flights = vi.mocked(flipFrom).mock.calls.filter(([el]) => el.parentElement?.classList.contains("flip-flight"));
-    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true }]]);
+    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true, last: { left: 300, top: 100 } }]]);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => el === moved)).toBe(false);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
     // Finish the page refresh: it must not duplicate or remount the landed card.
@@ -423,9 +423,8 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
     expect(within(card).queryByText("billing")).toBeNull();
-    // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
-    expect(within(card).getByRole("img", { name: "Борис Петров" })).toBeTruthy();
-    expect(within(card).getByText("БП")).toBeTruthy();
+    // Исполнитель остаётся доступен по имени, а вместо инициалов показан портрет.
+    expect(within(card).getByRole("img", { name: "Борис Петров" }).querySelector(".ds-av-portrait")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     fireEvent.click(card);
@@ -526,20 +525,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("8b. «Ранее закрыто» снимает окно и перечитывает колонку «Готово» без closed-фильтра", async () => {
+  test("8b. «Ранее закрыто» загружает отдельное older-окно, сохраняя недавние карточки и кнопку фокуса", async () => {
     const h = await setup({
-      pageImpl: async (_p, params) => ({ items: params.status === "s3" ? [dto("done1", { statusId: "s3" })] : [], hasMore: false, nextCursor: null }),
-      countsImpl: async (_p, params) => (params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> }),
+      pageImpl: async (_p, params) => ({
+        items:
+          params.status !== "s3"
+            ? []
+            : params.closed === "older"
+              ? Array.from({ length: 5 }, (_, i) => dto("doneOld" + i, { statusId: "s3", doneAt: "2026-09-01T12:00:00Z" }))
+              : [dto("done1", { statusId: "s3" })],
+        hasMore: false,
+        nextCursor: null,
+      }),
+      countsImpl: async (_p, params) =>
+        params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> },
     });
+    const recent = screen.getByRole("article", { name: /A21-done1/ });
+    const toggle = screen.getByRole("button", { name: "Ранее закрыто: 5" });
+    toggle.focus();
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByText("Ранее закрыто: 5"));
+    fireEvent.click(toggle);
     await settle();
-    const s3Calls = h.pageCalls.filter((c) => c.status === "s3");
-    expect(s3Calls.length).toBeGreaterThan(0);
-    expect(s3Calls[s3Calls.length - 1].closed).toBeUndefined();
-    expect(s3Calls[s3Calls.length - 1].closedDays).toBeUndefined();
-    // теперь предложено свернуть обратно к окну в 14 дней
-    expect(screen.getByText("Свернуть до последних 14 дней")).toBeTruthy();
+    const calls = h.pageCalls.filter((c) => c.status === "s3");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ closed: "older", closedDays: 14 });
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(screen.getAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Свернуть до последних 14 дней" })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);
+    await settle();
+    expect(screen.queryAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(0);
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(document.activeElement).toBe(toggle);
+    expect(h.pageCalls.filter((c) => c.status === "s3")).toHaveLength(1);
     h.ui.unmount();
   });
 

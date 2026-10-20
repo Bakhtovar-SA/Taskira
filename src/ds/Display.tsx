@@ -1,8 +1,11 @@
 /** Отображение (ТЗ 5.7): Avatar и группа, Tag, Kbd, EmptyState, Progress, ProgressRing, Skeleton, Toast.
- *  Цвета — только токены и тоны `tk-tone-*` (currentColor), без значений из данных в разметке. */
+ *  Цвета — токены, тоны `tk-tone-*` и вычисляемые по ID тона портретов; без значений из базы. */
 import { useOptionalT } from "../i18n";
-import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tooltip } from "./LazyTooltip";
+import { ColleaguePortrait, ColleagueUnknown, colleagueColorVars } from "./ColleaguePortrait";
+import { cssVars } from "../cssVars";
+import { IcUnassigned } from "../icons";
 
 export type Tone = "violet" | "indigo" | "blue" | "sky" | "teal" | "green" | "amber" | "orange" | "red" | "pink" | "gray";
 const TONES: Tone[] = ["violet", "indigo", "blue", "sky", "teal", "green", "amber", "orange", "red", "pink"];
@@ -13,23 +16,22 @@ export const toneOf = (s: string): Tone => {
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0;
   return TONES[Math.abs(h) % TONES.length];
 };
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join("");
-
 /* ---------- Avatar ---------- */
 
-export type AvatarPerson = { name: string; src?: string | null };
+export type AvatarPerson = { id: string; name: string; src?: string | null } | { id: null; name: string; src?: never };
 
-export function Avatar({ person, size = 24, ring, status }: { person: AvatarPerson; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away" }) {
-  const tone = toneOf(person.name);
+export function Avatar({ person, size = 24, ring, status, showTitle = true }: { person: AvatarPerson | null; size?: 20 | 24 | 28 | 32 | 40 | 64; ring?: boolean; status?: "online" | "away"; showTitle?: boolean }) {
+  const t = useOptionalT()?.t;
+  const seed = person?.id ?? "";
+  const colorRef = useMemo(() => cssVars(colleagueColorVars(seed)), [seed]);
+  if (!person) {
+    const label = t ? t("createIssue.unassigned") : "Unassigned";
+    return <span className="ds-av ds-av-empty" data-size={size} role="img" aria-label={label} title={label}><IcUnassigned size={size} /></span>;
+  }
+  const unknown = person.id === null;
   return (
-    <span className={`ds-av tk-tone-${tone}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name}>
-      {person.src ? <img src={person.src} alt="" /> : <span aria-hidden="true">{initials(person.name)}</span>}
+    <span ref={colorRef} className={`ds-av ${person.src ? `tk-tone-${toneOf(seed)}` : `ds-av-colleague${unknown ? " ds-av-unknown" : ""}`}`} data-size={size} data-ring={ring || undefined} role="img" aria-label={person.name} title={showTitle ? person.name : undefined}>
+      {person.src ? <img src={person.src} alt="" /> : unknown ? <ColleagueUnknown /> : <ColleaguePortrait seed={seed} />}
       {status && <span className="ds-av-status" data-status={status} />}
     </span>
   );
@@ -43,7 +45,7 @@ export function AvatarGroup({ people, max = 4, size = 24 }: { people: AvatarPers
       {shown.map((p) => (
         <Tooltip key={p.name} label={p.name}>
           <span className="flex" tabIndex={-1}>
-            <Avatar person={p} size={size} ring />
+            <Avatar person={p} size={size} ring showTitle={false} />
           </span>
         </Tooltip>
       ))}
@@ -58,7 +60,7 @@ export function AvatarGroup({ people, max = 4, size = 24 }: { people: AvatarPers
 
 /* ---------- Tag ---------- */
 
-export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string }) {
+export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel, removeDisabled }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string; removeDisabled?: boolean }) {
   const t = useOptionalT()?.t;
   removeLabel ??= t ? t("ds.remove") : "Убрать";
   return (
@@ -66,7 +68,7 @@ export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemov
       {dot && <span className="ds-tag-dot" />}
       <span className="ds-tag-text">{children}</span>
       {onRemove && (
-        <button type="button" onClick={onRemove} aria-label={`${removeLabel}: ${typeof children === "string" ? children : ""}`}>
+        <button type="button" onClick={onRemove} disabled={removeDisabled} aria-label={`${removeLabel}: ${typeof children === "string" ? children : ""}`}>
           <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
             <path d="m3 3 6 6M9 3 3 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
