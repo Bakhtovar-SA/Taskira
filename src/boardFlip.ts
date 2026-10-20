@@ -126,6 +126,12 @@ export function flipPending(id: string): boolean {
 /** Один обход карточек каждого корня. Место — из самого раннего снимка; подъём/точка броска — своего запроса. */
 export function playBoardFlip(): void {
   pruneSnapshots();
+  // reduce включили между снимком и коммитом: полёт не играем и копию карточки не создаём (B-06).
+  if (motionReduced()) {
+    snaps.clear();
+    stopScrollWatch();
+    return;
+  }
   const roots = new Set([...snaps].map(s => s.root));
   for (const root of roots) {
     const live = [...snaps].filter(s => s.root === root);
