@@ -1,12 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
+import { loadMotion, settle } from "./motion-helpers";
 
 // Трек N, FIX-01 и FIX-12: после пружины на элементе не остаётся inline-стиль последнего кадра (он перебивает классы:
 // ширина сайдбара, прозрачность силуэта при перетаскивании), а после переноса карточки клавишей фокус возвращается на неё.
 test("пружины не оставляют inline-стили; фокус возвращается на перенесённую карточку", async ({ page }) => {
   test.setTimeout(60_000);
-  // Бесконечные анимации (индикаторы) не считаем: ждём конца конечных.
-  const finite = () => page.evaluate(() => document.getAnimations().filter(a => a.playState === "running" && a.effect?.getComputedTiming().iterations !== Infinity).length);
   await page.setViewportSize({ width: 1440, height: 900 });
   const f = await boardFixture(page);
   await page.route("**/api/projects/p1/issues/i1", route => route.request().method() === "GET" ? route.fulfill({ json: f.issues[0] }) : route.fallback());
@@ -16,6 +15,7 @@ test("пружины не оставляют inline-стили; фокус во�
     issue.updatedAt = "2026-10-13T12:00:00Z";
     await route.fulfill({ json: issue });
   });
+  const loaded = loadMotion(page);
   await page.goto("/p/CORP/board");
   const card = page.locator('article[data-issue-id="i1"]');
   await expect(card).toBeVisible();
@@ -23,9 +23,10 @@ test("пружины не оставляют inline-стили; фокус во�
   // Сайдбар: свернуть и развернуть (дважды, чтобы вторая пружина шла уже загруженным движком) — inline-ширины нет.
   for (let i = 0; i < 2; i++) {
     await page.keyboard.press("[");
-    await expect.poll(finite).toBe(0);
+    if (i === 0) await loaded;
+    await settle(page);
     await page.keyboard.press("[");
-    await expect.poll(finite).toBe(0);
+    await settle(page);
   }
   expect(await page.evaluate(() => [...document.querySelectorAll("aside")].map(a => (a as HTMLElement).style.width))).toEqual([""]);
 
@@ -38,7 +39,7 @@ test("пружины не оставляют inline-стили; фокус во�
     const active = document.activeElement as HTMLElement | null;
     return active?.classList.contains("board-card-open") ? active.closest("article")?.getAttribute("data-issue-id") : null;
   }), { timeout: 10_000 }).toBe("i1");
-  await expect.poll(finite).toBe(0);
+  await settle(page);
   const inline = await card.evaluate(el => ({ transform: (el as HTMLElement).style.transform, opacity: (el as HTMLElement).style.opacity }));
   expect(inline).toEqual({ transform: "", opacity: "" });
 });
