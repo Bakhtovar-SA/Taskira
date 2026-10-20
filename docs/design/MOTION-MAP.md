@@ -16,8 +16,9 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
 | src/dashboards/gridFlip.ts:59 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/dashboards/gridFlip.ts |
 | src/ds/Dialog.tsx:56 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/ds/Dialog.tsx |
-| src/ds/ds.css:1017 | css-animation | .ds-sk: background-position | dsShimmer 1.4s linear infinite | @media + личный выключатель | src/components/DashboardView.tsx, src/components/ProjectWizard.tsx, src/components/settings/OrgSettings.tsx, src/components/settings/ProjectRoadmap.tsx, src/components/settings/ProjectSettings.tsx, src/ds/Combobox.tsx, src/ds/Display.tsx |
-| src/ds/ds.css:1023 | css-keyframes | dsShimmer: background-position | из правила применения | см. правила применения | см. CSS |
+| src/ds/ds.css:1005 | css-transition | .ds-ring .ds-ring-val: stroke-dashoffset | stroke-dashoffset var(--dur-4) var(--ease-out) | личный выключатель | src/ds/Display.tsx |
+| src/ds/ds.css:1042 | css-animation | .ds-sk: background-position | dsShimmer 1.4s linear infinite | @media + личный выключатель | src/components/DashboardView.tsx, src/components/ProjectWizard.tsx, src/components/settings/OrgSettings.tsx, src/components/settings/ProjectRoadmap.tsx, src/components/settings/ProjectSettings.tsx, src/ds/Combobox.tsx, src/ds/Display.tsx |
+| src/ds/ds.css:1048 | css-keyframes | dsShimmer: background-position | из правила применения | см. правила применения | см. CSS |
 | src/ds/ds.css:173 | css-animation | .ds-spinner: transform | dsSpin 0.7s linear infinite | личный выключатель | src/ds/Button.tsx |
 | src/ds/ds.css:181 | css-keyframes | dsSpin: transform | из правила применения | см. правила применения | см. CSS |
 | src/ds/ds.css:205 | css-transition | .ds-input: box-shadow, background-color | box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) var(--ease-standard) | личный выключатель | src/components/AssigneePicker.tsx, src/ds/Combobox.tsx, src/ds/DatePicker.tsx, src/ds/Field.tsx, src/ds/Select.tsx |
@@ -43,10 +44,9 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ds/ds.css:684 | css-keyframes | dsPanelOut: opacity, transform | из правила применения | см. правила применения | см. CSS |
 | src/ds/ds.css:794 | css-animation | .ds-toast-bar: transform | dsToastBar var(--toast-ms, 5000ms) linear forwards | личный выключатель | src/ds/Display.tsx |
 | src/ds/ds.css:808 | css-keyframes | dsToastBar: transform | из правила применения | см. правила применения | см. CSS |
-| src/ds/ds.css:953 | css-transition | .ds-progress > span: width | width var(--dur-4) var(--ease-out) | личный выключатель | src/ds/Display.tsx |
-| src/ds/ds.css:961 | css-animation | .ds-progress[data-indeterminate] > span: transform | dsIndet 1.2s var(--ease-in-out) infinite | личный выключатель | src/ds/Display.tsx |
-| src/ds/ds.css:965 | css-keyframes | dsIndet: transform | из правила применения | см. правила применения | см. CSS |
-| src/ds/ds.css:980 | css-transition | .ds-ring .ds-ring-val: stroke-dashoffset | stroke-dashoffset var(--dur-4) var(--ease-out) | личный выключатель | src/ds/Display.tsx |
+| src/ds/ds.css:978 | css-transition | .ds-progress > span: width | width var(--dur-4) var(--ease-out) | личный выключатель | src/ds/Display.tsx |
+| src/ds/ds.css:986 | css-animation | .ds-progress[data-indeterminate] > span: transform | dsIndet 1.2s var(--ease-in-out) infinite | личный выключатель | src/ds/Display.tsx |
+| src/ds/ds.css:990 | css-keyframes | dsIndet: transform | из правила применения | см. правила применения | см. CSS |
 | src/ds/Tabs.tsx:50 | waapi-wrapper | glideTo: пресет glideTo | пресет src/motion.ts | обёртка motionReduced | src/ds/Tabs.tsx |
 | src/Flash.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/Flash.tsx |
 | src/index.css:1059 | css-keyframes | viewIn: opacity | из правила применения | см. правила применения | см. CSS |
@@ -122,9 +122,10 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/styles/roadmap.css:81 | css-animation | .roadmap-connection-preview: stroke-dashoffset | roadmap-dash var(--dur-5) linear infinite | @media + личный выключатель | src/components/RoadmapView.tsx |
 | src/styles/roadmap.css:85 | css-keyframes | roadmap-dash: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
 | src/styles/workspace.css:263 | css-transition | .board-member-filter: transform | transform var(--dur-2) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
-| src/styles/workspace.css:357 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/Board.tsx |
-| src/styles/workspace.css:686 | css-transition | .form-disclosure::details-content, .reports-chart-data::details-content: block-size, content-visibility | block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete | @media + личный выключатель | src/components/CreateIssueModal.tsx, src/components/ReportsView.tsx |
-| src/styles/workspace.css:700 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
+| src/styles/workspace.css:266 | css-transition | .board-member-name: max-width, opacity, padding | max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
+| src/styles/workspace.css:410 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/Board.tsx |
+| src/styles/workspace.css:739 | css-transition | .form-disclosure::details-content, .reports-chart-data::details-content: block-size, content-visibility | block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete | @media + личный выключатель | src/components/CreateIssueModal.tsx, src/components/ReportsView.tsx |
+| src/styles/workspace.css:753 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
 | src/theme.ts:147 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/theme.ts:150 | waapi-raw | animate: { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.ceil(r)}px at ${x}px ${y}px)`] } | { duration: 420, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" } | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/ui.tsx:109 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |
