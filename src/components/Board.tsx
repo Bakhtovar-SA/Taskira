@@ -348,7 +348,7 @@ const ColumnCards = memo(function ColumnCards({
     if (applied.length) onMovesApplied(applied);
   }, [moves, idx.issues, filters.status, set.items, onMovesApplied]);
 
-  useLayoutEffect(() => { onRowsReady?.(rows.map(row => row.id), set.loading); }, [rows, set.loading, onRowsReady]);
+  useLayoutEffect(() => { onRowsReady?.(rows.map(row => row.id), set.loading || set.error !== null); }, [rows, set.loading, set.error, onRowsReady]);
 
   // FLIP после коммита строк (ADR-0035, прототип): колонка и так перерисовывается при их смене — без нового состояния.
   useLayoutEffect(playBoardFlip, [rows]);
