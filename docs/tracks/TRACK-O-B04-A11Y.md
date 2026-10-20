@@ -44,8 +44,7 @@ Vitest, browser or benchmark while the B-01 matrix owns the measurement slot.
 ```powershell
 $env:TEMP='D:\CodexScratch\Taskira-Track-O-temp'
 $env:TMP=$env:TEMP
-$env:npm_config_cache='D:\CodexScratch
-pm-cache'
+$env:npm_config_cache='D:\CodexScratch\npm-cache'
 $env:CHROMIUM_PATH='C:\Users\user\AppData\Local\ms-playwright\chromium-1194\chrome-win\chrome.exe'
 $env:PLAYWRIGHT_PORT='3582'
 npx playwright test e2e/motion-a11y.pw.ts --workers=1 --output=D:\CodexScratch\Taskira-Track-O-temp\motion-a11y-results
