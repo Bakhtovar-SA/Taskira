@@ -14,7 +14,7 @@ import { cancelBoardFlip, renewBoardFlip } from "../boardFlip";
 
 /** `onBeforeStatus` — доска делает снимок положений карточек перед массовой сменой статуса (`snapshotBoard`): после ответа
  *  карточки перелетают в новые колонки (ADR-0035, `boardFlip.ts`), а не просто появляются. */
-export default function BulkBar({ selectedIds, onDone, className = "", floating = false, onBeforeStatus }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string; floating?: boolean; onBeforeStatus?: () => object | null }) {
+export default function BulkBar({ selectedIds, onDone, className = "", floating = false, onBeforeStatus }: { selectedIds: ReadonlySet<string>; onDone: (cardLeaves?: boolean) => void; className?: string; floating?: boolean; onBeforeStatus?: () => object | null }) {
   const { t } = useT();
   const { data, me, can, bulkApplyIssueAction } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -35,7 +35,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
     } finally {
       setBusy(false);
       setConfirmDelete(false);
-      onDone();
+      onDone(body.action === "status" || body.action === "delete");
     }
   };
   const menu = (label: string, items: MenuEntry[]) => (
@@ -77,7 +77,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
         trigger={p => <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>{t("common.actions")}</Button>}>
         <div className="ds-menu-label">{t("common.actions")}</div><div className="bulk-actions">{controls}</div>
       </Popover> : controls}
-      {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={onDone}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
+      {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={() => onDone()}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={() => onDone()}>
         {t("common.clear")}
       </Button>}
     </div>

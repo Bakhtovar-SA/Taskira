@@ -1,7 +1,9 @@
 # Track O B-04: browser accessibility checks
 
-Status: first Linux CI run completed on f9c94dc: B04 has **7 passed / 6 failed**.
-The revision below fixes confirmed QA defects and is **not rerun** yet. Overall UI job: 410 passed / 6 failed / 14 skipped.
+Status: merged in #224 with a green Linux `ui-visual` run. History: the first CI run on f9c94dc had **7 passed / 6 failed**
+(410 passed / 6 failed / 14 skipped overall); the failures were QA defects, see "First CI diagnosis" below.
+Follow-up: `finishBulk` now restores focus promptly after non-status bulk actions and Clear; covered by
+"clearing a bulk selection keeps focus on a card".
 
 Dependencies: C-07 Inbox row motion, A-08 DEV motion stand and A-06 browser helpers.
 This branch adds the QA suite and this report, plus small product changes found by it: `finishBulk` in
@@ -58,13 +60,6 @@ implementation owners rather than relaxing assertions. Especially verify the bul
 focus assertion: the baseline restoreCardFocus call is in the single-move path, so a
 bulk focus failure is a plausible existing defect, not permission to change runtime here.
 
-## Still pending
-
-- Re-run the corrected suite and record exact commit, counts and failures.
-- View Transition focus is covered by the separate D-17 topic; its dependency is not
-  pulled into this C-07/A-08 topic. Re-run that existing focus suite on integration.
-- NVDA/VoiceOver, Safari/Firefox, keyboard-only manual QA and real RDP/VDI (B-02).
-- No Linux golden update or manual platform PASS is asserted.
 ## First CI diagnosis and QA revision
 
 The 6 failures are not six proven runtime defects:
@@ -92,3 +87,10 @@ any additional PASS claim. Bulk card-focus remains unproven; source inspection s
 that it may need a separate runtime fix if the corrected fixture exposes a failure.
 No product files were changed for this revision, and no browser/build/tests were run
 locally while the B-01 performance matrix owns the heavy-job slot.
+
+## Still pending
+
+- View Transition focus is covered by the separate D-17 topic; its dependency is not
+  pulled into this C-07/A-08 topic. Re-run that existing focus suite on integration.
+- NVDA/VoiceOver, Safari/Firefox, keyboard-only manual QA and real RDP/VDI (B-02).
+- No Linux golden update or manual platform PASS is asserted.
