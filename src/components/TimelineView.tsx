@@ -272,7 +272,7 @@ export default function TimelineView() {
                   {expanded && (
                     <div
                       ref={cssVars({ "--panel-w": Math.max(0, (viewportW || 600) - 32) })}
-                      className="anim-fadeup sticky left-4 mb-2 ml-4 w-[var(--panel-w)] rounded-lg border border-linesoft bg-panel/90 shadow-e1"
+                      className="anim-view sticky left-4 mb-2 ml-4 w-[var(--panel-w)] rounded-lg border border-linesoft bg-panel/90 shadow-e1"
                     >
                       <EpicChildren projectId={data.currentProjectId} epicId={epic.id} total={total} />
                     </div>

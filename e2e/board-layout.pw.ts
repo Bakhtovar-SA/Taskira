@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
+import { settle, settleScroll } from "./motion-helpers";
 
 for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`board stays in place while selecting cards and filtering (${width}px)`, async ({ page }) => {
   await page.setViewportSize({ width, height });
@@ -8,6 +9,8 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const columns = page.locator(".board-columns");
   const card = page.locator('.board-card[data-issue-id="i2"]');
   await expect(card).toBeVisible();
+  await expect(page.getByRole("button", { name: "Фильтр: Анна Смирнова" })).toBeVisible();
+  await settle(page);
   const top = async () => (await columns.boundingBox())!.y;
   const size = async () => { const box = (await card.boundingBox())!; return { width: box.width, height: box.height }; };
   const shadow = async () => card.evaluate(element => getComputedStyle(element).boxShadow);
@@ -15,7 +18,10 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const initialSize = await size();
   const initialShadow = await shadow();
   const countFont = await page.locator(".workspace-count").evaluate(element => getComputedStyle(element).fontSize);
-  const expectStableTop = async () => expect(Math.abs((await top()) - initialTop)).toBeLessThan(1);
+  const expectStableTop = async () => {
+    await settle(page);
+    expect(Math.abs((await top()) - initialTop)).toBeLessThan(1);
+  };
   const expectStableSize = async () => {
     const current = await size();
     // DOMRect values can differ by floating-point rounding after a transform.
@@ -27,6 +33,7 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   const hint = page.locator('.board-select-hint');
   await expect(hint).toBeVisible();
   await expect(hint).toContainText("Выбирайте карточки кликом");
+  await settle(page);
   expect((await hint.boundingBox())!.y).toBeGreaterThan(height - 160);
   await expectStableTop();
   await expectStableSize();
@@ -64,6 +71,9 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
 
   await page.goto("/p/CORP/board?status=s1&priority=high");
   await expect(summaryTrigger).toBeVisible();
+  // Totals and the separate assignee request must both finish before measuring.
+  await expect(summaryTrigger).not.toContainText("…");
+  await expect(page.getByRole("button", { name: "Фильтр: Анна Смирнова" })).toBeVisible();
   await expectStableTop();
   await summaryTrigger.click();
   await expect(summaryDialog).toContainText("Статус: К выполнению");
@@ -79,6 +89,7 @@ for (const theme of ["light", "dark"]) for (const [width, height] of [[1460, 720
     await page.goto("/p/CORP/board");
     const card = page.locator('.board-card[data-issue-id="i2"]');
     await expect(card).toBeVisible();
+    await settle(page);
     const columns = page.locator(".board-col");
     const geometry = () => columns.evaluateAll(elements => elements.map(element => {
       const rect = element.getBoundingClientRect();
@@ -86,6 +97,7 @@ for (const theme of ["light", "dark"]) for (const [width, height] of [[1460, 720
     }));
     const before = await geometry();
     const expectUnchanged = async () => {
+      await settle(page);
       const after = await geometry();
       expect(after).toHaveLength(before.length);
       after.forEach((column, index) => {
@@ -120,16 +132,20 @@ for (const width of [1460, 768, 767, 640, 639, 390]) {
     await page.goto("/p/CORP/board");
     const first = page.locator('.board-card[data-issue-id="i2"]');
     await expect(first).toBeVisible();
+    await settle(page);
     const lane = page.locator(".board-col").first();
     const before = (await lane.boundingBox())!;
     await page.getByRole("button", { name: "Выделить", exact: true }).click();
     await first.click();
     const dock = page.locator(".list-selection-dock");
     await expect(dock).toBeVisible();
+    await settle(page);
     expect((await lane.boundingBox())!.height).toBeCloseTo(before.height, 2);
     const scrolling = width >= 768 ? lane.locator(".board-col-body") : page.locator(".board-scroll");
     expect(await scrolling.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
-    await scrolling.evaluate(element => { element.scrollTop = element.scrollHeight; });
+    // Subscribe before the instant setter: it may emit scrollend in the same rendering turn.
+    // content-visibility can replace estimated card heights while scrolling, so the bottom is dynamic.
+    await settleScroll(scrolling, { trigger: () => scrolling.evaluate(element => { element.scrollTop = element.scrollHeight; }) });
     const last = width >= 768 ? lane.locator(".board-card").last() : page.locator(".board-card").last();
     await expect(last).toBeVisible();
     await expect.poll(async () => {
@@ -158,6 +174,7 @@ for (const [width, lang] of [[1460, "ru"], [390, "en"]] as const) {
     await select.click();
     await expect(hint).toBeVisible();
     expect(parseFloat(await hint.evaluate(element => getComputedStyle(element).fontSize))).toBeLessThanOrEqual(13.5);
+    await settle(page);
     const box = (await hint.boundingBox())!;
     expect(box.width).toBeLessThan(440);
     expect(box.x).toBeGreaterThanOrEqual(0);
