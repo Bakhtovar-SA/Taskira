@@ -481,11 +481,11 @@ test("C-06: public presets are aliases of the one MOTION registry", () => {
   expect(SPRING_ENTER).toBe(MOTION.enter);
   expect(SPRING_POP).toBe(MOTION.pop);
   expect(EXIT).toBe(MOTION.exit);
-  expect(COUNT_MS).toBe(DUR_4_MS);
+  expect(COUNT_MS).toBe(MOTION.count);
   const el = card();
   vi.mocked(el.animate).mockReturnValue({ cancel: vi.fn(), addEventListener: vi.fn() } as unknown as Animation);
   flash(el);
-  expect(vi.mocked(el.animate).mock.calls[0][1]).toMatchObject({ duration: DUR_4_MS });
+  expect(vi.mocked(el.animate).mock.calls[0][1]).toMatchObject({ duration: MOTION.flash });
 });
 
 describe("C-05/C-11: interruption and restart policy", () => {

@@ -73,6 +73,8 @@ export const MOTION = {
   enter: { visualDuration: 0.25, bounce: 0.1 },
   pop: { visualDuration: 0.25, bounce: 0.3 },
   exit: { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
+  flash: 300,
+  count: 300,
 } as const;
 // Public aliases retain existing callers; each preset has one runtime object in MOTION.
 export const SPRING = MOTION.spring;
@@ -315,7 +317,7 @@ export function slide(el: HTMLElement, dir: -1 | 1): void {
  *  `textContent` и дерево доступности всё время содержат итог, а читатель с экрана и одноразовые чтения e2e не видят
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
-export const COUNT_MS = DUR_4_MS;
+export const COUNT_MS = MOTION.count;
 const MAX_COUNTING = 3;
 const counting = new Map<HTMLElement, () => void>();
 function countVisible(el: HTMLElement): boolean {
@@ -364,7 +366,7 @@ export function flash(el: HTMLElement): void {
   if (motionReduced() || typeof el.animate !== "function") return;
   // Повторная смена значения заменяет подсветку, а не накладывает ещё одну (отдельно от `track`: тот ведёт transform).
   flashing.get(el)?.cancel();
-  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: DUR_4_MS, easing: "ease-out" }));
+  const a = safe(() => el.animate([{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: MOTION.flash, easing: "ease-out" }));
   if (a) {
     flashing.set(el, a);
     const forget = () => { if (flashing.get(el) === a) flashing.delete(el); };
