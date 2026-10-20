@@ -20,7 +20,7 @@ import type { StoreCtx } from "./ctx";
 
 export function useIssueSubActions(
   { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx,
-  { withIssue, langRef }: { withIssue: (id: string, fn: (issue: Issue) => void) => void; langRef: MutableRefObject<"ru" | "en"> },
+  { withIssue, resolveIssue, langRef }: { resolveIssue: (id: string) => Promise<Issue | null>; withIssue: (id: string, fn: (issue: Issue) => void) => void; langRef: MutableRefObject<"ru" | "en"> },
 ) {
   const addComment = useCallback(
     async (issueId: string, body: string): Promise<boolean> => {
@@ -164,39 +164,45 @@ export function useIssueSubActions(
     }));
 
   const addChecklistItem = useCallback(
-    (issueId: string, text: string) => {
-      withIssue(issueId, (issue) => {
-        if (!requirePerm("edit", issue)) return;
-        const r = validateChecklistItemText(text);
-        if (!r.ok) return toast("error", localizeValidationError(r.error, langRef.current));
-        void (async () => {
-          try {
-            const res = await issuesApi.addChecklistItem(pid(), issueId, r.value);
-            setChecklist(issueId, res.checklist);
-          } catch (err) {
-            handleApiError(err, local("Не удалось добавить пункт чек-листа", "Couldn't add the checklist item"));
-          }
-        })();
-      });
+    async (issueId: string, text: string): Promise<boolean> => {
+      const requestProjectId = pid(), epoch = sessionEpochRef.current;
+      const issue = await resolveIssue(issueId);
+      if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+      if (!issue || !requirePerm("edit", issue)) return false;
+      const r = validateChecklistItemText(text);
+      if (!r.ok) { toast("error", localizeValidationError(r.error, langRef.current)); return false; }
+      try {
+        const res = await issuesApi.addChecklistItem(requestProjectId, issueId, r.value);
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        setChecklist(issueId, res.checklist);
+        return true;
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        handleApiError(err, local("Не удалось добавить пункт чек-листа", "Couldn't add the checklist item"));
+        return false;
+      }
     },
-    [requirePerm, toast, handleApiError, withIssue],
+    [requirePerm, toast, handleApiError, resolveIssue],
   );
 
   const toggleChecklistItem = useCallback(
-    (issueId: string, itemId: string, done: boolean) => {
-      withIssue(issueId, (issue) => {
-        if (!requirePerm("edit", issue)) return;
-        void (async () => {
-          try {
-            const res = await issuesApi.patchChecklistItem(pid(), issueId, itemId, { done });
-            setChecklist(issueId, res.checklist);
-          } catch (err) {
-            handleApiError(err, local("Не удалось обновить пункт чек-листа", "Couldn't update the checklist item"));
-          }
-        })();
-      });
+    async (issueId: string, itemId: string, done: boolean): Promise<boolean> => {
+      const requestProjectId = pid(), epoch = sessionEpochRef.current;
+      const issue = await resolveIssue(issueId);
+      if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+      if (!issue || !requirePerm("edit", issue)) return false;
+      try {
+        const res = await issuesApi.patchChecklistItem(requestProjectId, issueId, itemId, { done });
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        setChecklist(issueId, res.checklist);
+        return true;
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        handleApiError(err, local("Не удалось обновить пункт чек-листа", "Couldn't update the checklist item"));
+        return false;
+      }
     },
-    [requirePerm, handleApiError, withIssue],
+    [requirePerm, handleApiError, resolveIssue],
   );
 
   const removeChecklistItem = useCallback(

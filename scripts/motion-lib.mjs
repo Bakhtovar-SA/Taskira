@@ -1,4 +1,4 @@
-// Shared parsing for motion:check and the animation inventory (Track O A-07).
+// Разбор CSS/TS для карты движения (motion-map.mjs, Track O A-07). check-motion.mjs пока использует собственный разбор, не этот модуль.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { createRequire } from "node:module";

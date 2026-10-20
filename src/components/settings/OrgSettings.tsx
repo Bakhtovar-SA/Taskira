@@ -137,7 +137,7 @@ function Users() {
             const ldapUser = ldap && u.authSource === "ldap";
             return (
               <div key={u.id} className={`flex flex-wrap items-center gap-3 px-5 py-3 ${u.isActive ? "" : "opacity-60"}`}>
-                <Avatar person={{ name: u.name }} size={32} />
+                <Avatar person={{ id: u.id, name: u.name }} size={32} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 truncate text-[14px] font-medium text-ink">
                     {u.name}

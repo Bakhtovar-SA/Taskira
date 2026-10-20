@@ -37,6 +37,13 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   my: "sidebar.nav.my",
 };
 
+/** Цели фокуса после смены вида (`focusViewHeading` в motion.ts). Свой h1 в <main> есть почти у всех
+ *  видов (Board, DashboardView, DashboardTabs, TimelineView, CalendarView, Roadmap, …). Исключения:
+ *  у «Бэклога» и «Спринтов» h1 нет нигде (шапка проекта — вкладки) — App.tsx рисует sr-only h1;
+ *  у «Моих подключений» h1 уже есть в шапке (вне <main>) — помечаем его, а не дублируем. */
+export const SR_VIEW_HEADING: ReadonlySet<ViewId> = new Set<ViewId>(["backlog", "sprints"]);
+const TOPBAR_VIEW_HEADING: ReadonlySet<ViewId> = new Set<ViewId>(["collaborating"]);
+
 /** Быстрый поиск: «в этом проекте» — серверный поиск (250 мс, топ-8), «во всех проектах» — кросс-проектный. */
 export function SearchBox() {
   const { t } = useT();
@@ -545,7 +552,7 @@ export default function Topbar() {
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
               items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
           </nav>
-        </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
+        </> : <h1 data-view-heading={TOPBAR_VIEW_HEADING.has(ui.view) || undefined} className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
 
       </div>
     </div>
