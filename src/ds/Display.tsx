@@ -60,7 +60,7 @@ export function AvatarGroup({ people, max = 4, size = 24 }: { people: AvatarPers
 
 /* ---------- Tag ---------- */
 
-export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string }) {
+export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemove, removeLabel, removeDisabled }: { children: ReactNode; tone?: Tone; dot?: boolean; strong?: boolean; size?: "sm" | "md"; onRemove?: () => void; removeLabel?: string; removeDisabled?: boolean }) {
   const t = useOptionalT()?.t;
   removeLabel ??= t ? t("ds.remove") : "Убрать";
   return (
@@ -68,7 +68,7 @@ export function Tag({ children, tone = "gray", dot, strong, size = "md", onRemov
       {dot && <span className="ds-tag-dot" />}
       <span className="ds-tag-text">{children}</span>
       {onRemove && (
-        <button type="button" onClick={onRemove} aria-label={`${removeLabel}: ${typeof children === "string" ? children : ""}`}>
+        <button type="button" onClick={onRemove} disabled={removeDisabled} aria-label={`${removeLabel}: ${typeof children === "string" ? children : ""}`}>
           <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
             <path d="m3 3 6 6M9 3 3 9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
