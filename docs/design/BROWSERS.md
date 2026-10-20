@@ -34,8 +34,32 @@
 | `@property` | 85 | 128 | 16.4 | **нативно** | Для анимируемых кастомных свойств (ADR-0010 п. 3), объявлять только в статическом CSS. ESR 153 ≥ 128. |
 | `prefers-reduced-transparency` | 119 ¹ | **нет по умолчанию** ¹ (за флагом `layout.css.prefers-reduced-transparency.enabled`, выключен из-за риска фингерпринтинга) | **нет** ¹ | **с фолбэком — сейчас фолбэка нет** | См. «Пробел» ниже. |
 
-³ Firefox ESR 140: всё из таблицы есть, **кроме View Transitions** (появились в 144) — там сработает тот же фолбэк
+³ Firefox ESR 140: всё из исходной таблицы выше (без отдельной матрицы движения) есть, **кроме View Transitions** (появились в 144) — там сработает тот же фолбэк
 «без перехода». Прочие возможности ESR 140 поддерживает (`@property` с 128, `:has()` с 121).
+
+## Движение: совместимость по документации (C-12)
+
+Сверено 15.10.2026 с первичным набором MDN browser-compat-data, commit
+[cb1b68d](https://github.com/mdn/browser-compat-data/commit/cb1b68d8df1ae499a25112fb6e78bb148b32886e).
+Это первые версии с включённой по умолчанию возможностью, а не результаты запуска Taskira.
+**Все строки ниже — не проверено вручную в Safari/Firefox до B-02.** Версию настоящего ESR и движка Яндекс Браузера
+нужно записывать с тестового устройства; номер продукта и номер Chromium не взаимозаменяемы.
+
+| Возможность | Chromium | Firefox | Safari | Использование и допустимая деградация |
+|---|---|---|---|---|
+| [Element.animate / WAAPI](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/api/Element.json) | 36 | 48 | 13.1 | Обёртка в motion.ts; поддержка метода сама по себе не доказывает поддержку linear() или доступность копий полёта. Итог операции обязан оставаться верным после отмены/сбоя. |
+| [CSS linear()](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/css/types/easing-function.json) | 113 | 112 | 17.2 | --ease-spring, меню и поповеры. В Safari 17.0–17.1 функция недействительна: использующее её transition может целиком отброситься после подстановки var(). Мгновенное открытие допустимо, недоступное меню — дефект. |
+| [@starting-style](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/css/at-rules/starting-style.json) | 117 | 129 | 17.5 | Вход .ds-pop. В Safari 17.0–17.4 и ESR 128 исходный стиль не применяется: допустимо появление без входного перехода. |
+| [transition-behavior: allow-discrete](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/css/properties/transition-behavior.json) | 117 | 129, частично | 17.4 | Само ключевое слово не гарантирует переход display. По BCD display/content-visibility: Chromium 117, Safari 18; Firefox ещё без поддержки этих подслучаев. Поэтому нельзя держать открытие/закрытие меню на ожидании transitionend. |
+| [::details-content](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/css/selectors/details-content.json) | 131 | 143 | 18.4 | .form-disclosure и .reports-chart-data: при отсутствии селектора остаётся нативное details/summary с мгновенным раскрытием. Safari не поддерживает цепочки псевдоэлементов после него; Taskira их не использует. |
+| [Element.currentCSSZoom](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/api/Element.json) | 128 | 126 | **26.4** | cssZoom() возвращает 1 при отсутствии API. Это числовой fallback, а не доказательство правильной геометрии под CSS zoom: проверить полёт, якорь меню и фокус при 2560/3440 px. Указание Safari 18.2 в треке O и старых комментариях исходников ошибочно. |
+| [content: attr(data-shown) / ""](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/css/properties/content.json) | 77 | 128 | 17.4 | Пустой альтернативный текст псевдоэлемента CountUp; итог остаётся настоящим текстом. В Safari 17.0–17.3 работает запасная content без alt: промежуточные числа могут попасть в VoiceOver, B-02 обязателен. |
+| [requestIdleCallback](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/api/Window.json) | 47 | 55 | Нет по умолчанию; только Preview за флагом | preloadMotionIdle() использует setTimeout, если метода нет. Отсутствие idle API не должно мешать первому действию/загрузке экрана. |
+| [Document.startViewTransition(update)](https://github.com/mdn/browser-compat-data/blob/cb1b68d8df1ae499a25112fb6e78bb148b32886e/api/Document.json) | 111 | 144 | 18 | Смена темы/вида — улучшение; при отсутствии API выполняется update(), без круга темы. Системный/личный reduce и скрытая вкладка проверяются обёрткой. Междокументные и scoped transitions здесь не требуются. |
+
+Здесь отдельно перечислены поддержка синтаксиса и поведение продукта. Проверка CSS.supports или наличие метода
+не заменяют ручной прогон доступности, нативного DnD, визуальной посадки и экранного диктора.
+Точный оставшийся список и форма результатов — [MANUAL-CHECK-TRACK-O.md](../MANUAL-CHECK-TRACK-O.md).
 
 ## Пробел: `prefers-reduced-transparency` работает только в Chromium
 
