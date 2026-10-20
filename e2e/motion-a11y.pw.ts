@@ -152,7 +152,10 @@ async function axe(page: Page, include?: string) {
   const analysis = builder.analyze().then(value => { result = value; completed = true; }, error => { failure = error; completed = true; });
   let advanced = 0;
   while (!completed && advanced < 400) {
-    await page.clock.runFor(1); advanced++;
+    // page.clock is the context clock: AxeBuilder opens and closes a helper page in finishRun, so a runFor that was
+    // in flight to that page rejects with "has been closed". Only a closed test page is a real failure.
+    try { await page.clock.runFor(1); } catch (error) { if (page.isClosed()) throw error; }
+    advanced++;
     // Node-side scheduler remains real and permits CDP/network/axe work to complete.
     await new Promise<void>(resolve => setTimeout(resolve, 25));
   }
