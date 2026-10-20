@@ -194,7 +194,7 @@ describe("триггеры на путях API", () => {
         : { action, issueIds: [fx.issues.p1issue], assigneeId: fx.users.mgr1 },
     });
     expect(response.statusCode, response.body).toBe(200);
-    expect(JSON.parse(response.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [] });
+    expect(JSON.parse(response.body)).toEqual({ succeeded: [fx.issues.p1issue], failed: [], ...(action === "status" ? { undo: [{ issueId: fx.issues.p1issue, statusId: fx.p1status.todo, updatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/) }] } : {}) });
     const rows = await events();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject(action === "status"

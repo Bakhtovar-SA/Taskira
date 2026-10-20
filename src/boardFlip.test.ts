@@ -43,9 +43,9 @@ test("сдвинутые карточки едут со старого мест�
   // Перенесённая карточка летит копией над доской (scale «подъёма» обрезался бы телом колонки), соседи — сами.
   const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
   expect(vi.mocked(flipFrom).mock.calls).toEqual([
-    [clone, 10, 0, { lift: true }],
-    [el(root, "b"), 10, 100, { lift: false }],
-    [el(root, "c"), 10, 200, { lift: false }],
+    [clone, 10, 0, { lift: true, last: { left: 10, top: 200 } }],
+    [el(root, "b"), 10, 100, { lift: false, last: { left: 10, top: 0 } }],
+    [el(root, "c"), 10, 200, { lift: false, last: { left: 10, top: 100 } }],
   ]);
   playBoardFlip();
   expect(flipFrom).toHaveBeenCalledTimes(3);
@@ -64,7 +64,7 @@ test("перетаскивание: брошенная карточка прил
   // Другая колонка: летит копия в фиксированном слое (тело колонки обрезало бы карточку), сама карточка скрыта.
   const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
   expect(clone.hasAttribute("data-issue-id")).toBe(false);
-  expect(vi.mocked(flipFrom).mock.calls).toEqual([[clone, 500, 300, { lift: true }]]);
+  expect(vi.mocked(flipFrom).mock.calls).toEqual([[clone, 500, 300, { lift: true, last: { left: 10, top: 50 } }]]);
   expect(el(root, "a").style.visibility).toBe("hidden");
   await Promise.resolve();
   await Promise.resolve();
@@ -154,12 +154,31 @@ test("массовая смена статуса: карточки сменил�
   expect(delays[0]).toBe(0);
   expect(delays[1]).toBeGreaterThan(0);
   expect(delays[2]).toBeGreaterThan(delays[1]);
-  expect(Math.max(...delays)).toBeLessThanOrEqual(220);
+  expect(Math.max(...delays)).toBeLessThanOrEqual(100);
   expect(calls.every((c) => (c[3] as { lift?: boolean }).lift === true)).toBe(true);
   // Лидер поверх остальных.
   const zs = flights.map((f) => Number(f.style.zIndex));
   expect(zs[0]).toBeGreaterThan(zs[1]);
   expect(zs[1]).toBeGreaterThan(zs[2]);
+});
+
+test("волна из многих карточек: шаг сжимается пропорционально, задержки различимы и не выходят за потолок flipFrom", () => {
+  const ids = Array.from({ length: 12 }, (_, i) => "k" + i);
+  for (const [i, id] of ids.entries()) tops.set(id, i * 100);
+  const root = board(ids);
+  const lefts = new Map<string, number>(ids.map((id) => [id, 10]));
+  for (const id of ids) el(root, id).getBoundingClientRect = () => ({ left: lefts.get(id)!, top: tops.get(id) ?? 0 }) as DOMRect;
+  const owner = snapshotBoard(root, null);
+  renewBoardFlip(owner);
+  for (const [i, id] of ids.entries()) {
+    lefts.set(id, 400);
+    tops.set(id, i * 80);
+  }
+  playBoardFlip();
+  const delays = vi.mocked(flipFrom).mock.calls.map((c) => (c[3] as { delay?: number } | undefined)?.delay ?? 0);
+  expect(delays).toHaveLength(12);
+  for (let i = 1; i < delays.length; i++) expect(delays[i]).toBeGreaterThan(delays[i - 1]);
+  expect(Math.max(...delays)).toBeLessThanOrEqual(100);
 });
 
 test("FIX-12: после переезда карточки фокус возвращается на новую кнопку; чужой фокус не перехватывается", () => {
@@ -313,6 +332,59 @@ test("createPendingMarks: ответ на устаревший перенос н
   }
 });
 
+test("колонки одного коммита читают геометрию один раз; следующий коммит читает снова", async () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  const query = vi.spyOn(root, "querySelectorAll");
+  tops.set("a", 100).set("b", 0);
+  playBoardFlip();
+  playBoardFlip();
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(1);
+  await Promise.resolve();
+  tops.set("b", 30);
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(2);
+});
+
+test("пустой проход не блокирует настоящий коммит в той же микрозадаче", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  const query = vi.spyOn(root, "querySelectorAll");
+  playBoardFlip(); // ничего не сдвинулось
+  expect(flipFrom).not.toHaveBeenCalled();
+  tops.set("a", 100).set("b", 0); // реальный коммит без await между ними
+  playBoardFlip();
+  expect(query).toHaveBeenCalledTimes(2);
+  expect(flipFrom).toHaveBeenCalled();
+});
+
+test("чтение геометрии идёт раньше вставки летящих копий", () => {
+  tops.set("a", 0).set("b", 100);
+  const root = board(["a", "b"]);
+  snapshotBoard(root, "a");
+  let writing = false;
+  for (const id of ["a", "b"]) {
+    const card = el(root, id);
+    card.getBoundingClientRect = () => {
+      expect(writing).toBe(false);
+      return { left: 400, top: tops.get(id) } as DOMRect;
+    };
+    Object.defineProperty(card, "offsetWidth", { get: () => { expect(writing).toBe(false); return 280; } });
+  }
+  const append = document.body.appendChild.bind(document.body);
+  const spy = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+    writing = true;
+    return append(node);
+  });
+  playBoardFlip();
+  expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
+  expect([...document.querySelectorAll<HTMLElement>(".flip-flight > article")].every((card) => card.style.width === "280px")).toBe(true);
+  spy.mockRestore();
+});
+
 test("more than MOTION_CAPS.flip moved cards remain instantaneous", () => {
   const ids = Array.from({ length: MOTION_CAPS.flip + 1 }, (_, i) => String(i));
   const root = board(ids);
@@ -329,7 +401,7 @@ function holdFlights() {
   return finishes;
 }
 
-test("C-01: reverse responses preserve both lifted cards and their own landing points", () => {
+test("C-01: reverse responses preserve both lifted cards and their own landing points", async () => {
   holdFlights();
   tops.set("a", 0).set("b", 100);
   const root = board(["a", "b"]);
@@ -339,11 +411,12 @@ test("C-01: reverse responses preserve both lifted cards and their own landing p
   snapshotBoard(root, "b");
   tops.set("b", 200); // second response first
   playBoardFlip();
+  await Promise.resolve(); // ответы приходят в разных микрозадачах
   tops.set("a", 250); // first response last
   playBoardFlip();
   expect(flipFrom).toHaveBeenCalledTimes(2);
   expect(vi.mocked(flipFrom).mock.calls.map(call => call.slice(1))).toEqual([
-    [600, 400, { lift: true }], [500, 300, { lift: true }],
+    [600, 400, { lift: true, last: expect.any(Object) }], [500, 300, { lift: true, last: expect.any(Object) }],
   ]);
   expect(document.querySelectorAll(".flip-flight")).toHaveLength(2);
 });
@@ -356,7 +429,7 @@ test("C-01: earliest known position wins and all snapshots advance after a commi
   snapshotBoard(root, "b");
   tops.set("b", 250);
   playBoardFlip();
-  expect(vi.mocked(flipFrom).mock.calls[0].slice(1)).toEqual([10, 100, { lift: true }]);
+  expect(vi.mocked(flipFrom).mock.calls[0].slice(1)).toEqual([10, 100, { lift: true, last: expect.any(Object) }]);
   cancelBoardFlip(first);
   vi.mocked(flipFrom).mockClear();
   playBoardFlip();

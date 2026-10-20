@@ -1,5 +1,7 @@
+import { createToastQueue } from "./store/toastQueue";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { viewTransition } from "./motion";
+import { clearRoadmapDateFlash } from "./roadmapDateFlash";
 import { clearCreateDrafts } from "./createDrafts";
 import type {
   AccessRole,
@@ -74,7 +76,7 @@ interface Api {
   setCreateOpen: (v: boolean) => void;
   openCreateSubtask: (parentId: string) => void;
   openCreate: (input: { dueDate: string }) => void;
-  toast: (kind: Toast["kind"], text: string) => void;
+  toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;
   createIssue: (input: CreateInput) => Promise<Issue | null>;
   importIssues: (
     inputs: CreateInput[],
@@ -98,8 +100,8 @@ interface Api {
   removeCollaborator: (issueId: string, userId: string) => void;
   addIssueLink: (issueId: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") => void;
   removeIssueLink: (issueId: string, linkId: string) => void;
-  addChecklistItem: (issueId: string, text: string) => void;
-  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => void;
+  addChecklistItem: (issueId: string, text: string) => Promise<boolean>;
+  toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => Promise<boolean>;
   removeChecklistItem: (issueId: string, itemId: string) => void;
   setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
   uploadAttachment: (issueId: string, file: File) => void;
@@ -160,7 +162,7 @@ interface Api {
 
 const Ctx = createContext<Api | null>(null);
 
-let toastSeq = 1;
+
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const i18n = useOptionalT();
@@ -223,17 +225,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const pid = () => dataRef.current.currentProjectId;
 
-  const toast = useCallback((kind: Toast["kind"], text: string) => {
-    const id = toastSeq++;
-    slices.toasts.setState((t) => [...t.slice(-3), { id, kind, text }]);
-    window.setTimeout(() => slices.toasts.setState((t) => (t.some((x) => x.id === id) ? t.filter((x) => x.id !== id) : t)), 4200);
-  }, [slices]);
+  const toastQueue = useMemo(() => createToastQueue(slices.toasts), [slices]);
+  useEffect(() => { toastQueue.connect(); return () => toastQueue.dispose(); }, [toastQueue]);
+  const toast = toastQueue.push;
 
   const handleApiError = useCallback(
     (err: unknown, fallback = local("Ошибка запроса", "Request failed")) => {
       if (err instanceof ApiError) {
         if (err.status === 401) {
           sessionEpochRef.current++;
+          clearRoadmapDateFlash();
           clearCreateDrafts();
           clearToken();
           setBootStatus("unauthenticated");
@@ -408,7 +409,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const {
     addComment, addCollaborator, removeCollaborator, addIssueLink, removeIssueLink, addChecklistItem, toggleChecklistItem,
     removeChecklistItem, setCustomFieldValue, uploadAttachment, removeAttachment, downloadAttachment,
-  } = useIssueSubActions(storeCtx, { withIssue, langRef });
+  } = useIssueSubActions(storeCtx, { withIssue, resolveIssue, langRef });
 
   // Домены, вынесенные из провайдера (ТЗ 2.3): общий контекст — в ./store/ctx.
   const { addSprint, startSprint, completeSprint, setIssueSprint } = useSprintActions(storeCtx);

@@ -2,6 +2,7 @@
  *  сдвигаемый виджет и итоговая раскладка не страдают; с «уменьшить движение» — мгновенно. */
 import { expect, test, type Page } from "@playwright/test";
 import { mockApi } from "./fixtures";
+import { loadMotion, settle } from "./motion-helpers";
 
 async function open(page: Page) {
   await mockApi(page);
@@ -28,8 +29,15 @@ const moving = (page: Page) => page.locator("[data-widget]").evaluateAll(els => 
 
 test("соседи плавно доезжают, когда виджет вырос с клавиатуры; сам он не анимируется; раскладка итоговая", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
+  const loaded = loadMotion(page);
   await open(page);
   const first = page.locator("[data-widget]").first();
+  // Первый resize явно грузит чанк, даже если idle-preload ещё не сработал.
+  await first.focus();
+  await page.keyboard.press("Shift+ArrowDown");
+  await loaded;
+  await page.keyboard.press("Shift+ArrowUp");
+  await settle(page);
   const id = (await first.getAttribute("data-widget"))!;
   const before = await boxes(page);
   await first.focus();
@@ -38,7 +46,7 @@ test("соседи плавно доезжают, когда виджет выр
   await expect.poll(async () => (await moving(page)).length, { timeout: 2000 }).toBeGreaterThan(0);
   expect(await moving(page)).not.toContain(id);
   // Анимации заканчиваются, раскладка — итоговая и отличается от исходной.
-  await expect.poll(async () => (await moving(page)).length, { timeout: 3000 }).toBe(0);
+  await settle(page);
   // Остаточный inline-transform (последний кадр motion/mini) нейтральный; снятие целиком — FIX-01 в PR #187.
   const left = await page.locator("[data-widget]").evaluateAll(els => els.map(e => (e as HTMLElement).style.transform).filter(Boolean));
   expect(left.every(t => /^(none|translate\(0px, 0px\))$/.test(t))).toBe(true);
@@ -54,7 +62,7 @@ test("движение уменьшено: соседи встают на мес
   const first = page.locator("[data-widget]").first();
   await first.focus();
   await page.keyboard.press("Shift+ArrowDown");
-  await page.waitForTimeout(150);
+  await settle(page);
   expect(new Set((await boxes(page)).map(b => b.y)).size).toBeGreaterThan(0);
   expect(await moving(page)).toEqual([]);
 });

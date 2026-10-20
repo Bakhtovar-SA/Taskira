@@ -56,7 +56,7 @@ function Profile() {
     <SettingsPage title={t("settings.personal.profile")} desc={t("settings.desc.profile")}>
       <SettingsCard>
         <div className="flex flex-wrap items-center gap-4 px-5 py-5">
-          <Avatar person={{ name: me.name, src }} size={64} />
+          <Avatar person={{ id: me.id, name: me.name, src }} size={64} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-disp text-[17px] font-bold tracking-[-0.01em] text-ink">{me.name}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">

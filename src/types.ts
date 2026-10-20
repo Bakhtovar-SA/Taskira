@@ -236,6 +236,10 @@ export type ProjectSummary = Pick<ProjectDto, "id" | "key" | "name" | "departmen
 export type Department = DepartmentDto;
 
 export interface Toast {
+  action?: { label: string; run: () => boolean | Promise<boolean> };
+  pause?: () => void;
+  resume?: () => void;
+  dismiss?: () => void;
   id: number;
   kind: "success" | "error" | "info";
   text: string;
