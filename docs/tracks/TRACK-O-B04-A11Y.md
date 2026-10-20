@@ -4,8 +4,9 @@ Status: first Linux CI run completed on f9c94dc: B04 has **7 passed / 6 failed**
 The revision below fixes confirmed QA defects and is **not rerun** yet. Overall UI job: 410 passed / 6 failed / 14 skipped.
 
 Dependencies: C-07 Inbox row motion, A-08 DEV motion stand and A-06 browser helpers.
-This branch contains only the new QA suite and this report, plus dependency merges.
-Runtime API, stores, animation timing, accessibility semantics and axe rules are unchanged.
+This branch adds the QA suite and this report, plus small product changes found by it: `finishBulk` in
+`src/components/Board.tsx` restores focus to the first selected card after a bulk action, and
+`src/dev/DevMotion.tsx` pauses the stand at `delay + activeDuration / 2`. Animation timing, stores and axe rules are unchanged.
 
 `e2e/motion-a11y.pw.ts` checks:
 

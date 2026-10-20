@@ -822,6 +822,8 @@ export default function Board() {
   // первую карточку выделения, если он потерян. Фокус, ушедший осознанно в другое место, `restoreCardFocus` не трогает.
   const selectedRef = useRef(selectedIds);
   selectedRef.current = selectedIds;
+  // Фокус возвращаем на первую ВЫБРАННУЮ карточку (порядок вставки), а не на первую в доске: после смены статуса она может
+  // оказаться в другой колонке. Удалённой карточки нет — остаётся запасной фокус по таймауту restoreCardFocus.
   const finishBulk = useCallback(() => {
     const id = selectedRef.current.values().next().value;
     clearSelection();
