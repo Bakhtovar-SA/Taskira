@@ -68,6 +68,9 @@ export const MOTION_CAPS = { flip: 40, ghosts: 6, enter: 8, track: 200 } as cons
 export const SPRING = { visualDuration: 0.3, bounce: 0.15 } as const; // ≈ 500 мс, перелёт ≈ 2 %
 export const SPRING_ENTER = { visualDuration: 0.25, bounce: 0.1 } as const; // ≈ 330 мс
 /** Уход быстрее появления: --dur-3, без пружины. `duration` у motion — в секундах. */
+/** Общие значения --dur-4: 300 мс и ease-out (токен). Один источник для входа, слайда периода, ширины и теста. */
+export const DUR_4_MS = 300;
+export const EASE_OUT_CSS = "cubic-bezier(0.16, 1, 0.3, 1)";
 export const EXIT = { duration: 0.2, ease: [0.4, 0, 1, 1] as [number, number, number, number] };
 
 let engine: Engine | null = null;
@@ -238,7 +241,7 @@ export function flipFrom(el: HTMLElement, left: number, top: number, { lift = tr
   const c = safe(() =>
     e
       ? track(el, e.animate(el, { transform: [from, "translate(0px, 0px)"] }, { type: e.spring, ...SPRING, ...(delay > 0 ? { delay: delay / 1000 } : {}) }), ["transform"])
-      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: 300, delay, fill: "backwards", easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["transform"]),
+      : track(el, el.animate([{ transform: from }, { transform: "none" }], { duration: DUR_4_MS, delay, fill: "backwards", easing: EASE_OUT_CSS }), ["transform"]),
   );
   return done(c);
 }
@@ -280,13 +283,24 @@ export function exit(el: HTMLElement, kind: "rise" | "toast" = "rise"): Promise<
   return done(safe(() => track(el, e.animate(el, { opacity: [1, 0], transform }, EXIT))));
 }
 
+/** D-04: слайд сетки календаря при явной смене периода (кнопки, PageUp/PageDown, «Сегодня»): сдвиг 12 px и 0.4→1 по
+ *  прозрачности за --dur-4. Сетка остаётся тем же узлом (фокус, клавиатура и нативный DnD не страдают). */
+export function slide(el: HTMLElement, dir: -1 | 1): void {
+  track(el, null);
+  if (motionReduced() || typeof el.animate !== "function") return;
+  safe(() => track(el, el.animate([
+    { opacity: 0.4, transform: `translateX(${dir * 12}px)` },
+    { opacity: 1, transform: "none" },
+  ], { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" }), ["opacity", "transform"]));
+}
+
 /** Счётчик (COV-01): число на `el` «дорастает» от `from` до `to` за --dur-4 (300 мс, ease-out, без перелёта: цифры не
  *  должны уходить выше итога). Текст элемента — итоговое число — не трогается вообще: кадры пишутся только в атрибут
  *  `data-shown`, а видимой его делает CSS (`.count-up[data-counting]::after { content: attr(data-shown) }`). Поэтому
  *  `textContent` и дерево доступности всё время содержат итог, а читатель с экрана и одноразовые чтения e2e не видят
  *  промежуточных значений. Кадры — `requestAnimationFrame`, без React-состояния. Движение уменьшено или нечего расти —
  *  ничего не делает (итог уже на экране). Возвращает отмену (снимает атрибуты и кадр; безопасно вызывать повторно). */
-export const COUNT_MS = 300;
+export const COUNT_MS = DUR_4_MS;
 const MAX_COUNTING = 3;
 const counting = new Map<HTMLElement, () => void>();
 function countVisible(el: HTMLElement): boolean {
@@ -365,7 +379,7 @@ export function glideWidth(el: HTMLElement, from: number, to: number): void {
   if (Math.abs(from - to) < 1) return;
   const e = ready();
   const frames = { width: [`${from}px`, `${to}px`] };
-  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: 300, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }), ["width"]));
+  safe(() => track(el, e ? e.animate(el, frames, { type: e.spring, ...SPRING }) : el.animate(frames, { duration: DUR_4_MS, easing: EASE_OUT_CSS }), ["width"]));
 }
 
 /** Снять текущую анимацию элемента (например, пружину появления окна, когда оно уже закрывается: WAAPI из скрипта
