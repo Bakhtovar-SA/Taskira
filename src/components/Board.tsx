@@ -257,9 +257,10 @@ const Card = memo(function Card({
           <DueRing due={issue.dueDate} today={today} done={doneCat} size={14} />
           <span>{fmtDate(issue.dueDate, lang)}</span>
         </span>}
-        {repeatTip && <span className="board-card-repeat" data-paused={issue.repeat?.paused || undefined} data-solo={!issue.dueDate || undefined} title={repeatTip} aria-label={repeatTip}>
+        {repeatTip && <span className="board-card-repeat" data-paused={issue.repeat?.paused || undefined} data-solo={!issue.dueDate || undefined} title={repeatTip}
+          {...(issue.dueDate ? { role: "img", "aria-label": repeatTip } : {})}>
           <IcRepeat size={14} />
-          {!issue.dueDate && <span>{repeatText}</span>}
+          {!issue.dueDate && <><span className="sr-only">{t("board.repeatTip", { schedule: "" })}</span><span>{repeatText}</span></>}
         </span>}
         <span className="board-card-assignees ml-auto flex items-center gap-2">
           {!!issue.subtasksSummary?.total && <span

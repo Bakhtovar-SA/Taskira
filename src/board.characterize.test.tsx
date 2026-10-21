@@ -512,8 +512,8 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(within(first).getByText("urgent")).toBeTruthy();
     expect(within(first).queryByText("infra")).toBeNull();
     expect(within(first).getByText("+1")).toBeTruthy();
-    const solo = within(first).getByLabelText(/^Повторяется: /);
-    expect(solo.textContent).toBeTruthy(); // расписание текстом, срока нет
+    const solo = within(first).getByText(/Повторяется:/).parentElement!;
+    expect(solo.textContent).toMatch(/Повторяется: .+/); // расписание текстом, срока нет; префикс — для скринридера
     const dated = within(screen.getByRole("article", { name: /A21-l2/ })).getByLabelText(/^Повторяется: .*повтор приостановлен$/);
     expect(dated.textContent).toBe(""); // со сроком — только значок
     const plain = screen.getByRole("article", { name: /A21-l3/ });

@@ -130,7 +130,7 @@ function Row({
         const repeatText = issue.repeat ? recurrenceText(issue.repeat.schedule, t, tn) : "";
         const repeatTip = issue.repeat ? t("board.repeatTip", { schedule: repeatText }) + (issue.repeat.paused ? ` — ${t("board.repeatPaused")}` : "") : "";
         // Повторяющаяся задача без срока показывает расписание на месте срока; со сроком — значок рядом.
-        const repeat = repeatTip ? <span className="list-repeat" data-paused={issue.repeat?.paused || undefined} title={repeatTip} aria-label={repeatTip}><IcRepeat size={14} />{!issue.dueDate && <span>{repeatText}</span>}</span> : null;
+        const repeat = repeatTip ? <span className="list-repeat" data-paused={issue.repeat?.paused || undefined} title={repeatTip} {...(issue.dueDate ? { role: "img", "aria-label": repeatTip } : {})}><IcRepeat size={14} />{!issue.dueDate && <><span className="sr-only">{t("board.repeatTip", { schedule: "" })}</span><span>{repeatText}</span></>}</span> : null;
         return issue.dueDate || repeat ? (
           <span className="flex min-w-0 items-center gap-2">
             {issue.dueDate && <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
