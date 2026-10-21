@@ -1041,6 +1041,7 @@
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
 | `subtasksSummary` | object |  |
+| `repeat` | object | необязательное, может быть null |
 | `collaborators` | array&lt;object&gt; |  |
 | `participants` | array&lt;object&gt; |  |
 | `attachments` | array&lt;object&gt; |  |
@@ -1080,6 +1081,7 @@
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
 | `subtasksSummary` | object | необязательное |
+| `repeat` | object | необязательное, может быть null |
 
 ### IssueEpicDto
 
@@ -1148,6 +1150,7 @@
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
 | `subtasksSummary` | object | необязательное |
+| `repeat` | object | необязательное, может быть null |
 | `undo` | object | необязательное |
 
 ### IssueResolveDto

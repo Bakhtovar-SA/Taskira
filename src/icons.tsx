@@ -398,6 +398,14 @@ export const IcEye = (p: P) => (
 );
 /** Перемещение задачи между колонками (кнопка «переместить» на карточке доски). */
 /** Подзадачи: задача-родитель сверху, от неё ветка к двум дочерним. */
+export const IcRepeat = (p: P) => (
+  <D {...p}>
+    <path className="k" d="M2.5 8V7.5A3.5 3.5 0 0 1 6 4h6" />
+    <path className="s" d="M11.5 1.25 15 4l-3.5 2.75z" />
+    <path className="k" d="M13.5 8v.5A3.5 3.5 0 0 1 10 12H4" />
+    <path className="s" d="M4.5 9.25 1 12l3.5 2.75z" />
+  </D>
+);
 export const IcSubtasks = (p: P) => (
   <D {...p}>
     <R x={1} y={1} w={7} h={4} r={1.5} />

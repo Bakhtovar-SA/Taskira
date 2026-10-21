@@ -25,7 +25,7 @@ export async function boardFixture(page: Page, theme = "light", columns = 4, lan
     ["Согласовать прошлый релиз", `s${columns}`, null, "low", [], null],
   ].map(([title, statusId, dueDate, priorityId, assigneeIds, epicId], i) => ({
     id: `i${i + 1}`, key: `CORP-${i + 1}`, title, statusId, dueDate, priorityId, assigneeIds, epicId,
-    description: "", typeId: "task", reporterId: "u1", parentId: null, labels: ["internal-label"], complexity: null, sprintId: null, rank: i,
+    description: "", typeId: "task", reporterId: "u1", parentId: null, labels: i === 0 ? ["billing", "urgent", "infra"] : ["internal-label"], repeat: i === 5 ? { schedule: { kind: "weekly", every: 1, weekdays: [1] }, timeOfDay: "09:00", paused: false } : i === 1 ? { schedule: { kind: "daily", every: 1 }, timeOfDay: "09:00", paused: true } : null, complexity: null, sprintId: null, rank: i,
     createdAt: "2026-10-01T12:00:00Z", updatedAt: "2026-10-03T12:00:00Z", archivedAt: null,
     doneAt: i === 7 ? "2026-10-03T12:00:00Z" : i === 8 ? "2026-09-01T12:00:00Z" : null,
   }));

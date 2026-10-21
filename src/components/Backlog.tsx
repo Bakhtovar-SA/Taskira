@@ -16,8 +16,9 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { NO_ISSUE_FILTERS, issueSetKey, freshRows, useDebounced, useEpics, useIssueCounts, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { LIMITS } from "../validation";
 import { issuesApi, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
-import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcUsers, IcFlag, IcDiamond, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
+import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcUsers, IcFlag, IcDiamond, IcPencil, IcPlus, IcRepeat, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
+import { recurrenceText } from "../recurrenceText";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button } from "../ds/Button";
 import { DatePicker } from "../ds/DatePicker";
@@ -84,7 +85,7 @@ function Row({
   onToggleSelect: (id: string) => void;
   onDelete: (issue: Issue) => void;
 }) {
-  const { t, lang } = useT();
+  const { t, tn, lang } = useT();
   const { data, idx, me, openIssue, updateIssue, moveStatus, can } = useStore();
   // Ассоциированные сущности ищем по индексам из контекста, а не линейным
   // проходом по массивам в каждой строке списка (аудит PERF-02).
@@ -125,13 +126,21 @@ function Row({
             {issue.labels.length > 2 && <span className="text-[12.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
           </span>
         );
-      case "due":
-        return issue.dueDate ? (
-          <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
-            <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
-            {fmtDate(issue.dueDate, lang)}
+      case "due": {
+        const repeatText = issue.repeat ? recurrenceText(issue.repeat.schedule, t, tn) : "";
+        const repeatTip = issue.repeat ? t("board.repeatTip", { schedule: repeatText }) + (issue.repeat.paused ? ` — ${t("board.repeatPaused")}` : "") : "";
+        // Повторяющаяся задача без срока показывает расписание на месте срока; со сроком — значок рядом.
+        const repeat = repeatTip ? <span className="list-repeat" data-paused={issue.repeat?.paused || undefined} title={repeatTip} aria-label={repeatTip}><IcRepeat size={14} />{!issue.dueDate && <span>{repeatText}</span>}</span> : null;
+        return issue.dueDate || repeat ? (
+          <span className="flex min-w-0 items-center gap-2">
+            {issue.dueDate && <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
+              <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
+              {fmtDate(issue.dueDate, lang)}
+            </span>}
+            {repeat}
           </span>
         ) : null;
+      }
       case "status":
         return <Flash value={issue.statusId} className="inline-flex">{statusAction()}</Flash>;
       case "assignee":

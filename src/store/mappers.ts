@@ -401,6 +401,8 @@ export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
     subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
+    // repeat приходит только в списке; ответы на правку его не несут — держим прежнее.
+    repeat: dto.repeat === undefined ? prev?.repeat ?? null : dto.repeat,
     epicChildrenCount: dto.epicChildrenCount ?? prev?.epicChildrenCount ?? null,
     watch: dto.watch ?? prev?.watch ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),

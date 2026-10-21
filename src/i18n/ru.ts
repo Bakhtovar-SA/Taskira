@@ -780,6 +780,8 @@ const ru = {
   "issue.downloadFile": "Скачать «{filename}»",
   "issue.deleteAttachment": "Удалить вложение",
   "issue.attachFile": "+ прикрепить файл",
+  "board.repeatTip": "Повторяется: {schedule}",
+  "board.repeatPaused": "повтор приостановлен",
   "board.subtasksTip": "Подзадачи: готово {done} из {total}",
   "issue.watchers": "следят: {n}",
   "issue.watchFailed": "Не удалось изменить подписку",

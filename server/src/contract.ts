@@ -1037,6 +1037,9 @@ export const IssueDto = z.object({
   /** Подзадачи total/done (включая архив). В списке `GET …/issues` — у каждой строки (карточка доски показывает
    *  «2/5»); в ответах на правку может отсутствовать — клиент тогда держит прежнее значение. */
   subtasksSummary: SubtasksSummaryDto.optional(),
+  /** Повторение (только в списке `GET …/issues`): правило проекта, по которому задача создана или которое она задаёт.
+   *  null/нет — не повторяется. Нужен карточке и строке списка, когда у задачи нет срока. */
+  repeat: z.object({ schedule: RecurrenceSchedule, timeOfDay: z.string(), paused: z.boolean() }).nullable().optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
 export const IssueMutationResultDto = IssueDto.extend({ undo: IssueUndoDto.optional() });

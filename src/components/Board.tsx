@@ -19,14 +19,15 @@ import { createExternalStore, useExternalStore, type ExternalStore } from "../st
 import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
-import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, PriorityIcon, StatusGlyph } from "../icons";
-import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
+import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcRepeat, IcSubtasks, PriorityIcon, StatusGlyph } from "../icons";
+import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyOverlay";
 import { BoardFilterSummary } from "./BoardFilterSummary";
 import { Button } from "../ds/Button";
-import { EmptyState, Skeleton } from "../ds/Display";
+import { recurrenceText } from "../recurrenceText";
+import { EmptyState, Skeleton, Tag } from "../ds/Display";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
@@ -123,7 +124,10 @@ const Card = memo(function Card({
   selected: boolean;
   onToggleSelect: (id: string) => void;
 }) {
-  const { t, lang } = useT();
+  const { t, tn, lang } = useT();
+  // Повторяющаяся задача без срока показывает расписание на месте срока; со сроком — только значок рядом с ним.
+  const repeatText = issue.repeat ? recurrenceText(issue.repeat.schedule, t, tn) : "";
+  const repeatTip = issue.repeat ? t("board.repeatTip", { schedule: repeatText }) + (issue.repeat.paused ? ` — ${t("board.repeatPaused")}` : "") : "";
   const assignees = useMemo(
     () => issue.assigneeIds.map((id) => usersById.get(id)).filter((u): u is User => !!u),
     [issue.assigneeIds, usersById],
@@ -239,6 +243,10 @@ const Card = memo(function Card({
         <i ref={cssVars({ "--direction-color": directionColor(epic.id, epic.color) })} />
         <span>{epic.title}</span>
       </div>}
+      {issue.labels.length > 0 && <div className="board-card-labels" title={issue.labels.join(", ")}>
+        {issue.labels.slice(0, 2).map(l => <Tag key={l} size="sm" tone={labelTone(l)}>{l}</Tag>)}
+        {issue.labels.length > 2 && <span className="board-card-labels-more tabular">+{issue.labels.length - 2}</span>}
+      </div>}
       <div className="board-card-meta">
         <PriorityIcon p={issue.priorityId} size={17} />
         <span className="board-card-key tabular">{issue.key}</span>
@@ -248,6 +256,10 @@ const Card = memo(function Card({
           aria-label={overdue ? t("board.overdueDate", { date: fmtDate(issue.dueDate, lang) }) : undefined}>
           <DueRing due={issue.dueDate} today={today} done={doneCat} size={14} />
           <span>{fmtDate(issue.dueDate, lang)}</span>
+        </span>}
+        {repeatTip && <span className="board-card-repeat" data-paused={issue.repeat?.paused || undefined} data-solo={!issue.dueDate || undefined} title={repeatTip} aria-label={repeatTip}>
+          <IcRepeat size={14} />
+          {!issue.dueDate && <span>{repeatText}</span>}
         </span>}
         <span className="board-card-assignees ml-auto flex items-center gap-2">
           {!!issue.subtasksSummary?.total && <span
