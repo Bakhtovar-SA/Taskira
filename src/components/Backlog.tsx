@@ -18,6 +18,7 @@ import { LIMITS } from "../validation";
 import { issuesApi, savedViewsApi, type IssueEpic, type IssueFilterParams, type SavedViewInput, type ServerSavedView } from "../api";
 import { DueRing, IcBacklog, IcCalendar, IcCheck, IcChevD, IcDisplay, IcDots, IcFilter, IcInbox, IcUsers, IcFlag, IcDiamond, IcPencil, IcPlus, IcStar, IcTrash, IcX, PriorityIcon, StatusGlyph, TypeIcon } from "../icons";
 import { directionColor, labelTone } from "../ui";
+import { RepeatMark } from "./RepeatMark";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Button } from "../ds/Button";
 import { DatePicker } from "../ds/DatePicker";
@@ -125,13 +126,19 @@ function Row({
             {issue.labels.length > 2 && <span className="text-[12.5px] tabular text-faint">+{issue.labels.length - 2}</span>}
           </span>
         );
-      case "due":
-        return issue.dueDate ? (
-          <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
-            <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
-            {fmtDate(issue.dueDate, lang)}
+      case "due": {
+        const repeat = issue.repeat && <RepeatMark repeat={issue.repeat} solo={!issue.dueDate} className="list-repeat" />;
+        // Повторяющаяся задача без срока показывает расписание на месте срока; со сроком — значок рядом.
+        return issue.dueDate || repeat ? (
+          <span className="flex min-w-0 items-center gap-2">
+            {issue.dueDate && <span className="list-due tabular" data-urgency={urgency} title={overdue ? t("board.quickChip.overdue") : undefined}>
+              <DueRing due={issue.dueDate} today={today} done={status?.category === "done"} />
+              {fmtDate(issue.dueDate, lang)}
+            </span>}
+            {repeat}
           </span>
         ) : null;
+      }
       case "status":
         return <Flash value={issue.statusId} className="inline-flex">{statusAction()}</Flash>;
       case "assignee":

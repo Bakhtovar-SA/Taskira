@@ -24,6 +24,7 @@ import { setIssueReminder, validateReminder } from "../services/issueReminders.j
 import { roleCan } from "../permissions.js";
 import { forbidden } from "../middleware.js";
 import { assertValidTiming } from "../services/recurrence.js";
+import { issueRepeatBatch } from "../services/recurring.js";
 import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import {
@@ -254,7 +255,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
       const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
       const pageIds = pageRows.map((r) => r.id);
-      const [assigneesByIssue, subtasksByIssue] = await Promise.all([listAssigneeIdsBatch(pageIds), subtasksSummaryBatch(pageIds)]);
+      const [assigneesByIssue, subtasksByIssue, repeatByIssue] = await Promise.all([listAssigneeIdsBatch(pageIds), subtasksSummaryBatch(pageIds), issueRepeatBatch(project.id, pageIds)]);
       if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
       const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
       const pageMeta: IssueListPageMeta = {
@@ -273,7 +274,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const payload = {
         items: pageRows.map((r) =>
           maskSprintId(
-            { ...mapIssue(r, assigneesByIssue.get(r.id) ?? []), subtasksSummary: subtasksByIssue.get(r.id) ?? { total: 0, done: 0 } },
+            { ...mapIssue(r, assigneesByIssue.get(r.id) ?? []), subtasksSummary: subtasksByIssue.get(r.id) ?? { total: 0, done: 0 }, repeat: repeatByIssue.get(r.id) ?? null },
             project.sprintsEnabled,
           ),
         ),

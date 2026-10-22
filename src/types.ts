@@ -1,6 +1,7 @@
 import type {
   ACCESS_ROLES,
   ActivityEvent,
+  IssueRepeatDto,
   ActivityDto,
   CommentDto,
   AssignedIssueDto,
@@ -209,6 +210,8 @@ export interface Issue {
    *  заполняется при открытии карточки (GET /issues/:id); null, пока не
    *  загружено (список задач его не знает — см. subtasksSummary в api/index.ts). */
   subtasksSummary: { total: number; done: number } | null;
+  /** Повторение (приходит в списке задач): правило, по которому задача создана или которое она задаёт; null — нет. */
+  repeat?: IssueRepeatDto | null;
   /** Число активных задач с epic_id = эта (детальный GET /issues/:id); null, пока карточка не открыта.
    *  > 0 — задача уже «направление»: ей нельзя выбрать своё направление. */
   epicChildrenCount: number | null;

@@ -20,13 +20,14 @@ import type { PermId } from "../permissions";
 import { canTransition, fmtDate } from "../store/mappers";
 import type { Issue, Status, User } from "../types";
 import { DueRing, IcArchive, IcBoard, IcCheck, IcEye, IcMove, IcPlus, IcSubtasks, PriorityIcon, StatusGlyph } from "../icons";
-import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor } from "../ui";
+import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL, directionColor, labelTone } from "../ui";
 import { UserAvatarGroup } from "./UserAvatar";
 import { Checkbox } from "../ds/Field";
 import { Menu } from "../ds/LazyOverlay";
 import { BoardFilterSummary } from "./BoardFilterSummary";
 import { Button } from "../ds/Button";
-import { EmptyState, Skeleton } from "../ds/Display";
+import { RepeatMark } from "./RepeatMark";
+import { EmptyState, Skeleton, Tag } from "../ds/Display";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { preloadIssueModal } from "../lazyModals";
@@ -239,6 +240,10 @@ const Card = memo(function Card({
         <i ref={cssVars({ "--direction-color": directionColor(epic.id, epic.color) })} />
         <span>{epic.title}</span>
       </div>}
+      {issue.labels.length > 0 && <div className="board-card-labels" title={issue.labels.length > 2 ? issue.labels.join(", ") : undefined}>
+        {issue.labels.slice(0, 2).map(l => <Tag key={l} size="sm" tone={labelTone(l)}>{l}</Tag>)}
+        {issue.labels.length > 2 && <span className="board-card-labels-more tabular">+{issue.labels.length - 2}</span>}
+      </div>}
       <div className="board-card-meta">
         <PriorityIcon p={issue.priorityId} size={17} />
         <span className="board-card-key tabular">{issue.key}</span>
@@ -249,6 +254,7 @@ const Card = memo(function Card({
           <DueRing due={issue.dueDate} today={today} done={doneCat} size={14} />
           <span>{fmtDate(issue.dueDate, lang)}</span>
         </span>}
+        {issue.repeat && <RepeatMark repeat={issue.repeat} solo={!issue.dueDate} className="board-card-repeat" />}
         <span className="board-card-assignees ml-auto flex items-center gap-2">
           {!!issue.subtasksSummary?.total && <span
             className="board-card-subtasks flex items-center gap-1 tabular"

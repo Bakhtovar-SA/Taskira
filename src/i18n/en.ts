@@ -779,6 +779,8 @@ const en: Record<keyof Dict, string> = {
   "issue.downloadFile": "Download “{filename}”",
   "issue.deleteAttachment": "Delete attachment",
   "issue.attachFile": "+ attach file",
+  "board.repeatTip": "Repeats: {schedule}",
+  "board.repeatPaused": "repeat paused",
   "board.subtasksTip": "Subtasks: {done} of {total} done",
   "issue.watchers": "watching: {n}",
   "issue.watchFailed": "Couldn't change the subscription",

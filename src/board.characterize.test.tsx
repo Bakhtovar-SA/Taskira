@@ -409,7 +409,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("5. карточка показывает название, ключ и исполнителя, скрывает метки; клик по карточке открывает задачу", async () => {
+  test("5. карточка показывает название, ключ и исполнителя, показывает метки; клик по карточке открывает задачу", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
         params.status === "s1"
@@ -422,7 +422,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     });
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
-    expect(within(card).queryByText("billing")).toBeNull();
+    expect(within(card).getByText("billing")).toBeTruthy();
     // Исполнитель остаётся доступен по имени, а вместо инициалов показан портрет.
     expect(within(card).getByRole("img", { name: "Борис Петров" }).querySelector(".ds-av-portrait")).toBeTruthy();
 
@@ -488,6 +488,36 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const med = screen.getByRole("article", { name: /A21-m1/ });
     expect(within(med).getByRole("img", { name: "Средний" })).toBeTruthy();
     expect(within(med).queryByLabelText(/Подзадачи/)).toBeNull();
+    h.ui.unmount();
+  });
+
+  test("5c. метки и повторение на карточке: две метки и «+N»; повтор без срока — расписанием, со сроком — значком", async () => {
+    const weekly = { schedule: { kind: "weekly" as const, every: 1, weekdays: [1] }, timeOfDay: "09:00", paused: false };
+    const h = await setup({
+      pageImpl: async (_p, params) =>
+        params.status === "s1"
+          ? {
+              items: [
+                dto("l1", { statusId: "s1", labels: ["billing", "urgent", "infra"], repeat: weekly }),
+                dto("l2", { statusId: "s1", dueDate: "2099-01-01", repeat: { ...weekly, paused: true } }),
+                dto("l3", { statusId: "s1" }),
+              ],
+              hasMore: false,
+              nextCursor: null,
+            }
+          : { items: [], hasMore: false, nextCursor: null },
+    });
+    const first = screen.getByRole("article", { name: /A21-l1/ });
+    expect(within(first).getByText("billing")).toBeTruthy();
+    expect(within(first).getByText("urgent")).toBeTruthy();
+    expect(within(first).queryByText("infra")).toBeNull();
+    expect(within(first).getByText("+1")).toBeTruthy();
+    const solo = within(first).getByText(/Повторяется:/).parentElement!;
+    expect(solo.textContent).toMatch(/Повторяется: .+/); // расписание текстом, срока нет; префикс — для скринридера
+    const dated = within(screen.getByRole("article", { name: /A21-l2/ })).getByLabelText(/^Повторяется: .*повтор приостановлен$/);
+    expect(dated.textContent).toBe(""); // со сроком — только значок
+    const plain = screen.getByRole("article", { name: /A21-l3/ });
+    expect(within(plain).queryByLabelText(/Повторяется/)).toBeNull();
     h.ui.unmount();
   });
 

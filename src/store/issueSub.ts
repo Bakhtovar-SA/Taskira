@@ -245,6 +245,13 @@ export function useIssueSubActions(
     [requirePerm, handleApiError, withIssue],
   );
 
+  /* Повторение приходит только в списке задач; после правки в карточке обновляем его на месте, не дожидаясь перечитывания. */
+  const setIssueRepeat = useCallback(
+    (issueId: string, repeat: Issue["repeat"]) =>
+      setData((prev) => ({ ...prev, issues: prev.issues.map((i) => (i.id === issueId ? { ...i, repeat } : i)) })),
+    [setData],
+  );
+
   /* -------- вложения (attachments, миграция 010) -------- */
 
   const patchIssueAttachments = (issueId: string, fn: (list: Attachment[]) => Attachment[]) =>
@@ -320,6 +327,7 @@ export function useIssueSubActions(
     toggleChecklistItem,
     removeChecklistItem,
     setCustomFieldValue,
+    setIssueRepeat,
     uploadAttachment,
     removeAttachment,
     downloadAttachment,

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { issueAutomationApi } from './api';
 export type { IssueRecurrenceBody, IssueAutomationDto };
 export type AutomationValue = { recurrence: (IssueRecurrenceBody & { sourceIssueId?: string | null }) | null; remindAt: string | null };
-export function useIssueAutomation(projectId: string, issueId?: string) {
+/** `onRepeat` получает актуальное правило после сохранения повтора — чтобы карточка на доске не ждала перечитывания списка. */
+export function useIssueAutomation(projectId: string, issueId?: string, onRepeat?: (issueId: string, repeat: IssueAutomationDto['recurrence']) => void) {
  const [value,setValue]=useState<IssueAutomationDto|null>(null),[error,setError]=useState<unknown>(null),[loading,setLoading]=useState(false);
  const epoch=useRef(0);
  const load=()=>{const current=++epoch.current;setValue(null);setError(null);if(!projectId||!issueId)return;setLoading(true);
@@ -14,7 +15,7 @@ export function useIssueAutomation(projectId: string, issueId?: string) {
   if(!issueId)return;const current=epoch.current;
   if(kind==='repeat'){if(next)await issueAutomationApi.repeat(projectId,issueId,next as IssueRecurrenceBody);else await issueAutomationApi.stopRepeat(projectId,issueId)}
   else {if(next)await issueAutomationApi.remind(projectId,issueId,next as string);else await issueAutomationApi.clearReminder(projectId,issueId)}
-  const fresh=await issueAutomationApi.get(projectId,issueId);if(epoch.current===current)setValue(fresh);
+  const fresh=await issueAutomationApi.get(projectId,issueId);if(kind==='repeat')onRepeat?.(issueId,fresh.recurrence);if(epoch.current===current)setValue(fresh);
  };
  return {value,error,loading,load,save};
 }

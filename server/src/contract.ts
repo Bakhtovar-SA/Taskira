@@ -361,9 +361,10 @@ export const RecurrenceSchedule = z.discriminatedUnion("kind", [
 ]);
 export type RecurrenceSchedule = z.infer<typeof RecurrenceSchedule>;
 
+const recurrenceTimeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const recurringTiming = {
   schedule: RecurrenceSchedule,
-  timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  timeOfDay: recurrenceTimeOfDay,
   timeZone: oneLine(100, 1),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 };
@@ -1003,6 +1004,9 @@ export const ActivityDto = z.object({
 });
 export type ActivityDto = z.infer<typeof ActivityDto>;
 
+/** Повторение задачи для карточки/строки списка: расписание правила и признак паузы (без остальных полей правила). */
+export const IssueRepeatDto = z.object({ schedule: RecurrenceSchedule, timeOfDay: recurrenceTimeOfDay, paused: z.boolean() });
+export type IssueRepeatDto = z.infer<typeof IssueRepeatDto>;
 export const IssueDto = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -1037,6 +1041,9 @@ export const IssueDto = z.object({
   /** Подзадачи total/done (включая архив). В списке `GET …/issues` — у каждой строки (карточка доски показывает
    *  «2/5»); в ответах на правку может отсутствовать — клиент тогда держит прежнее значение. */
   subtasksSummary: SubtasksSummaryDto.optional(),
+  /** Повторение (только в списке `GET …/issues`): правило проекта, по которому задача создана или которое она задаёт.
+   *  null/нет — не повторяется. Нужен карточке и строке списка, когда у задачи нет срока. */
+  repeat: IssueRepeatDto.nullable().optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
 export const IssueMutationResultDto = IssueDto.extend({ undo: IssueUndoDto.optional() });

@@ -18,7 +18,7 @@ test("board refresh: card hierarchy, due states and closed critical priority", a
   await expect(unassigned.locator("svg > g > circle[stroke-dasharray]")).toHaveCount(1);
   await expect(card.locator(":scope > :first-child h3")).toHaveText("Единая авторизация для корпоративных сервисов");
   await expect(card.locator(".board-card-direction")).toHaveText("Корпоративная платформа");
-  await expect(page.locator(".board-card").getByText("internal-label")).toHaveCount(0);
+  await expect(page.locator(".board-card").getByText("internal-label").first()).toBeVisible();
   await expect(card.locator(".board-card-due")).toHaveAttribute("data-urgency", "late");
   for (const [id, urgency] of [["i2", "soon"], ["i3", "later"], ["i8", "done"]]) {
     await expect(page.locator(`[data-issue-id="${id}"] .board-card-due`)).toHaveAttribute("data-urgency", urgency);

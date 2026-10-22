@@ -104,6 +104,7 @@ interface Api {
   toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => Promise<boolean>;
   removeChecklistItem: (issueId: string, itemId: string) => void;
   setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
+  setIssueRepeat: (issueId: string, repeat: Issue["repeat"]) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
   downloadAttachment: (issueId: string, att: { id: string; filename: string }) => void;
@@ -408,7 +409,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const {
     addComment, addCollaborator, removeCollaborator, addIssueLink, removeIssueLink, addChecklistItem, toggleChecklistItem,
-    removeChecklistItem, setCustomFieldValue, uploadAttachment, removeAttachment, downloadAttachment,
+    removeChecklistItem, setCustomFieldValue, setIssueRepeat, uploadAttachment, removeAttachment, downloadAttachment,
   } = useIssueSubActions(storeCtx, { withIssue, resolveIssue, langRef });
 
   // Домены, вынесенные из провайдера (ТЗ 2.3): общий контекст — в ./store/ctx.
@@ -491,6 +492,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     toggleChecklistItem,
     removeChecklistItem,
     setCustomFieldValue,
+    setIssueRepeat,
     uploadAttachment,
     removeAttachment,
     downloadAttachment,
