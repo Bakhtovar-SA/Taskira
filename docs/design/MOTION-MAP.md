@@ -10,7 +10,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/boardFlip.ts:234 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/boardFlip.ts:237 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
-| src/components/Board.tsx:144 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
+| src/components/Board.tsx:141 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
 | src/components/Sidebar.tsx:191 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
@@ -114,8 +114,8 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/motion.ts:399 | waapi-wrapper | animate: frames | { duration: DUR_4_MS, easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/motion.ts:446 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/roadmapDateFlash.ts:35 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/roadmapDateFlash.ts |
-| src/store.tsx:457 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
-| src/store.tsx:470 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:458 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:471 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store/session.ts:341 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/store/session.ts:465 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/styles/reports.css:56 | css-animation | .reports-metrics > *, .reports-panels > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
