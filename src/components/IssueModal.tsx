@@ -486,14 +486,14 @@ function LinksField({ issue }: { issue: Issue }) {
 export default function IssueModal({ mode = "panel", open = true }: { mode?: IssueMode; open?: boolean }) {
   const { t, tn, lang } = useT();
   const feedId = useId();
-  const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can, uploadAttachment } = useStore();
+  const { data, ui, openIssue, updateIssue, moveStatus, addComment, deleteIssue, toast, can, uploadAttachment, setIssueRepeat } = useStore();
   const live = data.issues.find((i) => i.id === ui.selectedIssueId);
   // Закрытие снимает selectedIssueId сразу, а панель ещё ~200 мс уходит с анимацией: на это время держим последнюю
   // показанную задачу, иначе содержимое исчезло бы за один кадр.
   const [held, setHeld] = useState(live);
   if (live && live !== held) setHeld(live);
   const issue = live ?? (open ? undefined : held);
-  const automation=useIssueAutomation(data.currentProjectId,issue?.id);
+  const automation=useIssueAutomation(data.currentProjectId,issue?.id,(id,r)=>setIssueRepeat(id,r&&{schedule:r.schedule,timeOfDay:r.timeOfDay,paused:r.state==='paused'}));
   const [automationKind,setAutomationKind]=useState<AutomationKind|null>(null);
   const [automationAnchor,setAutomationAnchor]=useState<HTMLElement|null>(null);
   const openAutomation=(kind:AutomationKind,anchor:HTMLElement)=>{if(automation.error)automation.load();setAutomationKind(kind);setAutomationAnchor(anchor)};

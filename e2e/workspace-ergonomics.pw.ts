@@ -17,7 +17,7 @@ for (const theme of ["light", "dark"]) {
       // Pins the ultrawide profile (2560–3199 CSS px, zoom 1.1, --lane-max 376px => ~317-414px, see refinement-2026-10-10/report.md);
       // >=3200 px is the very wide profile at 90% of it, tested below.
       expect(lane.width).toBeLessThanOrEqual(420);
-      expect(lane.height).toBeLessThan(600);
+      expect(lane.height).toBeLessThan(660); // карточки с метками и повтором выше: строка меток ~24 px, чип расписания ~28 px
     }
     await page.screenshot({ path: test.info().outputPath(`board-wide-${theme}.png`) });
     await page.goto("/p/CORP/list?done=1");

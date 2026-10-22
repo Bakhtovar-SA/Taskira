@@ -1153,6 +1153,14 @@
 | `repeat` | object | необязательное, может быть null |
 | `undo` | object | необязательное |
 
+### IssueRepeatDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | discriminatedunion |  |
+| `timeOfDay` | string |  |
+| `paused` | boolean |  |
+
 ### IssueResolveDto
 
 | Поле | Тип | Замечания |

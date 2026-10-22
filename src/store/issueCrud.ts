@@ -69,6 +69,8 @@ export function useIssueCrudActions(
         const dto = await issuesApi.create(requestProjectId, payload.body);
         if (sessionEpochRef.current !== epoch) return null;
         const issue = mapIssue(dto);
+        // Ответ на создание не несёт repeat (его знает только список): карточка сразу показывает заданное повторение.
+        if (payload.body.recurrence) issue.repeat = { ...payload.body.recurrence, paused: false };
         markHomeStep(dataRef.current.currentUserId, "create");
         const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
         setData((prev) => {

@@ -125,3 +125,17 @@ test('rule-limit lock does not deadlock with transactions that already hold the 
   }finally{await A.query('ROLLBACK').catch(()=>{});await B.query('ROLLBACK').catch(()=>{})}
  }));
 });
+test('issue list carries repeat: source and generated issues, paused flag, source rule wins, no cross-project leak',async()=>{
+ const listRepeat=async(project:string,issue:string,token=manager)=>{const r=await call('GET',`/api/projects/${project}/issues`,token);expect(r.statusCode,r.body).toBe(200);const item=r.json().items.find((i:{id:string})=>i.id===issue);expect(item).toBeTruthy();return item.repeat};
+ expect(await listRepeat(fx.projects.p1,fx.issues.p1issue)).toBeNull();
+ await configure();
+ expect(await listRepeat(fx.projects.p1,fx.issues.p1issue)).toEqual({schedule:{kind:'daily',every:1},timeOfDay:'09:00',paused:false});
+ await q("UPDATE recurring_rules SET state='paused',paused_reason='manual',next_run_at=NULL WHERE source_issue_id=$1",[fx.issues.p1issue]);
+ expect((await listRepeat(fx.projects.p1,fx.issues.p1issue)).paused).toBe(true);
+ const {rule,issue}=await standaloneOccurrence();await q("UPDATE recurring_rules SET schedule='{\"kind\":\"daily\",\"every\":3}'::jsonb WHERE id=$1",[rule.id]);
+ expect(await listRepeat(fx.projects.p1,issue)).toEqual({schedule:{kind:'daily',every:3},timeOfDay:'09:00',paused:false});
+ await q("INSERT INTO recurring_runs(rule_id,scheduled_for,result,issue_id) VALUES($1,now(),'created',$2)",[rule.id,fx.issues.p1issue]);
+ expect(await listRepeat(fx.projects.p1,fx.issues.p1issue)).toMatchObject({schedule:{kind:'daily',every:1},paused:true});
+ await q("INSERT INTO recurring_runs(rule_id,scheduled_for,result,issue_id) VALUES($1,now()+interval '1 day','created',$2)",[rule.id,fx.issues.p2issue]);
+ expect(await listRepeat(fx.projects.p2,fx.issues.p2issue,await login(app,'admin'))).toBeNull();
+});
