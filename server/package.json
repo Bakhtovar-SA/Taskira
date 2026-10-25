@@ -26,18 +26,18 @@
     "password:reset": "tsx src/resetPassword.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1152.0",
-    "@aws-sdk/lib-storage": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1155.0",
+    "@aws-sdk/lib-storage": "^3.1155.0",
     "@fastify/cors": "^11.3.1",
     "@fastify/helmet": "^13.2.0",
-    "@fastify/jwt": "^10.2.4",
+    "@fastify/jwt": "^10.2.5",
     "@fastify/multipart": "^9.4.0",
     "@fastify/rate-limit": "^11.2.1",
     "@fastify/websocket": "^11.3.4",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.12.7",
     "ldapts": "^9.2.0",
-    "nodemailer": "^10.1.1",
+    "nodemailer": "^10.2.0",
     "pg": "^8.23.1",
     "zod": "^3.24.1"
   },
@@ -49,11 +49,11 @@
     "autocannon": "^8.0.0",
     "cross-env": "^10.1.0",
     "ldapjs": "^3.0.7",
-    "mailparser": "^3.9.39",
-    "smtp-server": "^3.19.22",
+    "mailparser": "^3.12.2",
+    "smtp-server": "^3.21.0",
     "tsx": "^4.23.15",
     "typescript": "^5.7.2",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "hyperid": { "uuid": "11.1.1" }
