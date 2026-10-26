@@ -1227,7 +1227,7 @@ export const NotificationDto = z.object({
   actor: ActorMini.nullable(),
   projectId: z.string().nullable(),
   issueId: z.string().nullable(),
-  payload: z.record(z.union([z.string(), z.boolean()]).optional()),
+  payload: z.record(z.string(), z.union([z.string(), z.boolean()]).optional()),
   createdAt: z.string(),
   read: z.boolean(),
 });
@@ -1322,7 +1322,7 @@ export const IssueResolveDto = z.object({
 export type IssueResolveDto = z.infer<typeof IssueResolveDto>;
 
 /** GET …/issues/counts: число активных задач набора и разбивка по статусам. */
-export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.number()) });
+export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.string(), z.number()) });
 export type IssueCountsDto = z.infer<typeof IssueCountsDto>;
 
 /** GET …/issues/assignees: исполнители проекта (для фильтра доски), по убыванию числа задач. */
