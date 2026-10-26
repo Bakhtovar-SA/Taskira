@@ -69,7 +69,7 @@ ${rows(stamped)}
 
 /* ---------------- zod → markdown ---------------- */
 type Def = { type: string; [k: string]: unknown };
-const defOf = (s: unknown): Def => (s as { _def: Def })._def;
+const defOf = (s: unknown): Def => (s as { _zod: { def: Def } })._zod.def;
 type Check = { check?: string; format?: string; minimum?: number; maximum?: number; length?: number; value?: number; inclusive?: boolean };
 const checksOf = (d: Def): Check[] => ((d.checks as { _zod?: { def: Check }; def?: Check }[] | undefined) ?? [])
   .map((c) => c._zod?.def ?? c.def ?? {});
@@ -147,7 +147,7 @@ function objectShape(schema: unknown): Record<string, unknown> | null {
 
 async function apiSchemas(): Promise<string> {
   const mod = (await import(pathToFileURL(join(root, "server", "src", "contract.ts")).href)) as Record<string, unknown>;
-  const isZod = (v: unknown): boolean => typeof v === "object" && v !== null && "_def" in (v as object) && typeof (v as { safeParse?: unknown }).safeParse === "function";
+  const isZod = (v: unknown): boolean => typeof v === "object" && v !== null && "_zod" in (v as object) && typeof (v as { safeParse?: unknown }).safeParse === "function";
   const names = Object.keys(mod).filter((k) => isZod(mod[k])).sort();
   // Запрос — то, что клиент шлёт: суффиксы Body/Query/Params (так названы все схемы запросов в contract.ts). Всё остальное —
   // форма данных ответа (…Dto, IssueListPageMeta, SafeUser, ReportRow и т. п.): по умолчанию «ответ», а не «запрос», чтобы

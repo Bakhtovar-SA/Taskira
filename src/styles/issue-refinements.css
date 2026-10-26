@@ -3,7 +3,7 @@
 .issue-description-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); }
 .issue-description-head .issue-section-label { margin: 0; font-size: 13px; font-weight: 700; line-height: 1.4; letter-spacing: 0.01em; color: var(--text-2); }
 .issue-description-text { max-width: 70ch; font-size: 17px; font-weight: 400; line-height: 1.65; color: var(--text-1); overflow-wrap: anywhere; }
-.issue-description-editor { font-size: 17px; line-height: 1.65; color: var(--text-1); }
+.issue-description-editor { max-width: calc(70ch + 26px); font-size: 17px; line-height: 1.65; color: var(--text-1); }
 .issue-invite-popover { width: min(320px, calc(100vw - 32px)); padding: 14px; }
 .issue-details-toggle { display: none; }
 .create-issue-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; width: 100%; }
