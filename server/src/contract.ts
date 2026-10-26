@@ -100,7 +100,8 @@ export type PriorityId = (typeof PRIORITIES)[number];
 export type ComplexityId = (typeof COMPLEXITIES)[number];
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
-const uuid = z.string().uuid("Ожидается UUID");
+// Keep accepting UUID-shaped legacy ids that Zod 3 accepted, including non-RFC variants.
+const uuid = z.guid({ error: "Ожидается UUID" });
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
 const isoDate = (msg = "Ожидается дата в формате ГГГГ-ММ-ДД") => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg);
 
@@ -979,14 +980,14 @@ export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("complexity"), from: z.enum(COMPLEXITIES).nullable(), to: z.enum(COMPLEXITIES).nullable() }),
   z.object({ kind: z.literal("due"), from: z.string().nullable(), to: z.string().nullable() }),
-  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: z.string().uuid().optional() }),
-  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: z.string().uuid().optional() }),
+  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: uuid.optional() }),
+  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: uuid.optional() }),
   /** Массовая операция: назначен один человек на всю выборку или исполнители сняты. */
-  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: z.string().uuid().nullable().optional() }),
+  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: uuid.nullable().optional() }),
   z.object({ kind: z.literal("direction") }),
   z.object({ kind: z.literal("parent"), set: z.boolean() }),
   z.object({ kind: z.literal("labels") }),
-  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: uuid.optional(), toId: uuid.optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
   z.object({ kind: z.literal("checklistRemoved") }),
   z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),

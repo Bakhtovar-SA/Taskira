@@ -129,13 +129,13 @@
 |---|---|---|
 | `name` | string | длина 1…80 |
 | `shared` | boolean | необязательное; по умолчанию false |
-| `widgets` | array&lt;discriminatedunion&gt; | необязательное; по умолчанию []; 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | необязательное; по умолчанию []; 0…24 эл. |
 
 ### DashboardDataBody
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | 0…24 эл. |
 | `projectId` | string (uuid) | необязательное |
 
 ### DashboardParams
@@ -150,7 +150,7 @@
 |---|---|---|
 | `name` | string | необязательное; длина 1…80 |
 | `shared` | boolean | необязательное |
-| `widgets` | array&lt;discriminatedunion&gt; | необязательное; 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | необязательное; 0…24 эл. |
 
 ### DepartmentBody
 
@@ -354,7 +354,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -504,7 +504,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | 0…24 эл. |
 
 ### ProjectParams
 
@@ -542,7 +542,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -551,7 +551,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -572,7 +572,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion | необязательное |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) | необязательное |
 | `timeOfDay` | string | необязательное |
 | `timeZone` | string | необязательное; длина 1…100 |
 | `startDate` | string | необязательное |
@@ -770,12 +770,12 @@
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `text` | string |  |
-| `event` | discriminatedunion | может быть null |
+| `event` | union (kind: `"created"` \| `"renamed"` \| `"description"` \| `"priority"` \| `"complexity"` \| `"due"` \| `"assigneeAdded"` \| `"assigneeRemoved"` \| `"assigneeBulk"` \| `"direction"` \| `"parent"` \| `"labels"` \| `"status"` \| `"checklistAdded"` \| `"checklistRemoved"` \| `"link"`) | может быть null |
 | `createdAt` | string |  |
 
 ### ActivityEvent
 
-`discriminatedunion`
+union (kind: `"created"` \| `"renamed"` \| `"description"` \| `"priority"` \| `"complexity"` \| `"due"` \| `"assigneeAdded"` \| `"assigneeRemoved"` \| `"assigneeBulk"` \| `"direction"` \| `"parent"` \| `"labels"` \| `"status"` \| `"checklistAdded"` \| `"checklistRemoved"` \| `"link"`)
 
 ### ApiTokenAdminDto
 
@@ -863,7 +863,7 @@
 
 ### BulkIssueAction
 
-`discriminatedunion`
+union (action: `"status"` \| `"assignee"` \| `"priority"` \| `"delete"`)
 
 ### BulkIssueResultDto
 
@@ -940,7 +940,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `results` | record&lt;string, discriminatedunion&gt; |  |
+| `results` | record&lt;string, union (type: `"projects"` \| `"projectHealth"` \| `"milestones"` \| `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"error"`)&gt; |  |
 
 ### DashboardDto
 
@@ -952,16 +952,16 @@
 | `projectId` | string | может быть null |
 | `ownerId` | string | может быть null |
 | `canEdit` | boolean |  |
-| `widgets` | array&lt;discriminatedunion&gt; |  |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; |  |
 | `updatedAt` | string |  |
 
 ### DashboardWidget
 
-`discriminatedunion`
+union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)
 
 ### DashboardWidgets
 
-`array&lt;discriminatedunion&gt;`
+array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt;
 
 ### DepartmentDto
 
@@ -1157,7 +1157,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `paused` | boolean |  |
 
@@ -1283,7 +1283,7 @@
 
 ### OpsKind
 
-`enum: `backup` \| `restore_drill``
+enum: `backup` \| `restore_drill`
 
 ### OpsRunDto
 
@@ -1399,7 +1399,7 @@
 
 ### RecurrenceSchedule
 
-`discriminatedunion`
+union (kind: `"daily"` \| `"weekly"` \| `"monthly"`)
 
 ### RecurringConfigDto
 
@@ -1412,7 +1412,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -1644,7 +1644,7 @@
 
 ### StatusState
 
-`enum: `ok` \| `warn` \| `fail` \| `off` \| `unknown``
+enum: `ok` \| `warn` \| `fail` \| `off` \| `unknown`
 
 ### SubtasksSummaryDto
 
@@ -1655,7 +1655,7 @@
 
 ### SystemCheck
 
-`discriminatedunion`
+union (id: `"database"` \| `"storage"` \| `"mail"` \| `"ldap"` \| `"jobs"` \| `"license"` \| `"search"` \| `"backup"` \| `"restoreDrill"` \| `"webhooks"` \| `"recurring"`)
 
 ### SystemStatusDto
 
@@ -1663,7 +1663,7 @@
 |---|---|---|
 | `version` | string |  |
 | `checkedAt` | string |  |
-| `checks` | array&lt;discriminatedunion&gt; |  |
+| `checks` | array&lt;union (id: `"database"` \| `"storage"` \| `"mail"` \| `"ldap"` \| `"jobs"` \| `"license"` \| `"search"` \| `"backup"` \| `"restoreDrill"` \| `"webhooks"` \| `"recurring"`)&gt; |  |
 
 ### TransitionDto
 
@@ -1734,7 +1734,7 @@
 
 ### WebhookDeliveryState
 
-`enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled``
+enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled`
 
 ### WebhookDto
 
@@ -1756,7 +1756,7 @@
 
 ### WebhookEventType
 
-`enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due``
+enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due`
 
 ### WebhookQueuedDto
 
@@ -1779,7 +1779,7 @@
 
 ### WidgetDataDto
 
-`discriminatedunion`
+union (type: `"projects"` \| `"projectHealth"` \| `"milestones"` \| `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"error"`)
 
 ### WorkflowDto
 

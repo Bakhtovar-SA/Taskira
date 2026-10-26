@@ -152,7 +152,7 @@ function deliveryDto(row: DeliveryRow): WebhookDeliveryDto {
 const deliverySelect = `SELECT d.*, e.event_id AS public_event_id, e.type, e.issue_key, e.payload,
   to_char(d.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
   FROM webhook_deliveries d JOIN integration_events e ON e.id=d.event_id`;
-const Cursor = z.object({ at: z.string().datetime({ precision: 6 }), id: z.string().uuid() }).strict();
+const Cursor = z.object({ at: z.string().datetime({ precision: 6 }), id: z.guid() }).strict();
 function readCursor(raw: string | undefined): z.infer<typeof Cursor> | null {
   if (raw === undefined) return null;
   try {

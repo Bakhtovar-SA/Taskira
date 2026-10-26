@@ -96,7 +96,8 @@ function describe(schema: unknown): { type: string; optional: boolean; nullable:
       const c = checksOf(d);
       const min = c.find((x) => x.check === "min_length")?.minimum;
       const max = c.find((x) => x.check === "max_length")?.maximum;
-      const kinds = [d.format, ...c.map((x) => x.format)].filter((k) => ["uuid", "email", "datetime", "url"].includes(String(k)));
+      const kinds = [d.format, ...c.map((x) => x.format)].filter((k) => ["uuid", "guid", "email", "datetime", "url"].includes(String(k)))
+        .map((k) => k === "guid" ? "uuid" : k);
       if (kinds.length) type = `string (${kinds.join(", ")})`;
       if (min !== undefined || max !== undefined) notes.push(`длина ${min ?? 0}…${max ?? "∞"}`);
       break;
@@ -124,7 +125,20 @@ function describe(schema: unknown): { type: string; optional: boolean; nullable:
       break;
     }
     case "record": type = `record&lt;string, ${describe(d.valueType).type}&gt;`; break;
-    case "union": type = d.discriminator ? "discriminatedunion" : (d.options as unknown[]).map((o) => describe(o).type).join(" \\| "); break;
+    case "union": {
+      const options = d.options as unknown[];
+      if (d.discriminator) {
+        const field = String(d.discriminator);
+        const variants = options.map((o) => {
+          const tag = objectShape(o)?.[field];
+          return tag ? describe(tag).type : describe(o).type;
+        });
+        type = `union (${field}: ${variants.join(" \\| ")})`;
+      } else {
+        type = options.map((o) => describe(o).type).join(" \\| ");
+      }
+      break;
+    }
     case "pipe": type = "pipeline"; break;
     case "object": type = "object"; break;
     case "any": case "unknown": type = "any"; break;
@@ -155,7 +169,10 @@ async function apiSchemas(): Promise<string> {
   const kindOf = (n: string) => (/(Body|Query|Params)$/.test(n) ? "request" : "response");
   const section = (n: string): string => {
     const shape = objectShape(mod[n]);
-    if (!shape) return `### ${n}\n\n\`${describe(mod[n]).type}\`\n`;
+    if (!shape) {
+      const type = describe(mod[n]).type;
+      return `### ${n}\n\n${type.includes("`") ? type : `\`${type}\``}\n`;
+    }
     const rows = Object.entries(shape).map(([field, sch]) => {
       const d = describe(sch);
       const flags = [d.optional ? "необязательное" : "", d.nullable ? "может быть null" : ""].filter(Boolean).join(", ");
