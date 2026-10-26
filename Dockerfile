@@ -19,8 +19,8 @@ COPY . .
 RUN npm run build
 
 FROM nginx:1.30.6-alpine3.24
-# Подтягиваем исправления пакетов Alpine, выпущенные после сборки базового образа.
-RUN apk upgrade --no-cache
+# Обновляем только пакеты с известными исправлениями после сборки базового образа.
+RUN apk upgrade --no-cache brotli-libs curl libcurl libexpat libx11 pcre2 tiff
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

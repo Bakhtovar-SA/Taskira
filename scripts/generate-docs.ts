@@ -70,7 +70,7 @@ ${rows(stamped)}
 /* ---------------- zod → markdown ---------------- */
 type Def = { type: string; [k: string]: unknown };
 const defOf = (s: unknown): Def => (s as { _def: Def })._def;
-type Check = { check?: string; format?: string; minimum?: number; maximum?: number; value?: number; inclusive?: boolean };
+type Check = { check?: string; format?: string; minimum?: number; maximum?: number; length?: number; value?: number; inclusive?: boolean };
 const checksOf = (d: Def): Check[] => ((d.checks as { _zod?: { def: Check }; def?: Check }[] | undefined) ?? [])
   .map((c) => c._zod?.def ?? c.def ?? {});
 
@@ -118,7 +118,7 @@ function describe(schema: unknown): { type: string; optional: boolean; nullable:
       const c = checksOf(d);
       const min = c.find((x) => x.check === "min_length")?.minimum;
       const max = c.find((x) => x.check === "max_length")?.maximum;
-      const exact = c.find((x) => x.check === "length_equals")?.value;
+      const exact = c.find((x) => x.check === "length_equals")?.length;
       if (exact !== undefined) notes.push(`ровно ${exact} эл.`);
       else if (min !== undefined || max !== undefined) notes.push(`${min ?? 0}…${max ?? "∞"} эл.`);
       break;
