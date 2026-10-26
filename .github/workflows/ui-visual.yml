@@ -22,6 +22,25 @@ on:
       - "nginx.conf"
 
 jobs:
+  capture-issue-baselines:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.1-noble
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright test e2e/ui.visual.pw.ts --grep "issue refresh" --update-snapshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: issue-linux-baselines
+          path: e2e/__screenshots__/issue-*-linux.png
+          retention-days: 7
   ui-visual:
     runs-on: ubuntu-24.04
     # Match the pinned Playwright version and the Linux screenshot environment.
