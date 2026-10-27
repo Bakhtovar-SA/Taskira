@@ -63,6 +63,7 @@ for (const theme of ["light", "dark", "dusk", "graphite", "dawn", "paper"]) {
     await expect(panel.locator(".issue-nav-button").last()).toHaveCSS("border-top-style", "solid");
     await expect(panel.locator(".issue-action-row .issue-status-button")).toHaveCSS("border-top-width", "1px");
     if (process.platform === "win32") await expect(panel).toHaveScreenshot(`issue-${theme}-win32.png`);
+    if (process.platform === "linux") await expect(panel).toHaveScreenshot(`issue-${theme}-linux.png`);
     const axe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();
     expect(axe.violations.filter(v => v.impact === "serious" || v.impact === "critical")).toEqual([]);
   });

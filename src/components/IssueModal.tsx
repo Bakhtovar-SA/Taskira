@@ -1085,7 +1085,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   }}
                   rows={5}
                   placeholder={t("issue.descriptionPlaceholder")}
-                  className="w-full resize-y rounded-md border border-accent bg-panel p-2.5 text-[14px] leading-relaxed outline-none ring-2 ring-accent/15"
+                  className="issue-description-editor w-full resize-y rounded-md border border-accent bg-panel p-3 outline-none ring-2 ring-accent/15"
                 />
                 <p className="mt-1 text-[13px] text-faint">{t("issue.descSaveHint")}</p>
               </div>
@@ -1109,13 +1109,13 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                     }
                   }}
                   title={t("issue.clickToEdit")}
-                  className="issue-description-text group cursor-text whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  className="issue-description-text group cursor-text whitespace-pre-wrap transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                 >
                   <MentionText text={issue.description} />
                   <IcPencil size={14} className="ml-1.5 inline align-text-bottom text-faint opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap text-[15.5px] leading-[1.6] text-sub"><MentionText text={issue.description} /></p>
+                <p className="issue-description-text whitespace-pre-wrap"><MentionText text={issue.description} /></p>
               )
             ) : editOk ? (
               <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[13.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">

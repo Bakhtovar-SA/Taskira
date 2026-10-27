@@ -24,6 +24,7 @@
  */
 import { z } from "zod";
 import { passwordPolicyError, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "./passwordPolicy.js";
+import { uuid } from "./idSchema.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
@@ -100,7 +101,6 @@ export type PriorityId = (typeof PRIORITIES)[number];
 export type ComplexityId = (typeof COMPLEXITIES)[number];
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
-const uuid = z.string().uuid("Ожидается UUID");
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
 const isoDate = (msg = "Ожидается дата в формате ГГГГ-ММ-ДД") => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg);
 
@@ -979,14 +979,14 @@ export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("complexity"), from: z.enum(COMPLEXITIES).nullable(), to: z.enum(COMPLEXITIES).nullable() }),
   z.object({ kind: z.literal("due"), from: z.string().nullable(), to: z.string().nullable() }),
-  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: z.string().uuid().optional() }),
-  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: z.string().uuid().optional() }),
+  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: uuid.optional() }),
+  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: uuid.optional() }),
   /** Массовая операция: назначен один человек на всю выборку или исполнители сняты. */
-  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: z.string().uuid().nullable().optional() }),
+  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: uuid.nullable().optional() }),
   z.object({ kind: z.literal("direction") }),
   z.object({ kind: z.literal("parent"), set: z.boolean() }),
   z.object({ kind: z.literal("labels") }),
-  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: uuid.optional(), toId: uuid.optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
   z.object({ kind: z.literal("checklistRemoved") }),
   z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),
@@ -1227,7 +1227,7 @@ export const NotificationDto = z.object({
   actor: ActorMini.nullable(),
   projectId: z.string().nullable(),
   issueId: z.string().nullable(),
-  payload: z.record(z.union([z.string(), z.boolean()]).optional()),
+  payload: z.record(z.string(), z.union([z.string(), z.boolean()]).optional()),
   createdAt: z.string(),
   read: z.boolean(),
 });
@@ -1322,7 +1322,7 @@ export const IssueResolveDto = z.object({
 export type IssueResolveDto = z.infer<typeof IssueResolveDto>;
 
 /** GET …/issues/counts: число активных задач набора и разбивка по статусам. */
-export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.number()) });
+export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.string(), z.number()) });
 export type IssueCountsDto = z.infer<typeof IssueCountsDto>;
 
 /** GET …/issues/assignees: исполнители проекта (для фильтра доски), по убыванию числа задач. */
