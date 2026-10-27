@@ -331,7 +331,7 @@ export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Iss
     // GET /issues/:id не содержит repeat. При открытии карточки локальная
     // копия побеждает строку списка, но не должна стирать её метку повтора.
     // Явный null в локальной копии означает, что правило действительно сняли.
-    return local.repeat === undefined && i.repeat !== undefined
+    return local.repeat === undefined && i.repeat != null
       ? { ...local, repeat: i.repeat }
       : local;
   });

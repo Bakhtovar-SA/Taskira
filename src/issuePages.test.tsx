@@ -505,6 +505,8 @@ describe("freshRows", () => {
     expect(detail.repeat).toBeUndefined();
     expect(freshRows([listed], new Map([[detail.id, detail]]))[0]).toMatchObject({ title: "Правка", repeat });
     expect(freshRows([listed], new Map([[detail.id, { ...detail, repeat: null }]]))[0].repeat).toBeNull();
+    const noRepeat = mapIssue(dto(2));
+    expect(freshRows([mapIssue(dto(2, { repeat: null }))], new Map([[noRepeat.id, noRepeat]]))[0]).toBe(noRepeat);
   });
 });
 
