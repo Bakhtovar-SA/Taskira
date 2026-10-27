@@ -14,6 +14,7 @@ import {
   type IssueSetQuery,
 } from "./issuePages";
 import type { Issue } from "./types";
+import { mapIssue } from "./store/mappers";
 
 /**
  * PERF-05: постраничный набор задач. Проверяем то, на чём стоит ленивая
@@ -496,6 +497,14 @@ describe("freshRows", () => {
     const byId = new Map([["a", mk("a", "правка")]]);
     expect(freshRows([mk("a"), mk("b"), mk("c")], byId).map((i) => i.title)).toEqual(["правка", "b", "c"]);
     expect(freshRows([mk("x")], new Map()).map((i) => i.id)).toEqual(["x"]);
+  });
+  test("открытие карточки не скрывает повтор из списка; явное снятие правила сохраняется", () => {
+    const repeat: NonNullable<Issue["repeat"]> = { schedule: { kind: "weekly", every: 1, weekdays: [2] }, timeOfDay: "09:00", paused: false };
+    const listed = mapIssue(dto(1, { repeat }));
+    const detail = mapIssue(dto(1, { title: "Правка" }));
+    expect(detail.repeat).toBeUndefined();
+    expect(freshRows([listed], new Map([[detail.id, detail]]))[0]).toMatchObject({ title: "Правка", repeat });
+    expect(freshRows([listed], new Map([[detail.id, { ...detail, repeat: null }]]))[0].repeat).toBeNull();
   });
 });
 

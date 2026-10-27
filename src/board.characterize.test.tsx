@@ -518,6 +518,10 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(dated.textContent).toBe(""); // со сроком — только значок
     const plain = screen.getByRole("article", { name: /A21-l3/ });
     expect(within(plain).queryByLabelText(/Повторяется/)).toBeNull();
+    fireEvent.click(first);
+    await settle();
+    expect(within(screen.getByRole("article", { name: /A21-l1/ })).getByText(/Повторяется:/)).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: /A21-l2/ })).getByLabelText(/^Повторяется: .*повтор приостановлен$/)).toBeTruthy();
     h.ui.unmount();
   });
 

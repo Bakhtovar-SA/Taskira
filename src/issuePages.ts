@@ -327,7 +327,13 @@ export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Iss
   // не патчится, и его старая копия со старым статусом скрывала бы карточку в новой колонке доски.
   return items.map((i) => {
     const local = byId.get(i.id);
-    return local && !(i.updatedAt > local.updatedAt) ? local : i;
+    if (!local || i.updatedAt > local.updatedAt) return i;
+    // GET /issues/:id не содержит repeat. При открытии карточки локальная
+    // копия побеждает строку списка, но не должна стирать её метку повтора.
+    // Явный null в локальной копии означает, что правило действительно сняли.
+    return local.repeat === undefined && i.repeat !== undefined
+      ? { ...local, repeat: i.repeat }
+      : local;
   });
 }
 

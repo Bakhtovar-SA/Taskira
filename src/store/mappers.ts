@@ -401,9 +401,10 @@ export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
     subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
-    // repeat приходит только в списке; ответы на правку его не несут — держим прежнее.
+    // repeat приходит только в списке; отсутствие поля в детальном ответе
+    // отличается от явного null (правило снято).
     // Тот же объект, пока правило не изменилось: иначе каждое обновление списка перерисовывало бы все повторяющиеся карточки.
-    repeat: dto.repeat === undefined ? prev?.repeat ?? null : prev?.repeat && JSON.stringify(prev.repeat) === JSON.stringify(dto.repeat) ? prev.repeat : dto.repeat,
+    repeat: dto.repeat === undefined ? prev?.repeat : prev?.repeat && JSON.stringify(prev.repeat) === JSON.stringify(dto.repeat) ? prev.repeat : dto.repeat,
     epicChildrenCount: dto.epicChildrenCount ?? prev?.epicChildrenCount ?? null,
     watch: dto.watch ?? prev?.watch ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),
