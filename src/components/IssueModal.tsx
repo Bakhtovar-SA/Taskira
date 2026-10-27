@@ -1221,11 +1221,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   </>;
 }
 
-/** Поле, которое человек не может менять: значение текстом, причина — в подсказке. Не кнопка: у читателя иначе было бы
+/** Поле, которое человек не может менять: значение текстом, причина доступна скринридеру и в баннере. Не кнопка: у читателя иначе было бы
  *  по лишней остановке Tab на каждое поле (была LockedField из ui.tsx). */
 function Locked({ reason, children }: { reason: string; children: React.ReactNode }) {
   return (
-    <div title={reason} className="flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[14px] text-faint">
+    <div aria-description={reason} className="issue-locked flex w-full cursor-not-allowed items-center gap-2 rounded-lg border border-linesoft bg-sunken px-2.5 py-1.5 text-[14px] text-faint">
       <span className="flex min-w-0 flex-1 items-center gap-2 truncate text-left">{children}</span>
       <IcLock size={14} className="shrink-0" />
     </div>

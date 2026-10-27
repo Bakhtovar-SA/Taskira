@@ -495,6 +495,11 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     // Приоритет показан текстом, но не как интерактивная кнопка-дропдаун.
     expect(screen.getByText("Средний")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Средний/ })).toBeNull();
+    // Причина запрета уже видна в баннере: системная подсказка при наведении
+    // перекрывала соседние поля и зрительно сдвигала их.
+    const lockedPriority = screen.getByText("Средний").closest("[aria-description]");
+    expect(lockedPriority?.getAttribute("aria-description")).toBeTruthy();
+    expect(lockedPriority?.hasAttribute("title")).toBe(false);
     // Комментировать нельзя: вместо поля ввода — сообщение об отказе.
     expect(screen.queryByPlaceholderText("Комментарий, @ — упомянуть")).toBeNull();
     expect(screen.getByText("Ваша роль не позволяет оставлять комментарии")).toBeTruthy();
