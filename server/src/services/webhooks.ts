@@ -6,6 +6,7 @@ import { one, q, withTransaction } from "../db.js";
 import { audit } from "../audit.js";
 import { loadConfig } from "../config.js";
 import { ApiHttpError } from "../errors.js";
+import { uuid } from "../idSchema.js";
 import { LIMITS, type WebhookCreateBody, type WebhookPatchBody, type WebhookDto, type WebhookEventType,
   type WebhookDeliveryDto, type WebhookDeliveryDetailDto, type WebhookDeliveryQuery, type IntegrationsConfigDto,
   type WebhookCreatedDto, type WebhookSecretRotatedDto, type WebhookQueuedDto, type WebhookDeliveryPageDto, type WebhookRedeliveredDto } from "../contract.js";
@@ -152,7 +153,7 @@ function deliveryDto(row: DeliveryRow): WebhookDeliveryDto {
 const deliverySelect = `SELECT d.*, e.event_id AS public_event_id, e.type, e.issue_key, e.payload,
   to_char(d.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_at
   FROM webhook_deliveries d JOIN integration_events e ON e.id=d.event_id`;
-const Cursor = z.object({ at: z.string().datetime({ precision: 6 }), id: z.guid() }).strict();
+const Cursor = z.object({ at: z.string().datetime({ precision: 6 }), id: uuid }).strict();
 function readCursor(raw: string | undefined): z.infer<typeof Cursor> | null {
   if (raw === undefined) return null;
   try {

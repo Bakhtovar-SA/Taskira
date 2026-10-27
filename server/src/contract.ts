@@ -24,6 +24,7 @@
  */
 import { z } from "zod";
 import { passwordPolicyError, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "./passwordPolicy.js";
+import { uuid } from "./idSchema.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
@@ -100,8 +101,6 @@ export type PriorityId = (typeof PRIORITIES)[number];
 export type ComplexityId = (typeof COMPLEXITIES)[number];
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
-// Keep accepting UUID-shaped legacy ids that Zod 3 accepted, including non-RFC variants.
-const uuid = z.guid({ error: "Ожидается UUID" });
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
 const isoDate = (msg = "Ожидается дата в формате ГГГГ-ММ-ДД") => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg);
 
