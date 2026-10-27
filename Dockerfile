@@ -18,12 +18,13 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.30.5-alpine3.24
-# Обновляем исправленные пакеты поверх базового образа до обновления его тега:
-# libexpat >= 2.8.5 (CVE-2026-93990), pcre2 >= 10.49-r0 (CVE-2026-103111).
-# tiff >= 4.7.2-r0 (CVE-2026-4775), libx11 >= 1.8.14-r0 (CVE-2026-88806).
+FROM nginx:1.30.6-alpine3.24
+# Исправления поверх базового образа: brotli-libs >= 1.2.1-r0 (CVE-2026-111497),
+# curl/libcurl >= 8.23.0-r0 (CVE-2026-92392), libexpat >= 2.8.5 (CVE-2026-93990),
+# pcre2 >= 10.49-r0 (CVE-2026-103111), tiff >= 4.7.2-r0 (CVE-2026-4775),
+# libx11 >= 1.8.14-r0 (CVE-2026-88806).
 # Проверка образа в CI остаётся обязательной, исключения для этих CVE не добавляются.
-RUN apk upgrade --no-cache libexpat libx11 pcre2 tiff
+RUN apk upgrade --no-cache brotli-libs curl libcurl libexpat libx11 pcre2 tiff
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

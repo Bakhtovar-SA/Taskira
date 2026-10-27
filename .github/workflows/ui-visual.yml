@@ -42,5 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ui-visual-diff
-          path: test-results/
+          path: |
+            test-results/
+            e2e/__screenshots__/issue-*-linux.png
           retention-days: 7
