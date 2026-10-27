@@ -500,7 +500,7 @@
 .issue-properties .issue-field-value > :is(button, div:not(.ds-pop), .ds-input) { max-width: 100%; }
 .issue-properties .issue-field-value > button,
 .issue-properties .issue-field-value > .ds-input,
-.issue-properties .issue-field-value > div[title] { min-height: 30px; padding: 5px 8px; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: none; border-radius: 6px; }
+.issue-properties .issue-field-value > .issue-locked { min-height: 30px; padding: 5px 8px; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: none; border-radius: 6px; }
 .issue-properties .issue-field-value > button:hover { background: var(--bg-hover); }
 .issue-properties .issue-field-value > button { text-align: left; font-size: 14px; font-weight: 600; }
 .issue-properties .issue-field-value > button .ds-adorn,
