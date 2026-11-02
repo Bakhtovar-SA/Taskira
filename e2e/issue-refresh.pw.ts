@@ -37,7 +37,7 @@ test("issue refresh: workflow action, overdue text, visible properties and subsc
   await panel.locator(".issue-action-row").getByRole("button", { name: "К выполнению", exact: true }).click();
   await page.getByRole("menuitem", { name: "В работе", exact: true }).click();
   await expect(panel.locator(".issue-action-row").getByRole("button", { name: "В работе", exact: true })).toBeVisible();
-  expect(writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null });
+  expect(writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null, expectedVersion: "2026-10-03T12:00:00.000Z" });
   await panel.getByRole("button", { name: "Отписаться", exact: true }).click();
   await expect(panel.getByText("Вы не подписаны на задачу")).toBeVisible();
   expect(writes.some(w => w.path.endsWith("/watchers/me") && w.method === "DELETE")).toBe(true);

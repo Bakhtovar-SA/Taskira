@@ -275,6 +275,7 @@ describe("optimistic write conflicts", () => {
       headers: auth(token), payload: { title, expectedVersion: issue.updatedAt },
     })));
     expect(responses.map(response => response.statusCode).sort()).toEqual([200, 409]);
+    expect(responses.find(response => response.statusCode === 409)!.json().error.code).toBe("STALE_VERSION");
     const saved = await q<{ title: string }>("SELECT title FROM issues WHERE id = $1", [issue.id]);
     expect(saved[0].title).toBe(responses.find(response => response.statusCode === 200)!.json().title);
   });
@@ -287,6 +288,7 @@ describe("optimistic write conflicts", () => {
     const moved = await app.inject({ method: "POST", url: `/api/projects/${fx.projects.p1}/issues/${issue.id}/transition`,
       headers: auth(token), payload: { to: fx.p1status.inprogress, expectedVersion: issue.updatedAt } });
     expect(moved.statusCode, moved.body).toBe(409);
+    expect(moved.json().error.code).toBe("STALE_VERSION");
   });
 
   test("normal guarded assignment still emits assignment notifications", async () => {

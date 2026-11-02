@@ -53,7 +53,7 @@ for (const width of [1920, 390]) {
     // Choosing by click sends the value; typeahead in Russian picks by first letters.
     await chooseOption(channel, "Почта");
     await expect(channel).toHaveText("Почта");
-    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf1")).map((w) => w.body)).toEqual([{ value: "Почта" }]);
+    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf1")).map((w) => w.body)).toEqual([{ value: "Почта", expectedValue: null }]);
     const level = panel.getByRole("combobox", { name: "Уровень поддержки" });
     await level.focus();
     // Playwright's keyboard has no Cyrillic keys; a Russian layout produces keydown with key «в».
@@ -61,10 +61,10 @@ for (const width of [1920, 390]) {
     await expect(page.getByRole("listbox", { name: "Уровень поддержки" })).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(level).toHaveText("Вторая линия");
-    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf2")).map((w) => w.body)).toEqual([{ value: "Вторая линия" }]);
+    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf2")).map((w) => w.body)).toEqual([{ value: "Вторая линия", expectedValue: null }]);
     // «—» clears the value (null), as the native empty option did.
     await chooseOption(channel, "—");
-    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf1")).map((w) => w.body)).toEqual([{ value: "Почта" }, { value: null }]);
+    await expect.poll(() => writes.filter((w) => w.path.endsWith("/custom-fields/cf1")).map((w) => w.body)).toEqual([{ value: "Почта", expectedValue: null }, { value: null, expectedValue: "Почта" }]);
     await expect(channel).toHaveText("—");
     await shot(page, `issue-select-closed-${width}`);
   });

@@ -153,6 +153,27 @@ describe("createIssue", () => {
 });
 
 describe("updateIssue", () => {
+  test("business conflict keeps its server reason and does not pretend the issue version changed", async () => {
+    const initial = dto("i1");
+    const { get } = await boot({ issues: [initial] });
+    vi.spyOn(issuesApi, "patch").mockRejectedValue(new ApiError(409, "CONFLICT", "Родитель недоступен"));
+    const read = vi.spyOn(issuesApi, "get");
+    await act(async () => { expect(await get().updateIssue("i1", { parentId: "i2" })).toBe(false); });
+    expect(get().toasts.at(-1)?.text).toBe("Родитель недоступен");
+    expect(find(get, "i1")!.parentId).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test("stale version refreshes the issue and reports that the draft was preserved", async () => {
+    const { get } = await boot({ issues: [dto("i1")] });
+    vi.spyOn(issuesApi, "patch").mockRejectedValue(new ApiError(409, "STALE_VERSION", "Задача изменена"));
+    const read = vi.spyOn(issuesApi, "get").mockResolvedValue(dto("i1", { title: "Серверное изменение" }));
+    await act(async () => { expect(await get().updateIssue("i1", { title: "Мой черновик" })).toBe(false); });
+    expect(read).toHaveBeenCalledWith("p1", "i1");
+    expect(find(get, "i1")!.title).toBe("Серверное изменение");
+    expect(get().toasts.at(-1)?.text).toContain("Ваш текст сохранён в редакторе");
+  });
+
   test("в API уходят только изменённые поля (заголовок обрезается); ответ сервера заменяет задачу; title → epicsRevision растёт", async () => {
     const { get } = await boot({ issues: [dto("i1")] });
     const patch = vi.spyOn(issuesApi, "patch").mockResolvedValue(dto("i1", { title: "Новый", priorityId: "high" }));

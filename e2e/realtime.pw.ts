@@ -87,7 +87,7 @@ async function collaborationFixture(browser: Browser, baseURL: string) {
           const { expectedVersion, ...patch } = request.postDataJSON();
           if (expectedVersion !== undefined && Date.parse(expectedVersion) !== Date.parse(issue.updatedAt)) {
             conflicts++;
-            return route.fulfill({ status: 409, json: { error: "conflict", message: "Задачу изменил другой участник" } });
+            return route.fulfill({ status: 409, json: { error: { code: "STALE_VERSION", reason: "Задачу изменил другой участник" } } });
           }
           Object.assign(issue, patch); changed(issue.id);
         } else if (!childPath && method === "DELETE") {
@@ -121,6 +121,10 @@ async function collaborationFixture(browser: Browser, baseURL: string) {
     await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
     await expect.poll(() => peer.subscriptions.some(item => item.projectId === "p1")).toBe(true);
     await expect.poll(() => peer.reads.length).toBeGreaterThan(0);
+    // Observe a follow-up read from the applied cursor before disconnecting.
+    // Seeing the first request alone does not mean its refresh was acknowledged.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await expect.poll(() => peer.reads.includes("0")).toBe(true);
     return peer;
   };
   const author = await addPeer(0), observer = await addPeer(1);

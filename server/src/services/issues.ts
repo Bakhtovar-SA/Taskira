@@ -1,5 +1,6 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
 import { conflict } from "./workflow.js";
+import { ApiHttpError } from "../errors.js";
 import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
@@ -161,7 +162,7 @@ export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_
 export function assertIssueWriteVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedVersion?: string): void {
   if (expectedVersion !== undefined &&
       (row.archived_at !== null || new Date(row.updated_at).getTime() !== new Date(expectedVersion).getTime())) {
-    throw conflict("Задача уже изменена другим пользователем. Обновите данные и повторите изменение");
+    throw new ApiHttpError(409, "STALE_VERSION", "Задача уже изменена другим пользователем. Обновите данные и повторите изменение");
   }
 }
 export async function loadIssueForUpdate(client: PoolClient, projectId: string, issueId: string, expectedUpdatedAt?: string): Promise<IssueRow> {

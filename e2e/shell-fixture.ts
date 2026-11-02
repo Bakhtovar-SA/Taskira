@@ -6,7 +6,6 @@ export async function shellFixture(page: Page, theme = "light", lang = "ru") {
     localStorage.setItem("taskira.theme", theme);
     localStorage.setItem("taskira.lang", lang);
   }, { theme, lang });
-  await page.routeWebSocket("**/api/ws", socket => socket.close());
   const users = [
     { id: "u1", username: "admin", name: "Анна Смирнова", initials: "АС", color: "", jobRole: "Руководитель", globalRole: "admin", isActive: true, authSource: "local" },
     { id: "u2", username: "igor", name: "Игорь Петров", initials: "ИП", color: "", jobRole: "Разработчик", globalRole: "member", isActive: true, authSource: "local" },

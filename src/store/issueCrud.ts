@@ -263,7 +263,7 @@ export function useIssueCrudActions(
         return true;
       } catch (err) {
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
-        if (err instanceof ApiError && err.status === 409) {
+        if (err instanceof ApiError && err.status === 409 && err.code === "STALE_VERSION") {
           toast("error", local("Задачу уже изменил другой участник. Ваш текст сохранён в редакторе — проверьте актуальную задачу перед повторным сохранением.", "Another member changed this issue. Your draft remains in the editor; review the latest issue before saving again."));
           try {
             const latest = await issuesApi.get(requestProjectId, id);
