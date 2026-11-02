@@ -158,10 +158,14 @@ export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_
   }
 }
 
-/** Compare under the issue row lock: a stale editor must not overwrite another author. */
-export function assertIssueWriteVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedVersion?: string): void {
-  if (expectedVersion !== undefined &&
-      (row.archived_at !== null || new Date(row.updated_at).getTime() !== new Date(expectedVersion).getTime())) {
+/** Compare under the issue row lock: a stale editor must not overwrite another author.
+ *  Millisecond comparison is exact here: every versioned write goes through ISSUE_VERSION_SQL
+ *  under this lock, which moves the token to at least truncated(previous) + 1 ms, so two
+ *  writes never share a millisecond token. Archival is not a content edit: an unguarded PATCH
+ *  of an archived issue is allowed, so the guarded one must not turn it into an unresolvable
+ *  STALE_VERSION (only conditional Undo refuses archived rows, in assertIssueVersion). */
+export function assertIssueWriteVersion(row: Pick<IssueRow, "updated_at">, expectedVersion?: string): void {
+  if (expectedVersion !== undefined && new Date(row.updated_at).getTime() !== new Date(expectedVersion).getTime()) {
     throw new ApiHttpError(409, "STALE_VERSION", "Задача уже изменена другим пользователем. Обновите данные и повторите изменение");
   }
 }

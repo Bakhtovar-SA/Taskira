@@ -407,23 +407,46 @@ describe("useIssueSet", () => {
     expect(h.set.loadingMore).toBe(true);
     act(() => h.set.revalidate());
     expect(h.set.loadingMore).toBe(false);
+    // Refused while the refresh owns pagination, but not lost: replayed from its new cursor.
     act(() => h.set.loadMore());
     expect(page).toHaveBeenCalledTimes(3);
+    page.mockResolvedValueOnce({ items: [dto(4)], hasMore: false, nextCursor: null });
     await act(async () => {
       resolveRefresh({ items: [dto(1), dto(3)], hasMore: true, nextCursor: "new" });
       await flush();
     });
+    await settle();
+    expect(page).toHaveBeenCalledTimes(4);
+    expect(page.mock.calls[3][1].cursor).toBe("new");
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3", "i4"]);
     await act(async () => {
       resolveOldPage({ items: [dto(2)], hasMore: false, nextCursor: null });
       await flush();
     });
-    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3"]);
-    expect(h.set.loadingMore).toBe(false);
-    page.mockResolvedValueOnce({ items: [dto(4)], hasMore: false, nextCursor: null });
-    await act(async () => { h.set.loadMore(); await flush(); });
-    expect(page.mock.calls[page.mock.calls.length - 1][1].cursor).toBe("new");
     expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3", "i4"]);
     expect(h.set.loadingMore).toBe(false);
+    h.unmount();
+  });
+
+  test("auto-pagination resumes when a refresh returns the same depth (calendar/list autoload)", async () => {
+    // Regression: consumers re-request from an effect keyed on items.length/hasMore/loadingMore.
+    // A refresh that returns the same 100 items with hasMore changes none of them, so a loadMore
+    // refused during the refresh must be replayed by the hook, or the set stays truncated.
+    const page = vi.spyOn(issuesApi, "page").mockResolvedValueOnce({ items: [dto(1)], hasMore: true, nextCursor: "c1" });
+    vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 2, byStatus: {} });
+    const h = mount(baseQuery());
+    await settle();
+    let resolveRefresh!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve; }));
+    act(() => h.set.revalidate());
+    act(() => h.set.loadMore());
+    expect(page).toHaveBeenCalledTimes(2);
+    page.mockResolvedValueOnce({ items: [dto(2)], hasMore: false, nextCursor: null });
+    await act(async () => { resolveRefresh({ items: [dto(1)], hasMore: true, nextCursor: "c1" }); await flush(); });
+    await settle();
+    expect(page).toHaveBeenCalledTimes(3);
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i2"]);
+    expect(h.set.hasMore).toBe(false);
     h.unmount();
   });
 

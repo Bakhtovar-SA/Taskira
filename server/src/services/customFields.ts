@@ -102,9 +102,12 @@ export async function setCustomFieldValue(
   fieldId: string, issueId: string, value: string | null, expectedValue?: string | null,
 ): Promise<void> {
   await withTransaction(async client => {
-    // Lock the parent even when the value is absent: two first writes must
-    // compare against the same baseline before either can insert a new row.
-    const issue = await client.query("SELECT id FROM issues WHERE id = $1 FOR UPDATE", [issueId]);
+    // Compare-and-set locks the parent even when the value row is absent: two first
+    // writes must compare against the same baseline before either can insert it.
+    // A blind write needs no issue lock (the upsert is atomic; the FK key-share lock
+    // covers deletion), so it does not serialize against PATCH/transition.
+    const issue = await client.query(
+      `SELECT id FROM issues WHERE id = $1${expectedValue !== undefined ? " FOR UPDATE" : ""}`, [issueId]);
     if (issue.rows.length === 0) throw notFound("Задача не найдена");
     if (expectedValue !== undefined) {
       const current = await client.query<{ value: string | null }>(

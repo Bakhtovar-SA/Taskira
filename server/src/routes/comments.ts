@@ -46,7 +46,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const { q: term = "" } = req.query as z.infer<typeof MentionCandidatesQuery>;
     const issue = await loadIssue(req.project!.id, id);
-    return listMentionCandidates(req.project!.id, issue.id, req.user.sub, term);
+    return listMentionCandidates(req.project!.id, issue.id, req.user.sub, term, req.isCollaborator === true);
   });
   // requireIssuePerm (не requirePerm): приглашённый участник задачи (collaborator)
   // видит её обсуждение целиком (COLLAB_MIGRATION.md D3).
@@ -110,7 +110,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
         issueId: iss.id,
         payload: { key: iss.key, title: iss.title },
       });
-      const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.body));
+      const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.body), req.isCollaborator === true);
       if (mentionIds.length > 0) {
         await emit({
           type: "issue.mention",

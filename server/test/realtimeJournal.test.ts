@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { acquireClient, q, withTransaction } from "../src/db.js";
 import { materializeRealtimeChanges, readRealtimeChanges } from "../src/services/realtime.js";
+import { ISSUE_VERSION_SQL } from "../src/services/issues.js";
 import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
 let app: FastifyInstance;
@@ -289,6 +290,34 @@ describe("optimistic write conflicts", () => {
       headers: auth(token), payload: { to: fx.p1status.inprogress, expectedVersion: issue.updatedAt } });
     expect(moved.statusCode, moved.body).toBe(409);
     expect(moved.json().error.code).toBe("STALE_VERSION");
+  });
+
+  test("back-to-back writes inside one millisecond still get distinct version tokens", async () => {
+    const issue = await createIssue("initial");
+    // Two versioned writes in ONE transaction share now() and usually the same clock millisecond.
+    await withTransaction(async client => {
+      await client.query(`UPDATE issues SET title = 'a', updated_at = ${ISSUE_VERSION_SQL} WHERE id = $1`, [issue.id]);
+      await client.query(`UPDATE issues SET title = 'b', updated_at = ${ISSUE_VERSION_SQL} WHERE id = $1`, [issue.id]);
+    });
+    const [row] = await q<{ updated_at: Date }>("SELECT updated_at FROM issues WHERE id = $1", [issue.id]);
+    const between = new Date(new Date(row.updated_at).getTime() - 1).toISOString();
+    expect(Date.parse(between)).toBeGreaterThan(Date.parse(issue.updatedAt));
+    const stale = await app.inject({ method: "PATCH", url: `/api/projects/${fx.projects.p1}/issues/${issue.id}`,
+      headers: auth(token), payload: { title: "stale", expectedVersion: between } });
+    expect(stale.statusCode, stale.body).toBe(409);
+    expect(stale.json().error.code).toBe("STALE_VERSION");
+    const current = await app.inject({ method: "PATCH", url: `/api/projects/${fx.projects.p1}/issues/${issue.id}`,
+      headers: auth(token), payload: { title: "fresh", expectedVersion: new Date(row.updated_at).toISOString() } });
+    expect(current.statusCode, current.body).toBe(200);
+  });
+
+  test("an archived issue with the current version is editable, not a permanent STALE_VERSION", async () => {
+    const issue = await createIssue("archived");
+    await q("UPDATE issues SET archived_at = now() WHERE id = $1", [issue.id]);
+    const response = await app.inject({ method: "PATCH", url: `/api/projects/${fx.projects.p1}/issues/${issue.id}`,
+      headers: auth(token), payload: { title: "edited after archive", expectedVersion: issue.updatedAt } });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().title).toBe("edited after archive");
   });
 
   test("normal guarded assignment still emits assignment notifications", async () => {

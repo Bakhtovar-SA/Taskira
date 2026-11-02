@@ -154,6 +154,11 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   // вызова loadMore() в одном тике (скролл + клик) прочитали бы loadingMore=false.
   const moreInFlight = useRef(false);
   const revalidating = useRef(false);
+  // loadMore() refused while a revalidation owned pagination. Callers usually
+  // re-request from an effect keyed on items/hasMore/loadingMore; a refresh that
+  // returns the same depth changes none of those, so the hook replays it itself.
+  const moreDeferred = useRef(false);
+  const [revalidationSettled, setRevalidationSettled] = useState(0);
   const queuedRevalidation = useRef<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -162,6 +167,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
     const my = ++gen.current;
     moreInFlight.current = false;
     revalidating.current = false;
+    moreDeferred.current = false;
     queuedRevalidation.current = null;
     if (!q) {
       setState(EMPTY);
@@ -201,7 +207,8 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   const loadMore = useCallback(() => {
     const q = queryRef.current;
     const s = stateRef.current;
-    if (revalidating.current || moreInFlight.current || !q || s.loading || !s.hasMore || !s.nextCursor || s.key !== issueSetKey(q)) return;
+    if (revalidating.current) { moreDeferred.current = true; return; }
+    if (moreInFlight.current || !q || s.loading || !s.hasMore || !s.nextCursor || s.key !== issueSetKey(q)) return;
     moreInFlight.current = true;
     const my = gen.current;
     setState((prev) => ({ ...prev, loadingMore: true, error: null }));
@@ -273,7 +280,11 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
       } catch {
         // Тихая ревалидация: устаревший список лучше пустого; следующее действие повторит.
       } finally {
-        if (gen.current === my) revalidating.current = false;
+        if (gen.current === my) {
+          revalidating.current = false;
+          // Same batch as the refreshed state: the replay effect sees the new cursor.
+          if (moreDeferred.current) setRevalidationSettled(n => n + 1);
+        }
       }
     })();
   }, []);
@@ -284,6 +295,12 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
       revalidate();
     }
   }, [key, state.key, state.loading, revalidate]);
+
+  useEffect(() => {
+    if (revalidationSettled === 0 || !moreDeferred.current || revalidating.current) return;
+    moreDeferred.current = false;
+    loadMore();
+  }, [revalidationSettled, loadMore]);
 
   const reload = useCallback(() => setReloadTick((n) => n + 1), []);
 

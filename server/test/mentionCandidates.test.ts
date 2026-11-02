@@ -38,6 +38,28 @@ test("issue collaborators may use the picker but cannot enumerate a different ta
   expect((await app.inject({ url: url(), headers: auth(token), query: { q: "x".repeat(81) } })).statusCode).toBe(400);
 });
 
+test("an issue-only collaborator sees and can mention only people already on the issue", async () => {
+  await q("INSERT INTO issue_collaborators(issue_id, user_id, added_by) VALUES ($1, $2, $3)",
+    [fx.issues.p1issue, fx.users.outsider, fx.users.mgr1]);
+  const guest = await login(app, "outsider");
+  // Empty query must not enumerate the project: only the reporter/assignee (emp1) is on P1-issue.
+  const listed = await app.inject({ url: url(), headers: auth(guest) });
+  expect(listed.statusCode).toBe(200);
+  expect(listed.json<{ id: string }[]>().map(person => person.id)).toEqual([fx.users.emp1]);
+  expect((await app.inject({ url: `${url()}?q=viw1`, headers: auth(guest) })).json()).toEqual([]);
+  expect((await app.inject({ url: `${url()}?q=admin`, headers: auth(guest) })).json()).toEqual([]);
+  // A typed @login of a project member outside the issue is ignored on delivery too.
+  const posted = await app.inject({ method: "POST", url: url().replace("mention-candidates", "comments"),
+    headers: auth(guest), payload: { body: "@viw1 @mgr1 @emp1 посмотрите" } });
+  expect(posted.statusCode, posted.body).toBe(201);
+  const mentioned = await q<{ user_id: string }>(
+    "SELECT user_id FROM notifications WHERE issue_id = $1 AND type = 'issue.mention'", [fx.issues.p1issue]);
+  expect(mentioned.map(row => row.user_id)).toEqual([fx.users.emp1]);
+  // Project members keep the full picker.
+  const member = (await app.inject({ url: url(), headers: auth(token) })).json<{ id: string }[]>().map(person => person.id);
+  expect(member).toContain(fx.users.viw1);
+});
+
 test("choosing a suggested login creates exactly one mention notification and pushes it to the recipient", async () => {
   const recipientToken = await login(app, "viw1");
   const socket = await app.injectWS("/api/ws");
