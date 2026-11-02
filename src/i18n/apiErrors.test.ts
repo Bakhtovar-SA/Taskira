@@ -13,6 +13,18 @@ describe("ошибки сервера на языке интерфейса (A8)"
     expect(apiErrorText(e, "ru", tRu, "Не удалось сохранить задачу")).toBe("Сотрудник может править только свои задачи");
   });
 
+  test("русский интерфейс сохраняет конкретную причину конфликта связи", () => {
+    const e = new ApiError(409, "CONFLICT", "Родитель недоступен");
+    expect(apiErrorText(e, "ru", tRu, "Не удалось сохранить задачу")).toBe("Родитель недоступен");
+  });
+
+  test("устаревшая версия имеет отдельный перевод и сохраняет русскую причину сервера", () => {
+    const reason = "Задача уже изменена другим пользователем. Обновите данные и повторите изменение";
+    const e = new ApiError(409, "STALE_VERSION", reason);
+    expect(apiErrorText(e, "ru", tRu, "Не удалось сохранить задачу")).toBe(reason);
+    expect(apiErrorText(e, "en", tEn, "Couldn't save the issue")).toBe("Another user changed this issue. Review the latest version and try again");
+  });
+
   test("английский: общий код — действие + причина, без русского текста", () => {
     const e = new ApiError(403, "FORBIDDEN", "Сотрудник может править только свои задачи");
     expect(apiErrorText(e, "en", tEn, "Couldn't save the issue")).toBe("Couldn't save the issue. You don't have permission for this action");

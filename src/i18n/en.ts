@@ -1503,6 +1503,7 @@ const en: Record<keyof Dict, string> = {
   "apiError.FORBIDDEN": "You don't have permission for this action",
   "apiError.NOT_FOUND": "Not found — it may have been deleted",
   "apiError.CONFLICT": "This conflicts with the current state — refresh the page",
+  "apiError.STALE_VERSION": "Another user changed this issue. Review the latest version and try again",
   "apiError.VALIDATION": "The data didn't pass validation",
   "apiError.BAD_REQUEST": "Invalid request",
   "apiError.LIMIT": "Limit reached",

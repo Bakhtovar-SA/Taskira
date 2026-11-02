@@ -13,18 +13,18 @@
   },
   "feature": {
     "current": {
-      "js": 408846,
+      "js": 408922,
       "css": 39735,
-      "entry": 101195,
-      "total": 448581
+      "entry": 101179,
+      "total": 448657
     },
-    "initialJs": 206479
+    "initialJs": 206520
   },
   "delta": {
-    "js": 5566,
+    "js": 5642,
     "css": 181,
-    "entry": 122,
-    "total": 5747
+    "entry": 106,
+    "total": 5823
   },
-  "initialDelta": 2747
+  "initialDelta": 2788
 }
