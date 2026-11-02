@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import { readFileSync } from "node:fs";
+import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { acquireClient, q, withTransaction } from "../src/db.js";
 import { materializeRealtimeChanges, readRealtimeChanges } from "../src/services/realtime.js";
 import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
@@ -129,7 +130,7 @@ describe("durable realtime journal", () => {
     await q("UPDATE issues SET title = 'second update' WHERE id = $1", [fx.issues.p1issue]);
     await materializeRealtimeChanges();
     const latest = await readRealtimeChanges(fx.projects.p1, null);
-    await q("DELETE FROM realtime_events WHERE sequence < $1", [latest.cursor]);
+    await q("DELETE FROM realtime_events WHERE project_id = $1 AND project_sequence < $2", [fx.projects.p1, latest.cursor]);
     expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({ reset: true, issueIds: [] });
     expect(await readRealtimeChanges(fx.projects.p1, "9223372036854775807")).toMatchObject({ reset: true, cursor: latest.cursor });
   });
@@ -138,6 +139,97 @@ describe("durable realtime journal", () => {
     await q(`INSERT INTO realtime_events(project_id, issue_ids)
       SELECT $1, ARRAY[$2::uuid] FROM generate_series(1, 501)`, [fx.projects.p1, fx.issues.p1issue]);
     expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({ reset: true, issueIds: [] });
+  });
+
+  test("a locked project's full pending batch cannot starve another project", async () => {
+    const otherBaseline = await readRealtimeChanges(fx.projects.p2, null);
+    const deletion = await acquireClient();
+    let dispatch: Promise<void> | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await withDispatcherPaused(async () => {
+        await q(`INSERT INTO realtime_pending(project_id, issue_id, dedupe_key)
+          SELECT $1, $2, 'blocked:' || n FROM generate_series(1, 1000) AS n`,
+          [fx.projects.p1, fx.issues.p1issue]);
+        await q("UPDATE issues SET title = 'must be delivered' WHERE id = $1", [fx.issues.p2issue]);
+        await deletion.query("BEGIN");
+        await deletion.query("SELECT id FROM projects WHERE id = $1 FOR UPDATE", [fx.projects.p1]);
+      });
+      dispatch = materializeRealtimeChanges();
+      await Promise.race([dispatch, new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Dispatcher waited on a locked backlog")), 1500);
+      })]);
+      const delivered = await readRealtimeChanges(fx.projects.p2, otherBaseline.cursor, { materialize: false });
+      expect(delivered).toMatchObject({ reset: false, issueIds: [fx.issues.p2issue] });
+      expect(await q("SELECT id FROM realtime_pending WHERE project_id = $1", [fx.projects.p1])).toHaveLength(1000);
+      expect(await q("SELECT id FROM realtime_pending WHERE project_id = $1", [fx.projects.p2])).toHaveLength(0);
+      await deletion.query("ROLLBACK");
+      expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({ reset: false, issueIds: [fx.issues.p1issue] });
+      expect(await q("SELECT id FROM realtime_pending")).toHaveLength(0);
+    } finally {
+      clearTimeout(timeout);
+      await deletion.query("ROLLBACK");
+      deletion.release();
+      await dispatch;
+    }
+  });
+
+  test("foreign writes neither advance a project's cursor nor leave gaps in its next cursor", async () => {
+    await q(`INSERT INTO realtime_events(project_id, issue_ids)
+      SELECT $1, ARRAY[$2::uuid] FROM generate_series(1, 20)`, [fx.projects.p2, fx.issues.p2issue]);
+    expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({
+      cursor: baselineCursor, reset: false, issueIds: [],
+    });
+    await q("UPDATE issues SET title = 'own change' WHERE id = $1", [fx.issues.p1issue]);
+    expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({
+      cursor: (BigInt(baselineCursor) + 1n).toString(), reset: false, issueIds: [fx.issues.p1issue],
+    });
+  });
+
+  test("a project watermark survives cleanup of all retained events", async () => {
+    await q("UPDATE issues SET title = 'expired update' WHERE id = $1", [fx.issues.p1issue]);
+    const latest = await readRealtimeChanges(fx.projects.p1, baselineCursor);
+    await q("UPDATE realtime_events SET created_at = now() - interval '8 days'");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 61_000);
+    try { await materializeRealtimeChanges(); } finally { clock.mockRestore(); }
+    expect(await q("SELECT sequence FROM realtime_events")).toHaveLength(0);
+    expect(await readRealtimeChanges(fx.projects.p1, baselineCursor)).toMatchObject({ cursor: latest.cursor, reset: true, issueIds: [] });
+    expect(await readRealtimeChanges(fx.projects.p1, latest.cursor)).toMatchObject({ cursor: latest.cursor, reset: false, issueIds: [] });
+    await q("UPDATE issues SET title = 'after quiet week' WHERE id = $1", [fx.issues.p1issue]);
+    expect(await readRealtimeChanges(fx.projects.p1, latest.cursor)).toMatchObject({
+      cursor: (BigInt(latest.cursor) + 1n).toString(), reset: false, issueIds: [fx.issues.p1issue],
+    });
+  });
+
+  test("cursor migration preserves populated history and keeps old-style inserts transactional", async () => {
+    const client = await acquireClient();
+    try {
+      await client.query("BEGIN");
+      await client.query("CREATE SCHEMA realtime_cursor_upgrade");
+      await client.query("SET LOCAL search_path TO realtime_cursor_upgrade");
+      await client.query(`CREATE TABLE projects(id uuid PRIMARY KEY);
+        CREATE TABLE realtime_pending(id bigserial PRIMARY KEY, project_id uuid NOT NULL REFERENCES projects(id));
+        CREATE TABLE realtime_events(sequence bigserial PRIMARY KEY, project_id uuid NOT NULL REFERENCES projects(id),
+          issue_ids uuid[] NOT NULL DEFAULT '{}', reset boolean NOT NULL DEFAULT false,
+          created_at timestamptz NOT NULL DEFAULT clock_timestamp())`);
+      await client.query("INSERT INTO projects(id) VALUES ($1), ($2)", [fx.projects.p1, fx.projects.p2]);
+      await client.query(`INSERT INTO realtime_events(sequence, project_id) VALUES (7, $1), (11, $2), (12, $1)`,
+        [fx.projects.p1, fx.projects.p2]);
+      await client.query(readFileSync(new URL("../migrations/20261102T1130_realtime_project_cursors.sql", import.meta.url), "utf8"));
+      expect((await client.query("SELECT project_sequence FROM realtime_events ORDER BY sequence")).rows)
+        .toEqual([{ project_sequence: "7" }, { project_sequence: "11" }, { project_sequence: "12" }]);
+      await client.query("INSERT INTO realtime_events(project_id) VALUES ($1)", [fx.projects.p2]);
+      expect((await client.query("INSERT INTO realtime_events(project_id) VALUES ($1) RETURNING project_sequence", [fx.projects.p1])).rows)
+        .toEqual([{ project_sequence: "13" }]);
+      await client.query("SAVEPOINT aborted_event");
+      await client.query("INSERT INTO realtime_events(project_id) VALUES ($1)", [fx.projects.p1]);
+      await client.query("ROLLBACK TO SAVEPOINT aborted_event");
+      expect((await client.query("SELECT high FROM realtime_project_cursors WHERE project_id = $1", [fx.projects.p1])).rows)
+        .toEqual([{ high: "13" }]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
   });
 
   test("dispatch skips a locked project so concurrent deletion cannot deadlock", async () => {

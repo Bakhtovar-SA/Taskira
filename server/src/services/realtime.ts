@@ -28,18 +28,17 @@ async function drain(): Promise<void> {
       );
       if (!lock.rows[0]?.locked) return 0;
 
-      const candidates = await client.query<{ project_id: string }>(
-        `SELECT DISTINCT project_id FROM (
-           SELECT project_id FROM realtime_pending ORDER BY id LIMIT $1
-         ) AS candidates`, [PENDING_BATCH],
-      );
       // Project deletion locks the parent before cascading into pending rows.
       // Take parent locks first too, otherwise pending->event(FK) versus
-      // project->pending(cascade) can deadlock. Skip an already locked/deleting
-      // parent; its next tick either sees the committed delete or processes it.
-      const parents = candidates.rows.length === 0 ? [] : (await client.query<{ id: string }>(
-        `SELECT id FROM projects WHERE id = ANY($1::uuid[])
-          ORDER BY id FOR KEY SHARE SKIP LOCKED`, [candidates.rows.map(row => row.project_id)],
+      // project->pending(cascade) can deadlock. Apply LIMIT after SKIP LOCKED:
+      // a locked project's backlog must not hide work for every other project.
+      // The lateral lookup uses (project_id, id), regardless of backlog size.
+      const parents = (await client.query<{ id: string }>(
+        `SELECT p.id FROM projects p
+          CROSS JOIN LATERAL (
+            SELECT id FROM realtime_pending WHERE project_id = p.id ORDER BY id LIMIT 1
+          ) AS pending
+          ORDER BY pending.id, p.id LIMIT $1 FOR KEY SHARE OF p SKIP LOCKED`, [PENDING_BATCH],
       )).rows;
       const pending = parents.length === 0 ? { rows: [] } : await client.query<{
         id: string; project_id: string; issue_id: string | null;
@@ -69,13 +68,11 @@ async function drain(): Promise<void> {
       if (Date.now() - lastCleanupAt >= CLEANUP_INTERVAL_MS) {
         // Delete a sequence prefix, never isolated old timestamps: clock
         // adjustments must not create invisible holes inside retained history.
-        // Keep the final global event as a watermark even after a quiet week.
+        // Project high watermarks outlive event retention in a separate table.
         const cleanup = await client.query(`DELETE FROM realtime_events WHERE sequence IN (
           SELECT sequence FROM realtime_events
-           WHERE sequence < COALESCE(
-             (SELECT min(sequence) FROM realtime_events WHERE created_at >= now() - interval '7 days'),
-             (SELECT max(sequence) FROM realtime_events)
-           )
+           WHERE sequence < (SELECT min(sequence) FROM realtime_events WHERE created_at >= now() - interval '7 days')
+              OR NOT EXISTS (SELECT 1 FROM realtime_events WHERE created_at >= now() - interval '7 days')
            ORDER BY sequence LIMIT ${CLEANUP_BATCH}
         )`);
         // If a backlog remains, continue bounded cleanup on the next drain
@@ -130,19 +127,20 @@ export async function readRealtimeChanges(
     high: string; low: string | null; sequence: string | null;
     issue_ids: string[] | null; reset: boolean | null;
   }>(`WITH bounds AS (
-      SELECT COALESCE((SELECT sequence FROM realtime_events ORDER BY sequence DESC LIMIT 1), 0)::text AS high,
-             (SELECT sequence FROM realtime_events ORDER BY sequence LIMIT 1)::text AS low
+      SELECT COALESCE((SELECT high FROM realtime_project_cursors WHERE project_id = $1), 0)::text AS high,
+             (SELECT project_sequence FROM realtime_events WHERE project_id = $1 ORDER BY project_sequence LIMIT 1)::text AS low
     ), changes AS (
-      SELECT sequence::text, issue_ids, reset FROM realtime_events
-       WHERE project_id = $1 AND sequence > COALESCE($2::bigint, 0)
-       ORDER BY realtime_events.sequence LIMIT $3
+      SELECT project_sequence::text AS sequence, issue_ids, reset FROM realtime_events
+       WHERE project_id = $1 AND project_sequence > COALESCE($2::bigint, 0)
+       ORDER BY realtime_events.project_sequence LIMIT $3
     )
     SELECT bounds.high, bounds.low, changes.sequence, changes.issue_ids, changes.reset
       FROM bounds LEFT JOIN changes ON true`, [projectId, cursor, MAX_CATCHUP_EVENTS + 1]);
   const bounds = rows[0];
   const high = bounds?.high ?? "0";
-  const expired = cursor !== null && bounds?.low !== null && bounds?.low !== undefined &&
-    BigInt(cursor) < BigInt(bounds.low) - 1n;
+  const expired = cursor !== null && (bounds?.low == null
+    ? BigInt(cursor) < BigInt(high)
+    : BigInt(cursor) < BigInt(bounds.low) - 1n);
   let reset = cursor === null || BigInt(cursor) > BigInt(high) || expired ||
     rows.length > MAX_CATCHUP_EVENTS;
   const ids = new Set<string>();

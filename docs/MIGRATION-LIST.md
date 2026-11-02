@@ -84,3 +84,4 @@
 | `20261011T1600_issue_automation.sql` | (нет комментария-описания) |
 | `20261022T0900_index_recurring_runs_issue.sql` | Метка повторения на карточке (issueRepeatBatch, GET …/issues) и issueRecurringRule ищут запуски по issue_id, а у recurring_runs были только индексы по (rule_id, …) и по ran_at: вторая ветка запроса сканировала таблицу, растущую на строку за каждое повторение. |
 | `20261102T1000_realtime_sync.sql` | Realtime invalidations are durable and independent of webhook subscriptions. Pending IDs are NOT cursors: a later ID can commit before an earlier one. A serialized, post-commit dispatcher assigns the public event sequence. |
+| `20261102T1130_realtime_project_cursors.sql` | Keep dispatch fair when a project's parent row is locked. The dispatcher probes the first pending row per project before applying its batch limit. |
