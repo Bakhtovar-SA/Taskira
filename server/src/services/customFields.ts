@@ -97,7 +97,10 @@ export function validateValueForField(field: FieldRow, raw: string): string {
   }
 }
 
-/** value=null удаляет строку (поле «не задано»), иначе — upsert. */
+/** value=null удаляет строку (поле «не задано»), иначе — upsert.
+ *  Own compare-and-set (expectedValue against the stored string, never re-validated):
+ *  field values deliberately do not bump issues.updated_at / expectedVersion — see
+ *  ISSUE_VERSION_SQL in issues.ts and docs/REALTIME.md. */
 export async function setCustomFieldValue(
   fieldId: string, issueId: string, value: string | null, expectedValue?: string | null,
 ): Promise<void> {
