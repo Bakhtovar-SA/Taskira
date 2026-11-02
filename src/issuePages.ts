@@ -153,12 +153,16 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   // Синхронная защёлка подгрузки: state обновится только после рендера, а два
   // вызова loadMore() в одном тике (скролл + клик) прочитали бы loadingMore=false.
   const moreInFlight = useRef(false);
+  const revalidating = useRef(false);
+  const queuedRevalidation = useRef<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     const q = queryRef.current;
     const my = ++gen.current;
     moreInFlight.current = false;
+    revalidating.current = false;
+    queuedRevalidation.current = null;
     if (!q) {
       setState(EMPTY);
       return;
@@ -197,7 +201,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   const loadMore = useCallback(() => {
     const q = queryRef.current;
     const s = stateRef.current;
-    if (moreInFlight.current || !q || s.loading || !s.hasMore || !s.nextCursor || s.key !== issueSetKey(q)) return;
+    if (revalidating.current || moreInFlight.current || !q || s.loading || !s.hasMore || !s.nextCursor || s.key !== issueSetKey(q)) return;
     moreInFlight.current = true;
     const my = gen.current;
     setState((prev) => ({ ...prev, loadingMore: true, error: null }));
@@ -227,8 +231,20 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   const revalidate = useCallback(() => {
     const q = queryRef.current;
     const s = stateRef.current;
-    if (!q || s.loading || s.key !== issueSetKey(q)) return;
-    const my = gen.current;
+    if (!q) return;
+    const forKey = issueSetKey(q);
+    if (s.loading || s.key !== forKey) {
+      // A revision arriving during the first page must be replayed immediately
+      // after that read, even when no further WebSocket event follows.
+      queuedRevalidation.current = forKey;
+      return;
+    }
+    const my = ++gen.current;
+    revalidating.current = true;
+    moreInFlight.current = false;
+    // Advancing the generation invalidates an old cursor page as well. The
+    // refreshed range owns pagination until its replacement cursor is known.
+    setState(prev => ({ ...prev, loadingMore: false }));
     const want = Math.max(s.items.length, 1);
     void (async () => {
       try {
@@ -256,9 +272,18 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
         }));
       } catch {
         // Тихая ревалидация: устаревший список лучше пустого; следующее действие повторит.
+      } finally {
+        if (gen.current === my) revalidating.current = false;
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!state.loading && state.key === key && queuedRevalidation.current === key) {
+      queuedRevalidation.current = null;
+      revalidate();
+    }
+  }, [key, state.key, state.loading, revalidate]);
 
   const reload = useCallback(() => setReloadTick((n) => n + 1), []);
 

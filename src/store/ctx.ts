@@ -9,6 +9,8 @@ import type { NotificationsState } from "./slices";
 export interface StoreCtx {
   setData: Dispatch<SetStateAction<Data>>;
   dataRef: MutableRefObject<Data>;
+  /** Changes synchronously when a store write is queued, before React commits it. */
+  dataWriteRevisionRef?: MutableRefObject<number>;
   /** id текущего проекта (читает dataRef, поэтому не привязан к рендеру). */
   pid: () => string;
   toast: (kind: Toast["kind"], text: string, action?: Toast["action"]) => void;

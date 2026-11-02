@@ -17,6 +17,8 @@ export function useIssueLookup({ setData, dataRef, pid, toast, handleApiError, l
       try {
         const mapped = mapIssue(await issuesApi.get(requestProjectId, id));
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return null;
+        const latest = dataRef.current.issues.find(issue => issue.id === id);
+        if (latest) return latest;
         setData((prev) =>
           prev.currentProjectId !== requestProjectId || prev.issues.some((x) => x.id === id)
             ? prev

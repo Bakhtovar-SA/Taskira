@@ -2,13 +2,13 @@ import { withTransaction } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
 import { assertTransition, conflict } from "./workflow.js";
 import { computeRank, lockRankColumn } from "./rank.js";
-import { assertIssueVersion, ISSUE_VERSION_SQL, logActivity, type IssueRow } from "./issues.js";
+import { assertIssueVersion, assertIssueWriteVersion, ISSUE_VERSION_SQL, logActivity, type IssueRow } from "./issues.js";
 
 /** Lock columns in sorted order BEFORE rows (including rows touched by rebalance).
  * Recheck the source after locking: a concurrent move must never validate an old edge. */
 export async function transitionIssue(
   projectId: string, issueId: string, toStatusId: string, beforeId: string | null,
-  actorId: string, reorder = true, expectedUpdatedAt?: string,
+  actorId: string, reorder = true, expectedUpdatedAt?: string, expectedVersion?: string,
 ) {
   return withTransaction(async (client) => {
     const observed = (await client.query<{ status_id: string }>(
@@ -23,6 +23,7 @@ export async function transitionIssue(
     )).rows[0];
     if (!previous) throw notFound("Задача не найдена");
     assertIssueVersion(previous, expectedUpdatedAt);
+    assertIssueWriteVersion(previous, expectedVersion);
     if (previous.status_id !== observed.status_id) {
       throw conflict("Статус задачи изменился. Обновите задачу и повторите переход");
     }

@@ -27,6 +27,7 @@ import { Tabs } from "../ds/Tabs";
 import { DeleteIssueDialog } from "./DeleteIssueDialog";
 import { UserAvatar, UserAvatarGroup } from "./UserAvatar";
 import { useT } from "../i18n";
+import MentionTextarea from "./MentionTextarea";
 import AssigneePicker from "./AssigneePicker";
 import IssueSearchBox from "./IssueSearchBox";
 import { freshRows, useIssue, useIssueSet, useIssuesRevision, useOnRevision, type IssueSetQuery } from "../issuePages";
@@ -358,16 +359,36 @@ function CustomFieldRow({
   issue: Issue;
   field: CustomFieldDef;
   canEdit: boolean;
-  setValue: (issueId: string, fieldId: string, value: string | null) => void;
+  setValue: (issueId: string, fieldId: string, value: string | null, expectedValue?: string | null) => Promise<boolean>;
 }) {
   const { t, lang } = useT();
   const current = issue.customFieldValues.find((v) => v.fieldId === field.id)?.value ?? "";
   const [draft, setDraft] = useState(current);
-  useEffect(() => setDraft(current), [current, issue.id]);
+  const [dirty, setDirty] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const baseline = useRef(current);
+  const pending = useRef(false);
+  const currentId = useRef(issue.id);
+  currentId.current = issue.id;
+  useEffect(() => {
+    if (!dirty && !focused) { setDraft(current); baseline.current = current; }
+  }, [current, dirty, focused]);
+  useEffect(() => {
+    setDraft(current); baseline.current = current; setDirty(false); setFocused(false); setBusy(false); pending.current = false;
+  }, [issue.id]);
 
-  const commit = () => {
-    if (draft === current) return;
-    setValue(issue.id, field.id, draft === "" ? null : draft);
+  const commit = async (explicit = false) => {
+    if (pending.current) return;
+    if (draft === current) { setDirty(false); baseline.current = current; return; }
+    // A remote value changed during editing: keep the draft for explicit resolution.
+    if (!explicit && baseline.current !== current) return;
+    const id = issue.id;
+    pending.current = true; setBusy(true);
+    try {
+      const saved = await setValue(id, field.id, draft === "" ? null : draft, (explicit ? current : baseline.current) || null);
+      if (currentId.current === id && saved) { setDirty(false); baseline.current = draft; }
+    } finally { if (currentId.current === id) { pending.current = false; setBusy(false); } }
   };
 
   if (!canEdit) {
@@ -395,15 +416,21 @@ function CustomFieldRow({
       ) : field.fieldType === "date" ? (
         <DatePicker block label={field.name} lang={lang} markOverdue={false} placeholder="—" value={current || null} onChange={(v) => setValue(issue.id, field.id, v)} />
       ) : (
-        <input
+        <><input
           aria-label={field.name}
           type={field.fieldType === "number" ? "number" : "text"}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => e.key === "Enter" && commit()}
+          readOnly={busy}
+          aria-busy={busy || undefined}
+          onFocus={() => { setFocused(true); if (!dirty) baseline.current = current; }}
+          onChange={(e) => { setDraft(e.target.value); setDirty(true); }}
+          onBlur={() => { setFocused(false); void commit(); }}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
           className="w-full rounded-md border border-line bg-panel px-2.5 py-1.5 text-[14px] outline-none focus:border-accent focus:shadow-focus"
-        />
+        />{dirty && baseline.current !== current && <div role="status" className="mt-1 text-[13px] text-sub">
+          <p>{t("issue.concurrentEdit")}</p><p>{t("issue.latestValue", { value: current })}</p>
+          <Button variant="secondary" size="sm" disabled={busy} onMouseDown={event => event.preventDefault()} onClick={() => void commit(true)}>{t("issue.saveMine")}</Button>
+        </div>}</>
       )}
     </Field>
   );
@@ -503,6 +530,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
   const [comment, setComment] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState("");
+  const descVersion = useRef<number | undefined>(undefined);
   const [labelInput, setLabelInput] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
   const [commentBusy, setCommentBusy] = useState(false);
@@ -661,7 +689,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     const issueId = issue.id;
     descPending.current = true;
     setDescBusy(true);
-    const saved = await updateIssue(issueId, { description: next });
+    const saved = await updateIssue(issueId, { description: next }, descVersion.current);
     if (activeIssueRef.current !== issueId) return;
     descPending.current = false;
     setDescBusy(false);
@@ -678,6 +706,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
     setAssigneeBusy(true);
     try { await mark([assigneeRef.current], () => updateIssue(issueId, { assigneeIds: ids })); }
     finally { if (activeIssueRef.current === issueId && pendingEpoch.current === epoch) { assigneePending.current = false; setAssigneeBusy(false); } }
+  };
+  const startDesc = () => {
+    descVersion.current = issue.updatedAt;
+    setDescDraft(issue.description);
+    setEditingDesc(true);
   };
   const changeLabels = async (labels: string[], target: HTMLElement | null): Promise<boolean> => {
     if (labelsPending.current) return false;
@@ -1065,7 +1098,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {/* описание — сам блок кликабелен для входа в редактирование (отдельной
               кнопки «Редактировать» нет, как у EditableTitle) */}
           <div className="issue-description">
-            <div className="issue-description-head"><h3 className="issue-section-label">{t("issue.description")}</h3>{editOk && !editingDesc && <Button variant="ghost" size="sm" iconLeft={<IcPencil size={14} />} onClick={() => { setDescDraft(issue.description); setEditingDesc(true); }}>{t("issue.descriptionEdit")}</Button>}</div>
+            <div className="issue-description-head"><h3 className="issue-section-label">{t("issue.description")}</h3>{editOk && !editingDesc && <Button variant="ghost" size="sm" iconLeft={<IcPencil size={14} />} onClick={startDesc}>{t("issue.descriptionEdit")}</Button>}</div>
             {editingDesc ? (
               <div className="anim-fadeup">
                 <textarea
@@ -1089,6 +1122,11 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   className="issue-description-editor w-full resize-y rounded-md border border-accent bg-panel p-3 outline-none ring-2 ring-accent/15"
                 />
                 <p className="mt-1 text-[13px] text-faint">{t("issue.descSaveHint")}</p>
+                {descVersion.current !== issue.updatedAt && <div role="status" className="mt-2 text-[13px] text-sub">
+                  <p>{t("issue.concurrentEdit")}</p>
+                  <p className="whitespace-pre-wrap">{t("issue.latestValue", { value: issue.description })}</p>
+                  <Button variant="secondary" size="sm" onMouseDown={event => event.preventDefault()} onClick={() => { descVersion.current = issue.updatedAt; void saveDesc(); }}>{t("issue.saveMine")}</Button>
+                </div>}
               </div>
             ) : issue.description ? (
               editOk ? (
@@ -1099,14 +1137,12 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                   // если пользователь что-то выделил, click после mouseup режим не переключает.
                   onClick={() => {
                     if (window.getSelection()?.toString()) return;
-                    setDescDraft(issue.description);
-                    setEditingDesc(true);
+                    startDesc();
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setDescDraft(issue.description);
-                      setEditingDesc(true);
+                      startDesc();
                     }
                   }}
                   title={t("issue.clickToEdit")}
@@ -1119,7 +1155,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
                 <p className="issue-description-text whitespace-pre-wrap"><MentionText text={issue.description} /></p>
               )
             ) : editOk ? (
-              <button onClick={() => { setDescDraft(""); setEditingDesc(true); }} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[13.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">
+              <button onClick={startDesc} className="w-full rounded-md border border-dashed border-line2 px-3 py-3 text-left text-[13.5px] text-faint transition-colors hover:border-accent hover:text-accenttext">
                 {t("issue.addDescription")}
               </button>
             ) : (
@@ -1195,7 +1231,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
           {canComment ? <div className="issue-comment-composer">
             <UserAvatar user={me} size={28} />
             <div className="min-w-0 flex-1">
-              <textarea ref={commentInputRef} aria-label={t("issue.feed.comments")} readOnly={commentBusy} aria-busy={commentBusy || undefined} value={comment} onChange={e => setComment(e.target.value)} onKeyDown={e => {
+              <MentionTextarea key={issue.id} projectId={data.currentProjectId} issueId={issue.id} ref={commentInputRef} aria-label={t("issue.feed.comments")} readOnly={commentBusy} aria-busy={commentBusy || undefined} value={comment} onValueChange={setComment} onKeyDown={e => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submitComment(); }
               }} rows={1} maxLength={LIMITS.comment.max} placeholder={t("issue.commentPlaceholder")} />
               <div className="issue-comment-actions"><kbd className="ds-kbd">Ctrl+Enter</kbd><Button ref={commentSendRef} size="sm" variant="ghost" className="issue-comment-send" disabled={!comment.trim() || commentBusy} loading={commentBusy} onClick={() => void submitComment()} iconLeft={<IcSend size={14} />}>{t("issue.send")}</Button></div>
@@ -1243,22 +1279,39 @@ function EditableTitle({ issue, readOnly = false, viewHeading = false }: { issue
   const { updateIssue } = useStore();
   const [draft, setDraft] = useState(issue.title);
   const [editing, setEditing] = useState(false);
-  useEffect(() => setDraft(issue.title), [issue.title, issue.id]);
+  const [busy, setBusy] = useState(false);
+  const baseline = useRef(issue.updatedAt);
+  const pending = useRef(false);
+  const currentId = useRef(issue.id);
+  currentId.current = issue.id;
+  useEffect(() => { if (!editing) setDraft(issue.title); }, [issue.title, issue.id, editing]);
+  useEffect(() => { setEditing(false); setBusy(false); pending.current = false; }, [issue.id]);
+  const start = () => { baseline.current = issue.updatedAt; setDraft(issue.title); setEditing(true); };
+  const save = async () => {
+    if (pending.current) return;
+    if (!draft.trim() || draft.trim() === issue.title) { setEditing(false); return; }
+    const id = issue.id;
+    pending.current = true;
+    setBusy(true);
+    try {
+      const saved = await updateIssue(id, { title: draft.trim() }, baseline.current);
+      if (currentId.current === id && saved) setEditing(false);
+    } finally { if (currentId.current === id) { pending.current = false; setBusy(false); } }
+  };
 
   if (readOnly) return <h2 data-view-heading={viewHeading || undefined} className="px-0 py-1 issue-title font-bold leading-snug text-ink">{issue.title}</h2>;
 
   if (editing)
     return (
-      <textarea
+      <><textarea
         autoFocus
         aria-label={t("issue.renameAria", { title: issue.title })}
         value={draft}
+        readOnly={busy}
+        aria-busy={busy || undefined}
         onChange={(e) => setDraft(e.target.value)}
         rows={2}
-        onBlur={() => {
-          if (draft.trim() && draft.trim() !== issue.title) updateIssue(issue.id, { title: draft.trim() });
-          setEditing(false);
-        }}
+        onBlur={() => void save()}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLTextAreaElement).blur();
           if (e.key === "Escape") {
@@ -1268,7 +1321,11 @@ function EditableTitle({ issue, readOnly = false, viewHeading = false }: { issue
           }
         }}
         className="w-full resize-none rounded-md border border-accent bg-panel p-2 issue-title font-bold leading-snug text-ink outline-none ring-2 ring-accent/15"
-      />
+      />{baseline.current !== issue.updatedAt && <div role="status" className="text-[13px] text-sub">
+        <p>{t("issue.concurrentEdit")}</p>
+        <p>{t("issue.latestValue", { value: issue.title })}</p>
+        <Button variant="secondary" size="sm" disabled={busy} onMouseDown={event => event.preventDefault()} onClick={() => { baseline.current = issue.updatedAt; void save(); }}>{t("issue.saveMine")}</Button>
+      </div>}</>
     );
   // Заголовок редактируется по клику, но должен открываться и с клавиатуры:
   // без tabIndex/роли переименовать задачу без мыши было нельзя (аудит UX-04).
@@ -1277,11 +1334,11 @@ function EditableTitle({ issue, readOnly = false, viewHeading = false }: { issue
       <span
         role="button"
         tabIndex={0}
-        onClick={() => setEditing(true)}
+        onClick={start}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setEditing(true);
+            start();
           }
         }}
         title={t("issue.clickToRename")}

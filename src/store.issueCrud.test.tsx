@@ -159,7 +159,7 @@ describe("updateIssue", () => {
     const [r0, e0] = [get().issuesRevision, get().epicsRevision];
     await act(async () => { await get().updateIssue("i1", { title: "  Новый  ", priorityId: "high" }); });
     await settle();
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый", priorityId: "high" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый", priorityId: "high", expectedVersion: expect.any(String) });
     expect(find(get, "i1")!.title).toBe("Новый");
     expect(find(get, "i1")!.priorityId).toBe("high");
     expect(get().issuesRevision).toBe(r0 + 1);
@@ -210,7 +210,7 @@ describe("moveStatus", () => {
     const settled = vi.fn();
     act(() => get().moveStatus("c", "s2", "x", settled));
     await settle();
-    expect(tr).toHaveBeenCalledWith("p1", "c", "s2", "x");
+    expect(tr).toHaveBeenCalledWith("p1", "c", "s2", "x", undefined, child.updatedAt);
     expect(find(get, "c")!.statusId).toBe("s2");
     expect(find(get, "c")!.doneAt).not.toBeNull();
     expect(find(get, "p")!.subtasksSummary).toEqual({ total: 1, done: 1 });

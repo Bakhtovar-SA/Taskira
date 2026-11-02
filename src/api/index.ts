@@ -1,4 +1,6 @@
 import type { IssueMutationResultDto } from "../../server/src/contract";
+import { beginMutation } from "./mutationFence";
+import type { SyncBatch } from "../realtime";
 /** HTTP-клиент Taskira API. Браузерная сессия живёт в HttpOnly-cookie;
  *  переменная ниже — только обратная совместимость для тестов/CLI-обвязки. */
 import type {
@@ -48,6 +50,7 @@ import type {
   NotificationPageDto,
   NotifyPrefsResponse,
   PickableUserDto,
+  MentionCandidateDto,
   REPORT_GROUPS,
   ReportRow as ReportRowDto,
   ReportSummaryDto,
@@ -123,6 +126,12 @@ function buildUrl(path: string, query?: ApiOptions["query"]): string {
 }
 
 export async function api<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
+  const finish = opts.method && !["GET", "HEAD", "OPTIONS"].includes(opts.method) ? beginMutation() : undefined;
+  try { return await requestJson<T>(path, opts); }
+  finally { finish?.(); }
+}
+
+async function requestJson<T>(path: string, opts: ApiOptions): Promise<T> {
   const { method = "GET", body, query, auth = true } = opts;
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -177,6 +186,12 @@ export async function apiUpload<T = unknown>(path: string, file: File, fieldName
 
 /** multipart с несколькими полями (фото фона проекта: два размера + светлота). */
 export async function apiUploadForm<T = unknown>(path: string, fd: FormData): Promise<T> {
+  const finish = beginMutation();
+  try { return await uploadForm<T>(path, fd); }
+  finally { finish(); }
+}
+
+async function uploadForm<T>(path: string, fd: FormData): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -263,6 +278,7 @@ export type CollaboratingItem = CollaboratingItemDto;
 export type AssignedIssue = AssignedIssueDto;
 export type SearchResultItem = SearchResultItemDto;
 export type PickableUser = PickableUserDto;
+export type MentionCandidate = MentionCandidateDto;
 export type IssueEpic = IssueEpicDto;
 export type IssueCounts = IssueCountsDto;
 export type ReportTotals = ReportTotalsDto;
@@ -475,7 +491,7 @@ export const projectsApi = {
   /** Проекты, видимые пользователю (member ∪ is_shared ∪ глоб. admin). */
   list: () => api<Project[]>("/api/projects"),
   /** Данные одного проекта (bootstrap: users/members/workflow). */
-  get: (projectId: string) => api<ProjectBootstrap>(P(projectId)),
+  get: (projectId: string, signal?: AbortSignal) => api<ProjectBootstrap>(P(projectId), { signal }),
   create: (body: CreateProjectInput) => api<Project>("/api/projects", { method: "POST", body }),
   patch: (projectId: string, body: ProjectPatchInput) => api<Project>(P(projectId), { method: "PATCH", body }),
   /** Своё фото фона (ТЗ 5.14 п.2): два WebP + средняя светлота; право editAppearance. */
@@ -684,8 +700,10 @@ export interface IssuePageParams extends IssueFilterParams {
   limit?: number;
 }
 export const issuesApi = {
-  list: (projectId: string, query?: Record<string, string | number | undefined>) =>
-    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query }),
+  sync: (projectId: string, cursor: string | null, signal?: AbortSignal) =>
+    api<SyncBatch>(`${P(projectId)}/sync`, { query: { cursor }, signal }),
+  list: (projectId: string, query?: Record<string, string | number | undefined>, signal?: AbortSignal) =>
+    api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, { query, signal }),
   /** Одна страница набора: фильтры/сортировка серверные, продолжение — по `cursor`. */
   page: (projectId: string, params: IssuePageParams) =>
     api<IssueListPageMeta & { items: ServerIssue[] }>(`${P(projectId)}/issues`, {
@@ -700,7 +718,7 @@ export const issuesApi = {
   /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
   assignees: (projectId: string, limit?: number) =>
     api<IssueAssigneesDto>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
-  get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
+  get: (projectId: string, id: string, signal?: AbortSignal) => api<ServerIssue>(`${P(projectId)}/issues/${id}`, { signal }),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
   /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран).
@@ -717,7 +735,7 @@ export const issuesApi = {
   watch: (projectId: string, issueId: string, on: boolean) =>
     api<{ watching: boolean; watchers: number }>(`${P(projectId)}/issues/${issueId}/watchers/me`, { method: on ? "POST" : "DELETE" }),
   /** История задачи («кто, что, когда»). */
-  activity: (projectId: string, id: string) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`),
+  activity: (projectId: string, id: string, signal?: AbortSignal) => api<ServerActivity[]>(`${P(projectId)}/issues/${id}/activity`, { signal }),
   create: (projectId: string, body: Record<string, unknown>) =>
     api<ServerIssue>(`${P(projectId)}/issues`, { method: "POST", body }),
   patch: (projectId: string, id: string, body: Record<string, unknown>) =>
@@ -730,10 +748,10 @@ export const issuesApi = {
    *  manageSprints, не edit. sprintId=null возвращает задачу в бэклог. */
   setSprint: (projectId: string, id: string, sprintId: string | null) =>
     api<ServerIssue>(`${P(projectId)}/issues/${id}/sprint`, { method: "PATCH", body: { sprintId } }),
-  transition: (projectId: string, id: string, to: string, beforeId?: string | null, expectedUpdatedAt?: string) =>
+  transition: (projectId: string, id: string, to: string, beforeId?: string | null, expectedUpdatedAt?: string, expectedVersion?: string) =>
     api<IssueMutationResult>(`${P(projectId)}/issues/${id}/transition`, {
       method: "POST",
-      body: { to, beforeId: beforeId ?? null, ...(expectedUpdatedAt ? {expectedUpdatedAt} : {}) },
+      body: { to, beforeId: beforeId ?? null, ...(expectedUpdatedAt ? {expectedUpdatedAt} : {}), ...(expectedVersion ? { expectedVersion } : {}) },
     }),
   addLink: (projectId: string, id: string, linkedIssueId: string, type: "relates" | "blocks" | "blocked_by") =>
     api<{ id: string; links: ServerIssueLink[] }>(`${P(projectId)}/issues/${id}/links`, {
@@ -754,10 +772,10 @@ export const issuesApi = {
     ),
   removeChecklistItem: (projectId: string, id: string, itemId: string) =>
     api<{ checklist: ServerChecklistItem[] }>(`${P(projectId)}/issues/${id}/checklist/${itemId}`, { method: "DELETE" }),
-  setCustomFieldValue: (projectId: string, id: string, fieldId: string, value: string | null) =>
+  setCustomFieldValue: (projectId: string, id: string, fieldId: string, value: string | null, expectedValue?: string | null) =>
     api<{ values: ServerCustomFieldValue[] }>(`${P(projectId)}/issues/${id}/custom-fields/${fieldId}`, {
       method: "PUT",
-      body: { value },
+      body: { value, ...(expectedValue !== undefined ? { expectedValue } : {}) },
     }),
 };
 
@@ -815,8 +833,10 @@ export async function downloadReportCsv(f: ReportFilter & { scope: ReportScope }
 }
 
 export const commentsApi = {
-  list: (projectId: string, issueId: string) =>
-    api<ServerComment[]>(`${P(projectId)}/issues/${issueId}/comments`),
+  mentionCandidates: (projectId: string, issueId: string, q: string, signal?: AbortSignal) =>
+    api<MentionCandidate[]>(`${P(projectId)}/issues/${issueId}/mention-candidates`, { query: { q }, signal }),
+  list: (projectId: string, issueId: string, signal?: AbortSignal) =>
+    api<ServerComment[]>(`${P(projectId)}/issues/${issueId}/comments`, { signal }),
   create: (projectId: string, issueId: string, body: string) =>
     api<ServerComment>(`${P(projectId)}/issues/${issueId}/comments`, { method: "POST", body: { body } }),
 };

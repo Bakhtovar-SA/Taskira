@@ -221,7 +221,7 @@ export function useIssueCrudActions(
   );
 
   const updateIssue = useCallback(
-    async (id: string, patch: Partial<Issue>): Promise<boolean> => {
+    async (id: string, patch: Partial<Issue>, expectedVersion?: number): Promise<boolean> => {
       const epoch = sessionEpochRef.current;
       const requestProjectId = pid();
       const iss = dataRef.current.issues.find(i => i.id === id) ?? await resolveIssue(id);
@@ -251,6 +251,7 @@ export function useIssueCrudActions(
 
 
       if (Object.keys(body).length === 0) return true;
+      body.expectedVersion = new Date(expectedVersion ?? iss.updatedAt).toISOString();
       try {
         const dto = await issuesApi.patch(requestProjectId, id, body);
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
@@ -262,11 +263,22 @@ export function useIssueCrudActions(
         return true;
       } catch (err) {
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        if (err instanceof ApiError && err.status === 409) {
+          toast("error", local("Задачу уже изменил другой участник. Ваш текст сохранён в редакторе — проверьте актуальную задачу перед повторным сохранением.", "Another member changed this issue. Your draft remains in the editor; review the latest issue before saving again."));
+          try {
+            const latest = await issuesApi.get(requestProjectId, id);
+            if (epoch === sessionEpochRef.current && pid() === requestProjectId) {
+              setData(prev => ({ ...prev, issues: prev.issues.map(issue => issue.id === id ? mapIssue(latest, issue) : issue) }));
+              bumpIssues();
+            }
+          } catch { /* The safety reconciliation retries without discarding the draft. */ }
+          return false;
+        }
         handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
         return false;
       }
     },
-    [requirePerm, toast, handleApiError, resolveIssue, bumpIssues, bumpEpics, undoFor],
+    [requirePerm, toast, handleApiError, resolveIssue, bumpIssues, bumpEpics, undoFor, refreshIssues],
   );
 
   const moveStatus = useCallback(
@@ -289,7 +301,7 @@ export function useIssueCrudActions(
         void (async () => {
           let confirmed = false;
           try {
-            const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
+            const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId, undefined, new Date(iss.updatedAt).toISOString());
             if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             refreshOnboardingSoon();
             const wasDone = iss.doneAt != null;

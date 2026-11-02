@@ -226,23 +226,27 @@ export function useIssueSubActions(
      Определения полей (add/rename/remove) находятся в store/meta.ts. */
 
   const setCustomFieldValue = useCallback(
-    (issueId: string, fieldId: string, value: string | null) => {
-      withIssue(issueId, (issue) => {
-        if (!requirePerm("edit", issue)) return;
-        void (async () => {
-          try {
-            const res = await issuesApi.setCustomFieldValue(pid(), issueId, fieldId, value);
-            setData((prev) => ({
-              ...prev,
-              issues: prev.issues.map((i) => (i.id === issueId ? { ...i, customFieldValues: res.values } : i)),
-            }));
-          } catch (err) {
-            handleApiError(err, local("Не удалось сохранить значение поля", "Couldn't save the field value"));
-          }
-        })();
-      });
+    async (issueId: string, fieldId: string, value: string | null, expectedValue?: string | null): Promise<boolean> => {
+      const projectId = pid(), epoch = sessionEpochRef.current;
+      const issue = dataRef.current.issues.find(issue => issue.id === issueId) ?? await resolveIssue(issueId);
+      if (!issue || epoch !== sessionEpochRef.current || pid() !== projectId || !requirePerm("edit", issue)) return false;
+      const previousValue = issue.customFieldValues.find(field => field.fieldId === fieldId)?.value ?? null;
+      try {
+        const res = await issuesApi.setCustomFieldValue(projectId, issueId, fieldId, value, expectedValue === undefined ? previousValue : expectedValue);
+        if (epoch !== sessionEpochRef.current || pid() !== projectId) return false;
+        setData(prev => ({ ...prev, issues: prev.issues.map(issue => {
+          if (issue.id !== issueId) return issue;
+          const saved = res.values.find(field => field.fieldId === fieldId);
+          return { ...issue, customFieldValues: [...issue.customFieldValues.filter(field => field.fieldId !== fieldId), ...(saved ? [saved] : [])] };
+        }) }));
+        return true;
+      } catch (err) {
+        if (epoch !== sessionEpochRef.current || pid() !== projectId) return false;
+        handleApiError(err, local("Не удалось сохранить значение поля", "Couldn't save the field value"));
+        return false;
+      }
     },
-    [requirePerm, handleApiError, withIssue],
+    [requirePerm, handleApiError, resolveIssue],
   );
 
   /* Повторение приходит только в списке задач; после правки в карточке обновляем его на месте, не дожидаясь перечитывания. */

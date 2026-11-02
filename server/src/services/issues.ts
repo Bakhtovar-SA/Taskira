@@ -156,6 +156,14 @@ export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_
     throw conflict("Задача уже изменена. Обновите её перед отменой");
   }
 }
+
+/** Compare under the issue row lock: a stale editor must not overwrite another author. */
+export function assertIssueWriteVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedVersion?: string): void {
+  if (expectedVersion !== undefined &&
+      (row.archived_at !== null || new Date(row.updated_at).getTime() !== new Date(expectedVersion).getTime())) {
+    throw conflict("Задача уже изменена другим пользователем. Обновите данные и повторите изменение");
+  }
+}
 export async function loadIssueForUpdate(client: PoolClient, projectId: string, issueId: string, expectedUpdatedAt?: string): Promise<IssueRow> {
   const row = (await client.query<IssueRow>("SELECT * FROM issues WHERE id = $1 AND project_id = $2 FOR UPDATE", [issueId, projectId])).rows[0];
   if (!row) throw notFound("Задача не найдена или удалена");

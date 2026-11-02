@@ -443,6 +443,8 @@ export const IssueCreateBody = z.object({
 export const IssuePatchBody = z
   .object({
     expectedUpdatedAt: z.string().datetime({ offset: true }),
+    /** Normal optimistic write guard; expectedUpdatedAt remains specific to Undo. */
+    expectedVersion: z.string().datetime({ offset: true }),
     title: oneLine(LIMITS.title.max, LIMITS.title.min),
     description: multiLine(LIMITS.description.max),
     priorityId: z.enum(PRIORITIES),
@@ -457,11 +459,12 @@ export const IssuePatchBody = z
     color: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
   })
   .partial()
-  .refine((v) => Object.keys(v).some(key => key !== "expectedUpdatedAt"), "Пустой патч");
+  .refine((v) => Object.keys(v).some(key => key !== "expectedUpdatedAt" && key !== "expectedVersion"), "Пустой патч");
 
 /** Смена статуса: сервер сверяет переход с workflow_transitions и право transition. */
 export const TransitionBody = z.object({
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+  expectedVersion: z.string().datetime({ offset: true }).optional(),
   to: uuid,
   beforeId: uuid.nullable().optional(),
 });
@@ -608,6 +611,7 @@ export const CustomFieldParams = z.object({ fieldId: uuid });
 /** PUT .../issues/:id/custom-fields/:fieldId — value=null очищает поле. */
 export const CustomFieldValueBody = z.object({
   value: z.string().max(500).nullable(),
+  expectedValue: z.string().max(500).nullable().optional(),
 });
 
 /* ---------------- Notifications (миграция 011) ---------------- */
@@ -858,7 +862,22 @@ export const ReportExportQuery = ReportQuery.omit({ groupBy: true }).extend({
 /* ---------------- Ошибки и WebSocket ---------------- */
 export type ApiError = { error: { code: string; reason: string } };
 
+export type RealtimeSyncMessage = {
+  type: "sync";
+  projectId: string;
+  /** Decimal Postgres bigint; never convert to a JavaScript number. */
+  cursor: string;
+  issueIds: string[];
+  /** Full project refresh required (initial connection, metadata change, or expired history). */
+  reset: boolean;
+  ts: number;
+};
+
 export type WsMessage =
+  | RealtimeSyncMessage
+  | { type: "sync:denied"; projectId: string; ts: number }
+  | { type: "sync:error"; projectId: string; ts: number }
+  | { type: "heartbeat"; ts: number }
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
@@ -873,10 +892,11 @@ export type WsMessage =
    *  говорит о том, принял ли сервер токен. */
   | { type: "auth_ok"; ts: number };
 
-/** Клиент → сервер, единственное ожидаемое сообщение (routes/ws.ts): токен
- *  первым сообщением после открытия — браузерный WebSocket не умеет слать
- *  свои заголовки, поэтому Authorization для хендшейка не годится. */
+/** Legacy token handshake; browsers authenticate using their HttpOnly cookie. */
 export type WsAuthMessage = { type: "auth"; token: string };
+/** One active project per socket; sending another subscription replaces it. */
+export type WsSyncSubscribeMessage = { type: "sync:subscribe"; projectId: string; cursor: string | null };
+export type WsClientMessage = WsAuthMessage | WsSyncSubscribeMessage;
 
 /* ---------------- Ответы API: типы выводятся из схем (ТЗ 2.1) ----------------
  * Это ЕДИНСТВЕННОЕ описание формы ответов: сервер аннотирует ими возвращаемые значения мапперов
@@ -1253,6 +1273,11 @@ export const PickableUserDto = z.object({
 });
 export type PickableUserDto = z.infer<typeof PickableUserDto>;
 export const PickableUsersQuery = z.object({ q: z.string().optional(), includeService: z.literal("1").optional() });
+
+/** Issue-scoped mention picker; usernames are needed to insert a server-recognized @login. */
+export const MentionCandidateDto = PickableUserDto.extend({ username: z.string() });
+export type MentionCandidateDto = z.infer<typeof MentionCandidateDto>;
+export const MentionCandidatesQuery = z.object({ q: z.string().trim().max(80).optional() });
 
 /** Элемент «Моих подключений» (GET /api/issues/collaborating). */
 export const CollaboratingItemDto = z.object({

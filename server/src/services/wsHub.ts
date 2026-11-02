@@ -48,7 +48,12 @@ export function pushToUser(userId: string, message: WsMessage): void {
   if (!set || set.size === 0) return;
   const payload = JSON.stringify(message);
   for (const socket of set) {
-    if (socket.readyState === socket.OPEN) socket.send(payload);
+    if (socket.readyState !== socket.OPEN) continue;
+    if (socket.bufferedAmount > 256 * 1024) {
+      socket.close(1013, "slow consumer; reconnect to resume");
+      continue;
+    }
+    try { socket.send(payload); } catch { socket.terminate(); }
   }
 }
 

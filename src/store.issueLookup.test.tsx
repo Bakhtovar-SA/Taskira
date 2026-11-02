@@ -146,7 +146,7 @@ describe("мутация по id: кэш → точечный GET → явная
     expect(h.get).not.toHaveBeenCalled();
     expect(h.patch).toHaveBeenCalledTimes(1);
     expect(h.patch.mock.calls[0][1]).toBe("i1");
-    expect(h.patch.mock.calls[0][2]).toEqual({ title: "Новое" });
+    expect(h.patch.mock.calls[0][2]).toEqual({ title: "Новое", expectedVersion: expect.any(String) });
     h.unmount();
   });
 

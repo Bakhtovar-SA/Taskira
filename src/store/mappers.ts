@@ -177,13 +177,15 @@ export const ISSUES_PAGE = 200;
 /** Клиентские доска/бэклог/таймлайн фильтруют локально, поэтому им нужен весь
  * активный набор, а не молча первые 200 строк. Сервер всё равно ограничивает
  * один ответ; дочитываем страницы последовательно, не создавая всплеск запросов. */
-export async function listAllIssues(projectId: string): Promise<{ items: ServerIssue[]; total: number }> {
-  let page = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
+export async function listAllIssues(projectId: string, signal?: AbortSignal): Promise<{ items: ServerIssue[]; total: number }> {
+  let page = await (signal ? issuesApi.list(projectId, { limit: ISSUES_PAGE }, signal) : issuesApi.list(projectId, { limit: ISSUES_PAGE }));
   const items = [...page.items];
   while (page.nextCursor) {
     // Курсор — эфемерное состояние обхода. В URL/localStorage он намеренно не
     // попадает: сохранённая ссылка описывает фильтр, а не позицию в выдаче.
-    page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, cursor: page.nextCursor });
+    signal?.throwIfAborted();
+    const query = { limit: ISSUES_PAGE, cursor: page.nextCursor };
+    page = await (signal ? issuesApi.list(projectId, query, signal) : issuesApi.list(projectId, query));
     if (page.items.length === 0) break;
     items.push(...page.items);
   }

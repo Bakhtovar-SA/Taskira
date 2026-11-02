@@ -4,6 +4,9 @@ import type { Dict } from "./ru";
  *  забыть ключ (ошибка "Property missing") и не даст добавить лишний,
  *  которого нет в ru.ts (excess property check на литерале). */
 const en: Record<keyof Dict, string> = {
+  "issue.concurrentEdit": "This issue changed while you were editing. Your draft is preserved.",
+  "issue.latestValue": "Latest saved value: {value}",
+  "issue.saveMine": "Save my version",
   "automation.options": "More actions",
   "automation.setDue": "Set due date",
   "automation.setDate": "Set date",
@@ -252,6 +255,11 @@ const en: Record<keyof Dict, string> = {
   "status.offline.title": "No network connection",
   "status.offline.body": "Check your internet or VPN. Taskira will load by itself once you're back online.",
   "status.offline.banner": "You're offline. Changes won't be saved until the connection is back.",
+  "status.sync.recovering": "Reconnecting to updates. Changes may appear with a delay.",
+  "mention.choose": "Mention someone",
+  "mention.empty": "No people found. Try a name or username.",
+  "mention.error": "Couldn't load people.",
+  "mention.tooLong": "There isn't enough room for this mention. Shorten your comment.",
   "status.notFound.title": "Nothing here",
   "status.notFound.body": "The project or issue in this link doesn't exist, or you don't have access to it. If a colleague sent the link, ask them to add you to the project.",
   "status.notFound.home": "Go home",

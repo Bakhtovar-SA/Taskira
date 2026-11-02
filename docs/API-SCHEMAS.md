@@ -122,6 +122,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `value` | string | может быть null; длина 0…500 |
+| `expectedValue` | string | необязательное, может быть null; длина 0…500 |
 
 ### DashboardCreateBody
 
@@ -305,6 +306,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `expectedUpdatedAt` | string (datetime) | необязательное |
+| `expectedVersion` | string (datetime) | необязательное |
 | `title` | string | необязательное; длина 1…250 |
 | `description` | string | необязательное; длина 0…5000 |
 | `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
@@ -413,6 +415,12 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `userId` | string (uuid) |  |
+
+### MentionCandidatesQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `q` | string | необязательное; длина 0…80 |
 
 ### MilestoneCreateBody
 
@@ -698,6 +706,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `expectedUpdatedAt` | string (datetime) | необязательное |
+| `expectedVersion` | string (datetime) | необязательное |
 | `to` | string (uuid) |  |
 | `beforeId` | string (uuid) | необязательное, может быть null |
 
@@ -1220,6 +1229,18 @@ array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `
 | `favoriteProjectIds` | array&lt;string&gt; |  |
 | `lang` | enum: `ru` \| `en` |  |
 | `mustChangePassword` | boolean |  |
+
+### MentionCandidateDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `initials` | string |  |
+| `color` | string |  |
+| `jobRole` | string |  |
+| `authSource` | enum: `local` \| `ldap` \| `service` | необязательное |
+| `username` | string |  |
 
 ### MilestoneDto
 

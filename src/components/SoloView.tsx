@@ -1,6 +1,6 @@
 import { Button, IconButton } from "../ds/Button";
 import { Avatar } from "../ds/Display";
-import { Textarea } from "../ds/Field";
+import MentionTextarea from "./MentionTextarea";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
@@ -217,9 +217,9 @@ export function SoloIssueCard({
         </div>
 
         <div className="mt-3 flex gap-2">
-          <div className="min-w-0 flex-1"><Textarea aria-label={t("solo.commentPlaceholder")} maxChars={LIMITS.comment.max}
+          <div className="min-w-0 flex-1"><MentionTextarea key={issueId} field projectId={projectId} issueId={issueId} aria-label={t("solo.commentPlaceholder")} maxChars={LIMITS.comment.max}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onValueChange={setDraft}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
