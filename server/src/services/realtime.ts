@@ -21,6 +21,11 @@ export function isRealtimeCursor(value: unknown): value is string {
 }
 
 async function drain(): Promise<void> {
+  // Idle fast path: subscribed sockets kick the dispatcher every poll interval.
+  // Without pending rows (and no cleanup due) skip the transaction, advisory lock
+  // and the per-project lateral probe; one index-only EXISTS is enough.
+  if (Date.now() - lastCleanupAt < CLEANUP_INTERVAL_MS &&
+      !(await one<{ pending: boolean }>(`SELECT EXISTS (SELECT 1 FROM realtime_pending) AS pending`))?.pending) return;
   for (let batch = 0; batch < MAX_DRAIN_BATCHES; batch++) {
     const consumed = await withTransaction(async (client) => {
       const lock = await client.query<{ locked: boolean }>(
@@ -150,6 +155,45 @@ export async function readRealtimeChanges(
     if (ids.size > MAX_ISSUE_IDS) reset = true;
   }
   return { type: "sync", projectId, cursor: high, issueIds: reset ? [] : [...ids], reset, ts: Date.now() };
+}
+
+/** Current public cursor (high watermark) of each project; absent = "0". One query
+ *  per poll lets idle subscriptions skip their event read entirely. */
+export async function realtimeWatermarks(projectIds: string[]): Promise<Map<string, string>> {
+  if (projectIds.length === 0) return new Map();
+  const rows = await q<{ project_id: string; high: string }>(
+    `SELECT project_id, high::text AS high FROM realtime_project_cursors WHERE project_id = ANY($1::uuid[])`,
+    [projectIds],
+  );
+  return new Map(rows.map(row => [row.project_id, row.high]));
+}
+
+export type RealtimeAccess = "allowed" | "denied" | "expired";
+export interface RealtimeAccessCheck { userId: string; sessionVersion: number | undefined; projectId: string }
+
+/** realtimeAccess() for many socket subscriptions in ONE uncached query (same
+ *  policy, session-cookie semantics: no API-token variant on WebSocket). */
+export async function realtimeAccessBatch(checks: RealtimeAccessCheck[]): Promise<RealtimeAccess[]> {
+  if (checks.length === 0) return [];
+  const rows = await q<{ ord: string; session_ok: boolean | null; can_browse: boolean }>(
+    `SELECT x.ord::text AS ord,
+            (u.is_active AND u.session_version = x.session_version AND NOT u.must_change_password) AS session_ok,
+            EXISTS (
+              SELECT 1 FROM projects p WHERE p.id = x.project_id AND (
+                u.global_role = 'admin' OR p.is_shared
+                OR EXISTS (SELECT 1 FROM project_members pm WHERE pm.project_id = p.id AND pm.user_id = u.id)
+                OR EXISTS (SELECT 1 FROM department_members dm WHERE dm.department_id = p.department_id AND dm.user_id = u.id)
+              )
+            ) AS can_browse
+       FROM unnest($1::uuid[], $2::bigint[], $3::uuid[]) WITH ORDINALITY AS x(user_id, session_version, project_id, ord)
+       LEFT JOIN users u ON u.id = x.user_id`,
+    [checks.map(c => c.userId), checks.map(c => c.sessionVersion ?? null), checks.map(c => c.projectId)],
+  );
+  const result: RealtimeAccess[] = checks.map(() => "expired");
+  for (const row of rows) {
+    result[Number(row.ord) - 1] = !row.session_ok ? "expired" : row.can_browse ? "allowed" : "denied";
+  }
+  return result;
 }
 
 /** Same browse policy as requirePerm, without its 30s authorization caches.

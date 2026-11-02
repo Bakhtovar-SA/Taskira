@@ -2,7 +2,9 @@ import type { FastifyInstance } from "fastify";
 import { readFileSync } from "node:fs";
 import { afterAll, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import { acquireClient, q, withTransaction } from "../src/db.js";
-import { materializeRealtimeChanges, readRealtimeChanges } from "../src/services/realtime.js";
+import {
+  materializeRealtimeChanges, readRealtimeChanges, realtimeAccess, realtimeAccessBatch, realtimeWatermarks,
+} from "../src/services/realtime.js";
 import { ISSUE_VERSION_SQL } from "../src/services/issues.js";
 import { auth, getApp, login, newIssue, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
 
@@ -265,6 +267,28 @@ describe("durable realtime journal", () => {
       expect(scrape.body).toContain('taskira_background_queue_size{queue="realtime"} 1');
       expect(scrape.body).toMatch(/taskira_realtime_pending_oldest_seconds [\d.]+/);
     });
+  });
+
+  test("batched socket access check matches the single check per subscription", async () => {
+    const [{ v }] = await q<{ v: string }>("SELECT session_version::text AS v FROM users WHERE id = $1", [fx.users.emp1]);
+    const sessionVersion = Number(v);
+    const checks = [
+      { userId: fx.users.emp1, sessionVersion, projectId: fx.projects.p1 },
+      { userId: fx.users.emp1, sessionVersion, projectId: fx.projects.p2 },
+      { userId: fx.users.emp1, sessionVersion: sessionVersion + 1, projectId: fx.projects.p1 },
+      { userId: fx.users.mgr2, sessionVersion: undefined, projectId: fx.projects.p2 },
+    ];
+    const batched = await realtimeAccessBatch(checks);
+    expect(batched).toEqual(["allowed", "denied", "expired", "expired"]);
+    expect(batched).toEqual(await Promise.all(checks.map(c => realtimeAccess(c.userId, c.sessionVersion, c.projectId))));
+    expect(await realtimeAccessBatch([])).toEqual([]);
+  });
+
+  test("idle watermark lookup returns the per-project high cursor", async () => {
+    await q("UPDATE issues SET title = 'bump' WHERE id = $1", [fx.issues.p1issue]);
+    await materializeRealtimeChanges();
+    const marks = await realtimeWatermarks([fx.projects.p1, fx.projects.p2]);
+    expect(marks.get(fx.projects.p1)).toBe((await readRealtimeChanges(fx.projects.p1, null)).cursor);
   });
 });
 

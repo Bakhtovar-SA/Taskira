@@ -60,6 +60,17 @@ test("an issue-only collaborator sees and can mention only people already on the
   expect(member).toContain(fx.users.viw1);
 });
 
+test("a project member who is also invited to the issue keeps the full picker", async () => {
+  // requireIssuePerm returns on the role grant before the collaborator check, so
+  // req.isCollaborator stays false and the issue-only scope does not apply.
+  await q("INSERT INTO issue_collaborators(issue_id, user_id, added_by) VALUES ($1, $2, $3)",
+    [fx.issues.p1issue, fx.users.viw1, fx.users.mgr1]);
+  const viewer = await login(app, "viw1");
+  const ids = (await app.inject({ url: url(), headers: auth(viewer) })).json<{ id: string }[]>().map(person => person.id);
+  expect(ids).toContain(fx.users.mgr1);
+  expect(ids).toContain(fx.users.emp1);
+});
+
 test("choosing a suggested login creates exactly one mention notification and pushes it to the recipient", async () => {
   const recipientToken = await login(app, "viw1");
   const socket = await app.injectWS("/api/ws");

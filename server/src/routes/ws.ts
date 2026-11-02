@@ -5,7 +5,10 @@ import type { JwtPayload } from "../middleware.js";
 import { assertFreshUser } from "../middleware.js";
 import type { RealtimeSyncMessage, WsMessage } from "../contract.js";
 import { registerSocket, revokedSince, unregisterSocket } from "../services/wsHub.js";
-import { isRealtimeCursor, materializeRealtimeChanges, readRealtimeChanges, realtimeAccess } from "../services/realtime.js";
+import {
+  isRealtimeCursor, materializeRealtimeChanges, readRealtimeChanges, realtimeAccess, realtimeAccessBatch, realtimeWatermarks,
+  type RealtimeAccess,
+} from "../services/realtime.js";
 import { requestToken } from "../sessionCookie.js";
 
 const AUTH_TIMEOUT_MS = 5_000;
@@ -75,37 +78,65 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
-    // Tabs commonly share a cursor. Read each distinct cursor once per tick;
-    // recheck the recipient's fresh access immediately before every delivery.
+    // Per tick, independent of the number of sockets: one watermark query, one
+    // event read per distinct (project, cursor) that is actually behind, and ONE
+    // batched uncached access check right before delivery. An idle subscription
+    // (cursor already at its project's high watermark) costs no journal read.
+    const snapshot = entries.map(connection => ({
+      connection, subscription: connection.subscription!, generation: connection.generation, userId: connection.userId!,
+    }));
+    const failAll = (error: unknown) => {
+      app.log.error({ err: error }, "realtime subscription failed");
+      for (const entry of snapshot) reportError(entry.connection, entry.subscription, entry.generation);
+    };
+    let marks: Map<string, string>;
+    try { marks = await realtimeWatermarks([...new Set(snapshot.map(entry => entry.subscription.projectId))]); }
+    catch (error) { failAll(error); return; }
+    const idle = (subscription: Subscription) =>
+      !subscription.initial && subscription.cursor === (marks.get(subscription.projectId) ?? "0");
+
+    // Tabs commonly share a cursor: read each distinct one once. Bounded
+    // concurrency leaves pool connections for ordinary API requests and writes.
     const changes = new Map<string, Promise<RealtimeSyncMessage>>();
-    const deliver = async (connection: Connection) => {
-      const subscription = connection.subscription;
-      const generation = connection.generation;
-      if (!subscription || !connection.userId) return;
+    const keyOf = (subscription: Subscription) => `${subscription.projectId}:${subscription.cursor ?? "initial"}`;
+    const pendingReads = [...new Map(snapshot.filter(entry => !idle(entry.subscription))
+      .map(entry => [keyOf(entry.subscription), entry.subscription])).entries()];
+    for (let index = 0; index < pendingReads.length; index += 4) {
+      if (closed) return;
+      await Promise.allSettled(pendingReads.slice(index, index + 4).map(([key, subscription]) => {
+        const read = readRealtimeChanges(subscription.projectId, subscription.cursor, { materialize: false });
+        changes.set(key, read);
+        return read;
+      }));
+    }
+
+    let access: RealtimeAccess[];
+    try {
+      access = await realtimeAccessBatch(snapshot.map(entry => ({
+        userId: entry.userId, sessionVersion: entry.connection.sessionVersion, projectId: entry.subscription.projectId,
+      })));
+    } catch (error) { failAll(error); return; }
+
+    for (const [index, { connection, subscription, generation }] of snapshot.entries()) {
+      if (!current(connection, subscription, generation)) continue;
+      if (access[index] === "expired") {
+        connection.socket.close(1008, "session revoked");
+        continue;
+      }
+      if (access[index] === "denied") {
+        connection.subscription = null;
+        connection.generation++;
+        send(connection, { type: "sync:denied", projectId: subscription.projectId, ts: Date.now() });
+        continue;
+      }
+      const read = changes.get(keyOf(subscription));
+      if (!read) { subscription.errorSent = false; continue; } // idle: nothing newer to deliver
       try {
-        const key = `${subscription.projectId}:${subscription.cursor ?? "initial"}`;
-        let read = changes.get(key);
-        if (!read) {
-          read = readRealtimeChanges(subscription.projectId, subscription.cursor, { materialize: false });
-          changes.set(key, read);
-        }
         const message = await read;
-        if (!current(connection, subscription, generation)) return;
-        const access = await realtimeAccess(connection.userId, connection.sessionVersion, subscription.projectId);
-        if (!current(connection, subscription, generation)) return;
-        if (access === "expired") {
-          connection.socket.close(1008, "session revoked");
-          return;
-        }
-        if (access === "denied") {
-          connection.subscription = null;
-          connection.generation++;
-          send(connection, { type: "sync:denied", projectId: subscription.projectId, ts: Date.now() });
-          return;
-        }
+        if (!current(connection, subscription, generation)) continue;
         subscription.errorSent = false;
         if (subscription.initial || message.reset || message.issueIds.length > 0) {
-          if (!send(connection, message)) return;
+          if (!send(connection, message)) continue;
         }
         subscription.initial = false;
         subscription.cursor = message.cursor;
@@ -113,11 +144,6 @@ export async function wsRoutes(app: FastifyInstance): Promise<void> {
         app.log.error({ err: error }, "realtime subscription failed");
         reportError(connection, subscription, generation);
       }
-    };
-    // Leave pool connections available for ordinary API requests and writes.
-    for (let index = 0; index < entries.length; index += 4) {
-      if (closed) break;
-      await Promise.all(entries.slice(index, index + 4).map(deliver));
     }
     updatePolling();
   };
