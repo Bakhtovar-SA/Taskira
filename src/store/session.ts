@@ -35,6 +35,9 @@ import type { StoreCtx } from "./ctx";
 import { parsePath } from "../router";
 import { EMPTY_NOTIFICATIONS } from "./slices";
 import type { BootStatus, IssueMode, SoloState, UIState } from "./mappers";
+import type { SyncBatch } from "../realtime";
+import { readMutationFence } from "../api/mutationFence";
+import type { Issue } from "../types";
 
 export interface SessionDeps {
   setBootStatus: Dispatch<SetStateAction<BootStatus>>;
@@ -48,7 +51,7 @@ export interface SessionDeps {
 }
 
 export function useSessionActions(
-  { setData, dataRef, pid, toast, handleApiError, local, notifStore }: StoreCtx,
+  { setData, dataRef, dataWriteRevisionRef, pid, toast, handleApiError, local, notifStore }: StoreCtx,
   { setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef }: SessionDeps,
 ) {
   // Лента и счётчик уведомлений живут отдельно от `data` (ADR-0011, шаг 2), но сбрасываются там же, где раньше
@@ -405,6 +408,84 @@ export function useSessionActions(
     }
   }, [handleApiError, bumpIssues]);
 
+  /** Read first, then commit once. Failed refreshes never acknowledge the journal.
+   * A local write supersedes an older HTTP snapshot; the controller retries its old cursor. */
+  const refreshRealtime = useCallback(async (batch: SyncBatch, signal: AbortSignal, selectedIssueId: string | null) => {
+    const projectId = pid();
+    const epoch = sessionEpochRef.current;
+    const snapshot = dataRef.current;
+    const writeRevision = dataWriteRevisionRef?.current;
+    const fence = readMutationFence();
+    if (fence.pending || signal.aborted || projectId !== batch.projectId) throw new Error("Sync deferred");
+    const knownIds = new Set(snapshot.issues.map(issue => issue.id));
+    const ids = [...new Set([
+      ...(batch.reset ? (snapshot.issuesComplete ? [] : knownIds) : batch.issueIds.filter(id => knownIds.has(id))),
+      ...(selectedIssueId ? [selectedIssueId] : []),
+    ])];
+    const records = new Map<string, Issue | null>();
+    let index = 0;
+    const readOne = async (id: string) => {
+      try {
+        const dto = await issuesApi.get(projectId, id, signal);
+        const mapped = mapIssue(dto, snapshot.issues.find(issue => issue.id === id));
+        if (id === selectedIssueId) {
+          const [comments, activity] = await Promise.all([
+            commentsApi.list(projectId, id, signal), issuesApi.activity(projectId, id, signal),
+          ]);
+          mapped.comments = comments.map(c => ({ id: c.id, authorId: c.authorId, author: c.author, body: c.body, ts: Date.parse(c.createdAt) || Date.now() }));
+          mapped.activity = activity.map(a => ({ id: a.id, authorId: a.actorId, author: a.actor, text: a.text, event: a.event ?? null, ts: Date.parse(a.createdAt) || Date.now() }));
+        }
+        records.set(id, mapped);
+      } catch (error) {
+        if (error instanceof ApiError && (error.status === 404 || error.status === 403)) records.set(id, null);
+        else throw error;
+      }
+    };
+    const [complete, metadata] = await Promise.all([
+      snapshot.issuesComplete ? listAllIssues(projectId, signal) : Promise.resolve(null),
+      batch.reset ? projectsApi.get(projectId, signal) : Promise.resolve(null),
+      ...Array.from({ length: Math.min(6, ids.length) }, async () => {
+        while (index < ids.length) { signal.throwIfAborted(); await readOne(ids[index++]); }
+      }),
+    ]);
+    signal.throwIfAborted();
+    const currentFence = readMutationFence();
+    if (epoch !== sessionEpochRef.current || pid() !== projectId || currentFence.pending
+      || fence.revision !== currentFence.revision || dataRef.current !== snapshot
+      || dataWriteRevisionRef?.current !== writeRevision) throw new Error("Sync superseded");
+    setData(prev => {
+      if (prev.currentProjectId !== projectId || epoch !== sessionEpochRef.current || signal.aborted) return prev;
+      let issues = complete
+        ? complete.items.map(dto => mapIssue(dto, prev.issues.find(issue => issue.id === dto.id)))
+        : prev.issues;
+      const seen = new Set(issues.map(issue => issue.id));
+      if (complete && !batch.reset) issues = [...issues, ...prev.issues.filter(issue => !seen.has(issue.id) && records.get(issue.id) !== null)];
+      issues = issues.filter(issue => records.get(issue.id) !== null).map(issue => records.get(issue.id) ?? issue);
+      for (const [id, issue] of records) if (issue && !issues.some(existing => existing.id === id)) issues.push(issue);
+      if (!metadata) return { ...prev, issues };
+      const members: Record<string, ProjectRole> = {};
+      for (const member of metadata.members) members[member.userId] = member.role;
+      return {
+        ...prev, issues,
+        project: { ...prev.project, ...metadata.project },
+        projects: prev.projects.map(project => project.id === projectId ? { ...project, ...metadata.project } : project),
+        members,
+        users: metadata.users.map(user => mapUser(user, members)),
+        workflow: {
+          statuses: metadata.workflow.statuses.map(status => ({ id: status.id, sid: status.sid, name: status.name, category: status.category })),
+          transitions: metadata.workflow.transitions.map(transition => ({ id: transition.id, from: transition.from, to: transition.to })),
+        },
+        issueTemplates: metadata.issueTemplates.map(mapIssueTemplate),
+        customFields: metadata.customFields,
+        sprints: metadata.sprints.map(mapSprint),
+      };
+    });
+    if (selectedIssueId && records.get(selectedIssueId) === null) {
+      setUi(u => u.selectedIssueId === selectedIssueId ? { ...u, selectedIssueId: null } : u);
+    }
+    bumpIssues();
+  }, [bumpIssues]);
+
   /**
    * Явная полная загрузка задач проекта — единственный осознанный потребитель «всего проекта»
    * (экран Sprints, модуль по умолчанию выключен, PERF-06 A15: «обернуть, не оптимизировать»).
@@ -468,6 +549,7 @@ export function useSessionActions(
       const requestProjectId = pid();
       if (!requestProjectId) return; // SEC-01: после выхода pid() = "", и guard `"" === ""` пропустил бы ответ
       const epoch = sessionEpochRef.current;
+      const issueAtRequest = dataRef.current.issues.find(issue => issue.id === id);
       void (async () => {
         try {
           // История задачи грузится вместе с карточкой: до этого таблица activity
@@ -481,6 +563,9 @@ export function useSessionActions(
           if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
           setData((prev) => {
             if (prev.currentProjectId !== requestProjectId) return prev;
+            // A newer realtime/local response may already have replaced this issue,
+            // even when a subresource write didn't change its updatedAt timestamp.
+            if (prev.issues.find(issue => issue.id === id) !== issueAtRequest) return prev;
             const mapped = mapIssue(dto, prev.issues.find((x) => x.id === id));
             mapped.comments = comments.map(
               (c) => ({
@@ -521,6 +606,7 @@ export function useSessionActions(
     refreshAssignedToMe,
     logout,
     refreshIssues,
+    refreshRealtime,
     ensureAllIssues,
     refreshCollaborations,
     openIssue,

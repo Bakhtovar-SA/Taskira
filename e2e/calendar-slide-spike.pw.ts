@@ -84,6 +84,6 @@ for (const reduced of [false, true]) test(`calendar slide spike uses trusted poi
   expect(metrics.start?.startTrusted).toBe(true);
   expect(metrics.drop).toMatchObject({ trusted: true, mime: true, issue: 'i9', day: '2026-11-03', hitDay: '2026-11-03', active: !reduced });
   if (!reduced) { expect(metrics.drop!.duration).toBe(300); expect(metrics.drop!.time).toBeGreaterThanOrEqual(0); expect(metrics.drop!.time).toBeLessThan(300); }
-  await expect.poll(() => api.writes).toEqual([{ dueDate: '2026-11-03' }]);
+  await expect.poll(() => api.writes).toEqual([{ dueDate: '2026-11-03', expectedVersion: '2026-10-01T12:00:00.000Z' }]);
   await expect(page.locator('[data-day="2026-11-03"] [data-issue-id="i9"]')).toBeVisible();
 });

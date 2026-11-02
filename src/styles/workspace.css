@@ -255,6 +255,17 @@
   transform: rotate(45deg);
 }
 .form-disclosure[open] > summary::after { transform: rotate(225deg); }
+
+/* In-flow direction picker: surrounding form fields move with the panel. */
+.create-direction-reveal { display: grid; grid-template-rows: 1fr; animation: directionOpen var(--dur-4) var(--ease-out) both; }
+.create-direction-reveal[data-open="false"] { animation: directionClose var(--dur-3) var(--ease-out) both; pointer-events: none; }
+@keyframes directionOpen { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+@keyframes directionClose { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .create-direction-reveal { animation: none; } }
+html[data-motion="reduce"] .create-direction-reveal { animation: none; }
+
+.mention-pop { max-width: min(420px, calc(100vw - 24px)); padding: 6px; }
+.mention-pop [role="listbox"] { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
 .workspace-toggle:hover,
 .form-disclosure summary:hover { background: var(--bg-hover); }
 .workspace-toggle { flex: 0 0 auto; white-space: nowrap; }

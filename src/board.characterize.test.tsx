@@ -253,7 +253,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     fireEvent.dragStart(card, { dataTransfer: transfer, clientX: 10, clientY: 10 });
     fireEvent.drop(target, { dataTransfer: transfer, clientX: 400, clientY: 100 });
     await settle();
-    expect(transition).toHaveBeenCalledWith("p1", "a1", "s2", null);
+    expect(transition).toHaveBeenCalledWith("p1", "a1", "s2", null, undefined, expect.any(String));
     expect(source.contains(card)).toBe(true);
     refresh = true;
     act(() => finishTransition(dto("a1", { statusId: "s2", rank: 2 })));
@@ -453,7 +453,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
 
     fireEvent.click(items[0]);
     await settle();
-    expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null);
+    expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null, undefined, expect.any(String));
     expect(h.store().ui.selectedIssueId).toBeNull(); // клик по пункту не всплыл до карточки
 
     // M и с фокусом на самой кнопке меню; Enter на кнопке не открывает задачу.

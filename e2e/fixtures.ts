@@ -6,6 +6,24 @@ const user = { id: "u1", username: "admin", name: "Test Admin", initials: "TA", 
 const boot = { project, users: [user], members: [{ userId: "u1", role: "admin" }], workflow: { statuses: [{ id: "s1", sid: "todo", name: "Todo", category: "todo", position: 0 }], transitions: [] }, issueTemplates: [], customFields: [], sprints: [] };
 export async function mockApi(page: Page, userOverrides: Partial<typeof user> & { givenName?: string | null } = {}) {
   const profile = { ...user, ...userOverrides };
+  // Ordinary UI fixtures represent a healthy server with no remote writes.
+  // Realtime scenarios replace these routes with their shared journal. Returning
+  // [] or closing every socket would put unrelated tests into recovery mode.
+  const sync = (projectId: string, cursor: string | null) => ({
+    type: "sync", projectId, cursor: "0", issueIds: [], reset: cursor !== "0", ts: Date.now(),
+  });
+  await page.routeWebSocket("**/api/ws", socket => {
+    socket.send(JSON.stringify({ type: "auth_ok" }));
+    socket.onMessage(data => {
+      const message = JSON.parse(String(data));
+      if (message.type === "auth") socket.send(JSON.stringify({ type: "auth_ok" }));
+      if (message.type === "sync:subscribe") socket.send(JSON.stringify(sync(message.projectId, message.cursor)));
+    });
+    const heartbeat = setInterval(() => socket.send(JSON.stringify({ type: "heartbeat", ts: Date.now() })), 25_000);
+    heartbeat.unref();
+    socket.onClose(() => clearInterval(heartbeat));
+    page.once("close", () => clearInterval(heartbeat));
+  });
   page.on("pageerror", (error) => console.error("pageerror:", error.message));
   page.on("console", (msg) => { if (msg.type() === "error") console.error("browser:", msg.text()); });
   let brand = { name: null, hue: null, logoUpdatedAt: null, transparencyDefault: "auto" };
@@ -17,6 +35,9 @@ export async function mockApi(page: Page, userOverrides: Partial<typeof user> & 
     const method = route.request().method();
     let body: unknown = [];
     if (path === "/admin/setup") body = { completed: true };
+    else if (/^\/projects\/[^/]+\/sync$/.test(path)) {
+      body = sync(path.split("/")[2], new URL(route.request().url()).searchParams.get("cursor"));
+    }
     else if (path === "/me/onboarding") body = { done: [], hints: [], hidden: true };
     else if (path === "/auth/me") body = profile;
     else if (path === "/auth/config") body = { authMode: "local" };

@@ -24,7 +24,12 @@ async function fixture(page:Page, opts:{role?:string;parent?:boolean;children?:b
   if(path.startsWith('/api/projects/p1/issues/i1')&&method!=='GET'){
    const body=method==='DELETE'?null:route.request().postDataJSON();writes.push({path,method,body});
    if(opts.error)return route.fulfill({status:409,json:{error:{code:'CONFLICT',reason:method==='PATCH'?'Родитель недоступен':'Связь не сохранена'}}});
-   if(method==='PATCH'){Object.assign(detail,body);return route.fulfill({json:detail});}
+   if(method==='PATCH'){
+    const {expectedVersion,...patch}=body;
+    if(expectedVersion!==new Date(detail.updatedAt).toISOString())return route.fulfill({status:409,json:{error:{code:'STALE_VERSION',reason:'Issue changed'}}});
+    Object.assign(detail,patch,{updatedAt:new Date(Date.parse(detail.updatedAt)+1000).toISOString()});
+    return route.fulfill({json:detail});
+   }
    if(path.endsWith('/links')&&method==='POST'){const id='link'+(detail.links.length+1);detail.links.push({id,dir:body.type,issue:related(body.linkedIssueId)});return route.fulfill({json:{id,links:detail.links}});}
    if(path.includes('/links/')&&method==='DELETE'){detail.links=[];return route.fulfill({json:{links:[]}});}
   }
@@ -40,12 +45,13 @@ async function action(page:Page,name:string){await page.locator('.issue-toolbar-
  const {card,writes}=await fixture(page);
  await expect(card.getByText('Родительская задача',{exact:true})).toHaveCount(0);await expect(card.getByText('Связи',{exact:true})).toHaveCount(0);
  await action(page,'Сделать подзадачей');await page.getByRole('option',{name:/CORP-2/}).click();
- await expect(card.locator('.issue-parent-link')).toContainText('CORP-2');expect(writes.at(-1).body).toEqual({parentId:'i2'});
+ await expect(card.locator('.issue-parent-link')).toContainText('CORP-2');expect(writes.at(-1).body).toEqual({parentId:'i2',expectedVersion:'2026-10-03T12:00:00.000Z'});
  await page.reload();await expect(page.locator('.issue-parent-link')).toContainText('CORP-2');
  await expect(card.locator('.issue-tile').filter({hasText:'Подзадачи'}).getByRole('button',{name:/Добавить/})).toHaveCount(0);
  await action(page,'Изменить родителя');await page.getByRole('option',{name:/CORP-3/}).click();await expect(page.locator('.issue-parent-link')).toContainText('CORP-3');
+ expect(writes.at(-1).body).toEqual({parentId:'i3',expectedVersion:'2026-10-03T12:00:01.000Z'});
  await action(page,'Изменить родителя');await page.getByRole('button',{name:'Сделать самостоятельной',exact:true}).click();await expect(page.locator('.issue-parent-link')).toHaveCount(0);
- expect(writes.at(-1).body).toEqual({parentId:null});
+ expect(writes.at(-1).body).toEqual({parentId:null,expectedVersion:'2026-10-03T12:00:02.000Z'});
  });
 for(const type of ['relates','blocks','blocked_by'])test(`links: ${type} persists and hides after removal`,async({page})=>{
  const {card,writes}=await fixture(page);
@@ -81,9 +87,10 @@ for(const theme of ['dark','light'])test(`mobile ${theme}: parent title and link
  const violations=(await new AxeBuilder({page}).include('.issue-relation-picker').analyze()).violations;expect(violations).toEqual([]);
 });
 test('failed relationship mutation keeps existing issue state and reports error',async({page})=>{
- const {card}=await fixture(page,{error:true});await action(page,'Добавить связь');await page.getByRole('option',{name:/CORP-3/}).click();
+ const {card,writes}=await fixture(page,{error:true});await action(page,'Добавить связь');await page.getByRole('option',{name:/CORP-3/}).click();
  await expect(page.locator('[data-toast-id]').filter({hasText:'Связь не сохранена'})).toBeVisible();await expect(card.locator('.issue-linked-task')).toHaveCount(0);
  await action(page,'Сделать подзадачей');await page.getByRole('option',{name:/CORP-2/}).click();await expect(page.locator('[data-toast-id]').filter({hasText:'Родитель недоступен'})).toBeVisible();await expect(card.locator('.issue-parent-link')).toHaveCount(0);
+ expect(writes.at(-1).body).toEqual({parentId:'i2',expectedVersion:'2026-10-03T12:00:00.000Z'});
 });
 
 for (const mode of ['normal', 'system', 'personal'] as const) {

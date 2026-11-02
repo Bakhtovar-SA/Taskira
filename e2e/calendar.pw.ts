@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { calendarApi } from "./calendar-fixture";
 import { settle } from "./motion-helpers";
+const expectedVersion = "2026-10-01T12:00:00.000Z";
 for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] as const) {
   test(`calendar month/week, keyboard, dates, drag and axe · ${theme} · ${lang}`, async ({ page }) => {
     test.setTimeout(60_000);
@@ -37,17 +38,17 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await card.focus(); await card.press("m");
     const text = page.getByRole("textbox", { name: lang === "en" ? "Due date" : "Срок", exact: true });
     await expect(text).toBeFocused(); await text.fill(lang === "en" ? "3 Oct 2026" : "3 окт 2026"); await text.press("Enter");
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03", expectedVersion });
     await expect(page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]')).toBeVisible();
     await page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-02"]'));
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-02" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-02", expectedVersion });
     await page.getByRole("button", { name: lang === "en" ? "No due date" : "Без срока", exact: true }).click();
     const aside = page.getByRole("complementary", { name: lang === "en" ? "No due date" : "Без срока" });
     await expect(aside.locator('[data-issue-id]')).toHaveCount(1);
     await aside.locator('[data-issue-id]').dragTo(day);
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-01" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-01", expectedVersion });
     await page.locator('[data-issue-id="i1"]').dragTo(aside.locator('.min-h-40'));
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: null });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: null, expectedVersion });
     await aside.getByRole("button", { name: lang === "en" ? "Close" : "Закрыть", exact: true }).click();
     api.reject();
     await day.locator('[data-issue-id="i3"]').dragTo(page.locator('[data-day="2026-10-02"]'));
@@ -94,7 +95,7 @@ for (const theme of ["light", "dark"] as const) test(`calendar 300 issues month 
   await settle(page);
   const dragStart = Date.now();
   await page.locator('[data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-03"]'));
-  await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });
+  await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03", expectedVersion });
   await expect(page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]')).toBeVisible();
   console.log(`calendar ${theme}: month switch ${switching} ms, drag + PATCH + revalidation ${Date.now() - dragStart} ms`);
 });

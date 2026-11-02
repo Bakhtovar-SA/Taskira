@@ -24,6 +24,8 @@ const jobRunning = new Map<string, number>();
 let maintenanceArchived = 0;
 let maintenanceAuditPurged = 0;
 let backgroundQueueSize = 0;
+let realtimePendingSize = 0;
+let realtimePendingOldest = 0;
 let collectionErrors = 0;
 const integrationEvents = new Map<string, number>();
 const webhookDeliveries = new Map<string, number>();
@@ -140,6 +142,13 @@ function renderHistogram(name: string, help: string, store: Map<string, Histogra
 /** Обновляется при scrape: размер durable email-очереди хранится в PostgreSQL. */
 export async function refreshBackgroundQueueMetrics(): Promise<void> {
   try {
+    const rows = await q<{ size: string; oldest: number }>(`SELECT count(*)::text AS size,
+      COALESCE(GREATEST(0, extract(epoch FROM now() - min(created_at))), 0)::double precision AS oldest
+      FROM realtime_pending`);
+    realtimePendingSize = Number(rows[0].size);
+    realtimePendingOldest = rows[0].oldest;
+  } catch { collectionErrors += 1; }
+  try {
     const rows = await q<{ count: string }>(
       `SELECT count(*)::text AS count FROM notifications WHERE email_state = 'pending'`,
     );
@@ -198,6 +207,10 @@ export function renderMetrics(activeWsConnections: number): string {
     "# HELP taskira_background_queue_size Pending background jobs by queue.",
     "# TYPE taskira_background_queue_size gauge",
     `taskira_background_queue_size{queue="email_notifications"} ${backgroundQueueSize}`,
+    `taskira_background_queue_size{queue="realtime"} ${realtimePendingSize}`,
+    "# HELP taskira_realtime_pending_oldest_seconds Age of the oldest committed realtime change awaiting dispatch.",
+    "# TYPE taskira_realtime_pending_oldest_seconds gauge",
+    `taskira_realtime_pending_oldest_seconds ${realtimePendingOldest}`,
   );
   lines.push(...renderHistogram(
     "taskira_ldap_resync_duration_seconds",

@@ -38,6 +38,7 @@ import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
 import { dataExportRoutes } from "./routes/dataExport.js";
 import { wsRoutes } from "./routes/ws.js";
+import { realtimeRoutes } from "./routes/realtime.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
@@ -273,6 +274,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       // Ресурсы конкретного проекта — под параметрическим префиксом.
       await api.register(
         async (proj) => {
+          await proj.register(realtimeRoutes); // durable project changes + reconnect catch-up
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
           await proj.register(issuesRoutes, { prefix: "/issues" });
           await proj.register(issueAutomationRoutes, { prefix: "/issues" }); // CRUD + transition + watchers

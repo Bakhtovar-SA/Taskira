@@ -17,7 +17,9 @@ import type {
 } from "./types";
 import { can as canDo, denialReason, denialText, resolveRole, type PermId } from "./permissions";
 import { useOptionalT } from "./i18n";
-import { ApiError, API_BASE, authApi, clearToken, getToken, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
+import { ApiError, API_BASE, authApi, clearToken, getToken, issuesApi, type BulkAction, type BulkResult, type IssueTemplateInput, type CreateProjectInput, type ProjectPatchInput, type ProjectLookInput, type Project as ApiProject } from "./api";
+import { startRealtime } from "./realtime";
+import { setRealtimeState } from "./realtimeStatus";
 import {
   applyNotificationAction,
   canTransition,
@@ -83,7 +85,7 @@ interface Api {
     onProgress?: (done: number, total: number) => void,
     isCancelled?: () => boolean,
   ) => Promise<{ ok: number; failed: number; cancelled: boolean }>;
-  updateIssue: (id: string, patch: Partial<Issue>) => Promise<boolean>;
+  updateIssue: (id: string, patch: Partial<Issue>, expectedVersion?: number) => Promise<boolean>;
   moveStatus: (issueId: string, toStatus: string, beforeId?: string | null, onSettled?: (confirmed: boolean) => void) => void;
   /** Растёт при изменениях, способных поменять состав или порядок наборов задач
    *  (создание, импорт, удаление, правка полей, смена статуса): по ней Список и
@@ -103,7 +105,7 @@ interface Api {
   addChecklistItem: (issueId: string, text: string) => Promise<boolean>;
   toggleChecklistItem: (issueId: string, itemId: string, done: boolean) => Promise<boolean>;
   removeChecklistItem: (issueId: string, itemId: string) => void;
-  setCustomFieldValue: (issueId: string, fieldId: string, value: string | null) => void;
+  setCustomFieldValue: (issueId: string, fieldId: string, value: string | null, expectedValue?: string | null) => Promise<boolean>;
   setIssueRepeat: (issueId: string, repeat: Issue["repeat"]) => void;
   uploadAttachment: (issueId: string, file: File) => void;
   removeAttachment: (issueId: string, attId: string) => void;
@@ -176,7 +178,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sessionEpochRef = useRef(0);
   langRef.current = lang;
   const local = useCallback((ru: string, en: string) => (langRef.current === "ru" ? ru : en), []);
-  const [data, setData] = useState<Data>(emptyData);
+  const [data, commitData] = useState<Data>(emptyData);
+  const dataWriteRevisionRef = useRef(0);
+  const setData = useCallback<typeof commitData>(update => {
+    dataWriteRevisionRef.current++;
+    commitData(update);
+  }, []);
   const [bootStatus, setBootStatus] = useState<BootStatus>("idle");
   const [solo, setSolo] = useState<SoloState | null>(null);
   const [authMode, setAuthMode] = useState<"local" | "ldap">("local");
@@ -192,6 +199,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     collabOpenIssueId: null,
     missing: null,
   });
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
   // Тосты и уведомления — внешние хранилища (ADR-0011, шаги 1–2): их изменения не перерисовывают провайдер,
   // а значит и всех потребителей `useStore()`. Создаются один раз на провайдер.
   const [slices] = useState(createSlices);
@@ -291,13 +300,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Общий контекст доменных хуков (ТЗ 2.3): собирается один раз, после requirePerm/withIssue.
   const storeCtx: StoreCtx = {
-    setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef, notifStore: slices.notifications,
+    setData, dataRef, dataWriteRevisionRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef, notifStore: slices.notifications,
   };
   const { resolveIssue, lookupIssue, withIssue } = useIssueLookup(storeCtx);
   const { refreshNotifications, refreshUnreadCount, markNotificationsRead, dismissNotifications, setNotifyPrefs, uploadAvatar,
     removeAvatar } = useNotificationActions(storeCtx);
 
-  const { bootstrap, switchProject, goHome, enterProject, refreshAssignedToMe, logout, refreshIssues, ensureAllIssues, refreshCollaborations,
+  const { bootstrap, switchProject, goHome, enterProject, refreshAssignedToMe, logout, refreshIssues, refreshRealtime, ensureAllIssues, refreshCollaborations,
     openIssue, pendingOpenIssueRef } = useSessionActions(storeCtx, {
     setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef,
   });
@@ -350,58 +359,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     };
   }, [bootStatus, refreshUnreadCount]);
 
-  /* WS push уведомлений (Этап 3c) — ДОПОЛНЕНИЕ к polling выше, не замена: если
-   * сокет недоступен (корпоративный прокси режет upgrade, временный сбой сети),
-   * 30-секундный опрос остаётся страховкой и без него всё продолжит работать.
-   * Аутентификация — не через Authorization (браузерный WebSocket не умеет
-   * слать свои заголовки при хендшейке): токен первым сообщением после
-   * открытия, см. server/src/routes/ws.ts. */
+  // Cursors are private to this provider/session and are committed only after a successful refresh.
+  const syncCursors = useRef(new Map<string, string>());
   useEffect(() => {
     if (bootStatus !== "ready") return;
-    let socket: WebSocket | null = null;
-    let stopped = false;
-    let retryDelay = 1000;
-    let retryTimer: number | undefined;
-
-    const connect = () => {
-      const token = getToken();
-      if (stopped) return;
-      const wsUrl = `${API_BASE.replace(/^http/, "ws")}/api/ws`;
-      socket = new WebSocket(wsUrl);
-      socket.onopen = () => {
-        // НЕ сбрасывать retryDelay здесь: открытие TCP/WS ничего не говорит о
-        // том, примет ли сервер токен — auth ещё впереди. Сброс — только по
-        // ответному auth_ok ниже, иначе с истёкшим/отозванным токеном бэкофф
-        // никогда бы не накапливался (сервер закрывает сокет почти сразу же
-        // после того же onopen, который его якобы сбросил) и свёрнутая вкладка
-        // долбила бы /api/ws примерно раз в секунду бесконечно.
-        // Новые браузерные сессии аутентифицируются HttpOnly-cookie прямо на
-        // WS-handshake. Bearer-сообщение оставлено для старых клиентов/тестов.
-        if (token) socket?.send(JSON.stringify({ type: "auth", token }));
-      };
-      socket.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data as string);
-          if (msg?.type === "auth_ok") retryDelay = 1000;
-          else if (msg?.type === "notify") void refreshUnreadCount();
-        } catch {
-          /* не наш формат сообщения — игнор */
-        }
-      };
-      socket.onclose = () => {
-        if (stopped) return;
-        retryTimer = window.setTimeout(connect, retryDelay);
-        retryDelay = Math.min(retryDelay * 2, 30_000); // экспоненциальный бэкофф, потолок 30 с
-      };
-    };
-    connect();
-
-    return () => {
-      stopped = true;
-      window.clearTimeout(retryTimer);
-      socket?.close();
-    };
-  }, [bootStatus, refreshUnreadCount]);
+    const projectId = data.currentProjectId;
+    if (!projectId) return;
+    const epoch = sessionEpochRef.current;
+    const key = `${epoch}:${meId}:${projectId}`;
+    const current = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
+    const stopRealtime = startRealtime({
+      onState: state => { if (current()) setRealtimeState(state); },
+      projectId,
+      url: `${API_BASE.replace(/^http/, "ws")}/api/ws`,
+      token: getToken,
+      cursor: syncCursors.current.get(key) ?? null,
+      pull: (cursor, signal) => issuesApi.sync(projectId, cursor, signal),
+      refresh: async (batch, signal) => {
+        if (!current() || signal.aborted) throw new Error("Expired sync session");
+        await refreshRealtime(batch, signal, uiRef.current.selectedIssueId);
+        if (current() && !signal.aborted) bumpEpics();
+      },
+      onCursor: cursor => { if (current()) syncCursors.current.set(key, cursor); },
+      onNotify: () => { if (current()) void refreshUnreadCount(); },
+      // Reload authorization and project membership; stale cards disappear through normal bootstrap.
+      onDenied: () => { if (current()) void bootstrap(); },
+      onUnauthorized: () => { if (current()) handleApiError(new ApiError(401, "UNAUTHORIZED", local("Сессия истекла", "Session expired"))); },
+    });
+    return () => { stopRealtime(); setRealtimeState(null); };
+  }, [bootStatus, data.currentProjectId, meId, refreshUnreadCount, refreshRealtime, bumpEpics, bootstrap, handleApiError, local]);
 
   const { createIssue, importIssues, updateIssue, moveStatus, deleteIssue, bulkApplyIssueAction } = useIssueCrudActions(storeCtx, {
     withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef,

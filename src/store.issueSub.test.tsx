@@ -172,9 +172,9 @@ describe("подсущности задачи (src/store/issueSub.ts)", () => {
   test("setCustomFieldValue кладёт values из ответа", async () => {
     const get = await boot();
     const spy = vi.spyOn(issuesApi, "setCustomFieldValue").mockResolvedValue({ values: [{ fieldId: "f1", value: "5" }] } as never);
-    act(() => get().setCustomFieldValue("i1", "f1", "5"));
+    await act(async () => { await get().setCustomFieldValue("i1", "f1", "5"); });
     await settle();
-    expect(spy).toHaveBeenCalledWith("p1", "i1", "f1", "5");
+    expect(spy).toHaveBeenCalledWith("p1", "i1", "f1", "5", null);
     expect(theIssue(get).customFieldValues).toEqual([{ fieldId: "f1", value: "5" }]);
   });
 

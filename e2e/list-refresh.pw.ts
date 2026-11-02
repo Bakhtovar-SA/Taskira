@@ -90,7 +90,9 @@ test("list refresh: status and assignee edits stay in the table under CSP", asyn
     if (path === "/api/projects/p1/issues/i1" && route.request().method() === "GET") return route.fulfill({ json: issues[0] });
     if (route.request().method() === "PATCH" || path.endsWith("/transition")) {
       const body = route.request().postDataJSON(); writes.push({ path, body });
-      Object.assign(issues[0], path.endsWith("/transition") ? { statusId: body.to } : body);
+      const { expectedVersion, ...patch } = body;
+      if (expectedVersion !== new Date(issues[0].updatedAt).toISOString()) return route.fulfill({ status: 409, json: { error: { code: "STALE_VERSION", reason: "Issue changed" } } });
+      Object.assign(issues[0], path.endsWith("/transition") ? { statusId: body.to } : patch, { updatedAt: new Date(Date.parse(issues[0].updatedAt) + 1000).toISOString() });
       return route.fulfill({ json: issues[0] });
     }
     return route.fallback();
@@ -100,13 +102,13 @@ test("list refresh: status and assignee edits stay in the table under CSP", asyn
   await row.hover();
   await row.getByRole("button", { name: "Изменить статус CORP-1" }).click();
   await page.getByRole("menuitem", { name: "В работе", exact: true }).click();
-  await expect.poll(() => writes.some(w => w.body.to === "s2")).toBe(true);
+  await expect.poll(() => writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null, expectedVersion: "2026-10-03T12:00:00.000Z" });
   await expect(page.getByRole("rowgroup", { name: "В работе", exact: true }).locator('[data-issue-id="i1"]')).toBeVisible();
   await row.getByRole("button", { name: "Изменить исполнителей CORP-1" }).click();
   const picker = page.locator(".ds-pop");
   await expect(picker.getByRole("button", { name: /^Игорь Петров/ })).toHaveAttribute("aria-pressed", "true");
   await picker.getByRole("button", { name: /^Игорь Петров/ }).click();
-  await expect.poll(() => writes).toEqual(expect.arrayContaining([expect.objectContaining({ body: { assigneeIds: ["u1"] } })]));
+  await expect.poll(() => writes.find(w => w.path === "/api/projects/p1/issues/i1")?.body).toEqual({ assigneeIds: ["u1"], expectedVersion: "2026-10-03T12:00:01.000Z" });
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.dataset.listCspViolation)).toBeUndefined();

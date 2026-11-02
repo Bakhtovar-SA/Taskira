@@ -29,6 +29,7 @@ import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js"
 import { transitionIssue } from "../services/issueTransition.js";
 import {
   assignParentLocked,
+  assertIssueWriteVersion,
   assertSelfAssignment,
   getIssueDto,
   listActivity,
@@ -537,7 +538,11 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       // Исполнители — отдельная таблица (миграция 025), не участвуют в sets
       // (issues-колонках), поэтому "пустой патч" проверяем по обоим сразу.
       if (sets.length === 0 && newAssigneeIds === undefined) {
-        const current = await withTransaction(client => loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt));
+        const current = await withTransaction(async client => {
+          const locked = await loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt);
+          assertIssueWriteVersion(locked, body.expectedVersion);
+          return locked;
+        });
         return maskSprintId(mapIssue(current, beforeAssigneeIds), project.sprintsEnabled);
       }
 
@@ -548,6 +553,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       }
       const mutate = async (client: PoolClient): Promise<{ row: IssueRow; undo?: IssueUndoDto }> => {
         const previous = await loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt);
+        assertIssueWriteVersion(previous, body.expectedVersion);
         const previousAssignees = newAssigneeIds !== undefined
           ? (await client.query<{ user_id: string }>("SELECT user_id FROM issue_assignees WHERE issue_id = $1 ORDER BY added_at, user_id", [id])).rows.map(item => item.user_id)
           : [];
@@ -558,7 +564,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         }
         for (const event of log) await logActivity(iss.id, user.sub, event, client);
         // Offer undo only for removal-only writes, using the actual locked values, never the outer read/UI snapshot.
-        const onlyRemovalFields = Object.keys(body).every(key => ["labels", "assigneeIds", "expectedUpdatedAt"].includes(key));
+        const onlyRemovalFields = Object.keys(body).every(key => ["labels", "assigneeIds", "expectedUpdatedAt", "expectedVersion"].includes(key));
         const noAdditions = (next: string[] | undefined, before: string[]) => !next || next.every(value => before.includes(value));
         const removed = (next: string[] | undefined, before: string[]) => next !== undefined && before.some(value => !next.includes(value));
         const labelsRemoved = removed(body.labels, previous.labels) && JSON.stringify(row.labels) === JSON.stringify(body.labels);
@@ -576,7 +582,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
           ? await withIssueParentLock(iss.id, mutate)
           : await withTransaction(mutate);
 
-      await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body).filter(key => key !== "expectedUpdatedAt") });
+      await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body).filter(key => key !== "expectedUpdatedAt" && key !== "expectedVersion") });
 
       // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,
       // не всему списку: снятие или уже назначенных повторно пинговать не за что.
@@ -642,7 +648,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const user = me(req);
       const body = req.body as z.infer<typeof TransitionBody>;
       const { previous: iss, row, changed, from, to } = await transitionIssue(
-        project.id, id, body.to, body.beforeId ?? null, user.sub, true, body.expectedUpdatedAt,
+        project.id, id, body.to, body.beforeId ?? null, user.sub, true, body.expectedUpdatedAt, body.expectedVersion,
       );
 
       if (changed) {
@@ -818,7 +824,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       if (!field) throw notFound("Поле не найдено");
 
       const value = body.value === null ? null : validateValueForField(field, body.value);
-      await setCustomFieldValue(fieldId, iss.id, value);
+      await setCustomFieldValue(fieldId, iss.id, value, body.expectedValue);
       return { values: await listValuesForIssue(iss.id) };
     },
   );

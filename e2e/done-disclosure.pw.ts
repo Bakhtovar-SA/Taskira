@@ -52,8 +52,9 @@ const motion=(page:Page)=>page.evaluate(()=>{const w=window as Window & {doneEnt
 for(const mode of ["normal","system","personal"] as const)test(`older done disclosure preserves recent DOM and focus (${mode})`,async({page})=>{
  const f=await setup(page,mode),lane=page.getByRole("region",{name:"Готово",exact:true}),toggle=lane.locator("[data-done-disclosure]");
  const recent=page.locator('.board-card[data-issue-id="i8"]'),recentNode=await recent.elementHandle(),buttonNode=await toggle.elementHandle();
- const recentRequests=()=>f.pages.filter(p=>p.status==="s4"&&p.closed==="recent").length;
- expect(recentRequests()).toBe(1);expect(f.pages.filter(p=>p.closed==="older")).toHaveLength(0);
+ // Empty realtime sync replies can legitimately revalidate the visible recent page.
+ // Its DOM identity is the invariant below; only the older-page request belongs to this disclosure.
+ expect(f.pages.some(p=>p.status==="s4"&&p.closed==="recent")).toBe(true);expect(f.pages.filter(p=>p.closed==="older")).toHaveLength(0);
  try{
   // Focus can intentionally scroll the mobile lane; measure only after that native scroll settles.
   const scroll=mode==="normal"?lane.locator(".board-col-body"):page.locator(".board-scroll");
@@ -65,7 +66,7 @@ for(const mode of ["normal","system","personal"] as const)test(`older done discl
   f.hold(false);f.release();await expect(lane.locator('.board-card[data-issue-id="i9"]')).toBeVisible();await settle(page);
   expect(await motion(page)).toEqual(mode==="normal"?{entries:1,grids:1}:{entries:0,grids:0});
   await expect(lane.locator('.board-card[data-issue-id="i9"]')).toHaveCount(1);await expect(toggle).toBeFocused();
-  expect(await toggle.evaluate((el,original)=>el===original,buttonNode)).toBe(true);expect(recentRequests()).toBe(1);
+  expect(await toggle.evaluate((el,original)=>el===original,buttonNode)).toBe(true);expect(await recent.evaluate((el,original)=>el===original,recentNode)).toBe(true);
   const final=(await recent.boundingBox())!;for(const key of ["x","y","width","height"] as const)expect(final[key]).toBeCloseTo(initial[key],2);
   await lane.locator('.board-card[data-issue-id="i9"]').scrollIntoViewIfNeeded();await page.screenshot({path:test.info().outputPath("done-disclosure-"+mode+".png")});
   await toggle.press("Enter");await expect(lane.locator("[data-done-tail]")).toHaveCount(0);await expect(toggle).toBeFocused();
@@ -73,7 +74,7 @@ for(const mode of ["normal","system","personal"] as const)test(`older done discl
   expect(await motion(page)).toEqual(mode==="normal"?{entries:1,grids:1}:{entries:0,grids:0});
   f.fail(false);await retry.focus();await retry.press("Enter");await expect(lane.locator('.board-card[data-issue-id="i9"]')).toBeVisible();await settle(page);
   await expect(toggle).toBeFocused();expect(await motion(page)).toEqual(mode==="normal"?{entries:2,grids:2}:{entries:0,grids:0});
-  expect(recentRequests()).toBe(1);expect(await recent.evaluate((el,original)=>el===original,recentNode)).toBe(true);
+  expect(await recent.evaluate((el,original)=>el===original,recentNode)).toBe(true);
   await page.goto("/p/CORP/board?done=1");await expect(page.locator('.board-card[data-issue-id="i9"]')).toBeVisible();await settle(page);
   expect(await motion(page)).toEqual({entries:0,grids:0});
  }finally{f.release();}

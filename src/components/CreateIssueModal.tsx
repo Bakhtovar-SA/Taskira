@@ -17,6 +17,8 @@ import AssigneePicker from "./AssigneePicker";
 import IssueSearchBox from "./IssueSearchBox";
 import { useIssue } from "../issuePages";
 import { createDraftKey, readCreateDraft, saveCreateDraft, deleteCreateDraft } from "../createDrafts";
+import { Presence } from "../ds/Presence";
+import { motionReduced } from "../motion";
 
 const inputCls = "w-full rounded-md border border-line bg-panel px-3 py-2 text-[14px] outline-none transition-shadow placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/15";
 
@@ -65,7 +67,7 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
   // оказывался бы под нижней панелью с кнопкой «Создать задачу».
   useEffect(() => {
     if (!dirOpen) return;
-    const scroll = () => dirPanelRef.current?.scrollIntoView({ block: "nearest" });
+    const scroll = () => dirPanelRef.current?.scrollIntoView({ block: "nearest", behavior: motionReduced() ? "auto" : "smooth" });
     scroll();
     const id = setTimeout(scroll, 350); // после загрузки «недавних» панель вырастает
     return () => clearTimeout(id);
@@ -395,7 +397,9 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                   </span>
                   <IcChevD size={14} className={`shrink-0 text-faint transition-transform ${dirOpen ? "rotate-180" : ""}`} />
                 </button>
-                {dirOpen && (
+                <Presence show={dirOpen}>{shown => (
+                  <div className="create-direction-reveal" data-open={shown} inert={!shown} aria-hidden={!shown || undefined}>
+                  <div className="min-h-0 overflow-hidden">
                   <div ref={dirPanelRef} className="mt-1.5 rounded-md border border-line bg-panel p-1.5">
                     <button
                       type="button"
@@ -405,12 +409,14 @@ export default function CreateIssueModal({ open = true }: { open?: boolean }) {
                       {t("createIssue.noDirection")}
                     </button>
                     <IssueSearchBox
-                      autoFocus
+                      autoFocus={shown}
                       ariaLabel={t("field.direction")}
                       onPick={(e) => { setEpicId(e.id); setEpicPicked(e); setDirOpen(false); }}
                     />
                   </div>
-                )}
+                  </div>
+                  </div>
+                )}</Presence>
                 <p className="mt-1 text-[11.5px] leading-snug text-faint">{t("createIssue.directionHint")}</p>
               </div>
               <div>

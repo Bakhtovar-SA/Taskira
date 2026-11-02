@@ -3,12 +3,12 @@ import type { FastifyInstance } from "fastify";
 import { markStep } from "../services/onboarding.js";
 import type { z } from "zod";
 import { q } from "../db.js";
-import { requireIssuePerm, zbody, type JwtPayload } from "../middleware.js";
+import { requireIssuePerm, zbody, zquery, type JwtPayload } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
 import { loadIssue } from "../services/issues.js";
 import { emit, autoWatch } from "../services/notify.js";
-import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
-import { CommentBody } from "../contract.js";
+import { listMentionCandidates, parseMentions, resolveVisibleMentions } from "../services/mentions.js";
+import { CommentBody, MentionCandidatesQuery } from "../contract.js";
 import type { CommentDto } from "../contract.js";
 export type { CommentDto };
 
@@ -39,6 +39,15 @@ const mapComment = (r: CommentRow): CommentDto => ({
 const COMMENTS_LIMIT = 200;
 
 export async function commentRoutes(app: FastifyInstance): Promise<void> {
+  app.get("/:id/mention-candidates", {
+    preHandler: requireIssuePerm("browse"), preValidation: zquery(MentionCandidatesQuery),
+  }, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
+    const { id } = req.params as { id: string };
+    const { q: term = "" } = req.query as z.infer<typeof MentionCandidatesQuery>;
+    const issue = await loadIssue(req.project!.id, id);
+    return listMentionCandidates(req.project!.id, issue.id, req.user.sub, term, req.isCollaborator === true);
+  });
   // requireIssuePerm (не requirePerm): приглашённый участник задачи (collaborator)
   // видит её обсуждение целиком (COLLAB_MIGRATION.md D3).
   app.get("/:id/comments", { preHandler: requireIssuePerm("browse") }, async (req) => {
@@ -101,7 +110,7 @@ export async function commentRoutes(app: FastifyInstance): Promise<void> {
         issueId: iss.id,
         payload: { key: iss.key, title: iss.title },
       });
-      const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.body));
+      const mentionIds = await resolveVisibleMentions(project.id, iss.id, parseMentions(body.body), req.isCollaborator === true);
       if (mentionIds.length > 0) {
         await emit({
           type: "issue.mention",
