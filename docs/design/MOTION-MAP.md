@@ -114,8 +114,8 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/motion.ts:399 | waapi-wrapper | animate: frames | { duration: DUR_4_MS, easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/motion.ts:446 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/roadmapDateFlash.ts:35 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/roadmapDateFlash.ts |
-| src/store.tsx:444 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
-| src/store.tsx:457 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:456 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:469 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store/session.ts:344 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/store/session.ts:546 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/styles/reports.css:56 | css-animation | .reports-metrics > *, .reports-panels > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
