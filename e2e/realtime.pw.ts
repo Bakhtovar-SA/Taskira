@@ -211,6 +211,35 @@ test.describe("realtime collaboration", () => {
     } finally { await fixture.dispose(); }
   });
 
+  test("a denied subscription reloads once instead of looping bootstrap (older API without /sync)", async ({ page }) => {
+    // deb-test 2026-11-03: new client + old server → /sync 404 → onDenied → bootstrap →
+    // realtime restarted → 404 … about once a second until the global rate limit (429) hit.
+    const fixture = await boardFixture(page);
+    let me = 0, syncReads = 0;
+    await page.route("**/api/**", async route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/auth/me") {
+        me++;
+        return route.fulfill({ json: { ...fixture.users[0], favoriteProjectIds: ["p1"], onboarding: { hidden: true } } });
+      }
+      if (path === "/api/projects/p1/sync") {
+        syncReads++;
+        return route.fulfill({ status: 404, json: { error: { code: "NOT_FOUND", reason: "Route GET:/api/projects/p1/sync not found" } } });
+      }
+      return route.fallback();
+    });
+    await page.goto("/p/CORP/board");
+    await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
+    await expect.poll(() => syncReads).toBeGreaterThan(0);
+    await expect.poll(() => me).toBe(2); // initial bootstrap + the single reload after denial
+    // Focus/poll triggers would restart a looping subscription; none may reach the API now.
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await page.waitForTimeout(3_000);
+    expect(me).toBe(2);
+    expect(syncReads).toBe(1);
+    await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
+  });
+
   test("remote rename preserves drafts and stale saves require explicit conflict resolution", async ({ browser, baseURL }) => {
     const fixture = await collaborationFixture(browser, baseURL!);
     const { page: author } = fixture.author, { page: observer } = fixture.observer;

@@ -104,7 +104,9 @@ EOF
 cat <<'EOF'
     healthcheck:
       # Keep the legacy readiness alias so rollback images remain health-checkable.
-      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # No quotes inside arguments: podman-compose 1.0.x re-joins CMD lists through
+      # /bin/sh -c and mangles embedded quotes (always unhealthy). busybox wget is in node:alpine.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 12

@@ -361,12 +361,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Cursors are private to this provider/session and are committed only after a successful refresh.
   const syncCursors = useRef(new Map<string, string>());
+  // A denied subscription reloads bootstrap once. If the same project is still current
+  // afterwards (an older API without /sync during a rolling deploy, or a grant that allows
+  // reads but not the project journal), restarting realtime would repeat
+  // bootstrap → 403/404 → bootstrap every second and trip the global rate limit for
+  // everyone behind the same proxy. The board then works without live updates until the
+  // session or user changes (the key includes both).
+  const realtimeDenied = useRef(new Set<string>());
   useEffect(() => {
     if (bootStatus !== "ready") return;
     const projectId = data.currentProjectId;
     if (!projectId) return;
     const epoch = sessionEpochRef.current;
     const key = `${epoch}:${meId}:${projectId}`;
+    if (realtimeDenied.current.has(key)) return;
     const current = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
     const stopRealtime = startRealtime({
       onState: state => { if (current()) setRealtimeState(state); },
@@ -383,7 +391,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       onCursor: cursor => { if (current()) syncCursors.current.set(key, cursor); },
       onNotify: () => { if (current()) void refreshUnreadCount(); },
       // Reload authorization and project membership; stale cards disappear through normal bootstrap.
-      onDenied: () => { if (current()) void bootstrap(); },
+      onDenied: () => {
+        if (!current()) return;
+        realtimeDenied.current.add(key);
+        void bootstrap();
+      },
       onUnauthorized: () => { if (current()) handleApiError(new ApiError(401, "UNAUTHORIZED", local("Сессия истекла", "Session expired"))); },
     });
     return () => { stopRealtime(); setRealtimeState(null); };
