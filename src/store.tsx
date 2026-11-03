@@ -41,6 +41,9 @@ import { useIssueLookup } from "./store/issueLookup";
 import { useSessionActions } from "./store/session";
 import { useFavoritesAndSearch } from "./store/favoritesSearch";
 
+/** After a denied realtime subscription, wait this long before subscribing to the same project again. */
+const REALTIME_DENIED_RETRY_MS = 5 * 60_000;
+
 interface Api {
   data: Data;
   idx: StoreIndexes;
@@ -365,16 +368,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // afterwards (an older API without /sync during a rolling deploy, or a grant that allows
   // reads but not the project journal), restarting realtime would repeat
   // bootstrap → 403/404 → bootstrap every second and trip the global rate limit for
-  // everyone behind the same proxy. The board then works without live updates until the
-  // session or user changes (the key includes both).
-  const realtimeDenied = useRef(new Set<string>());
+  // everyone behind the same proxy. Instead the board shows a "live updates unavailable"
+  // banner and retries once per REALTIME_DENIED_RETRY_MS (a fixed API, or access granted
+  // later in the same session, recovers without a reload). The key includes session and user.
+  const realtimeDenied = useRef(new Map<string, number>());
+  const [realtimeRetry, setRealtimeRetry] = useState(0);
   useEffect(() => {
     if (bootStatus !== "ready") return;
     const projectId = data.currentProjectId;
     if (!projectId) return;
     const epoch = sessionEpochRef.current;
     const key = `${epoch}:${meId}:${projectId}`;
-    if (realtimeDenied.current.has(key)) return;
+    const deniedAt = realtimeDenied.current.get(key);
+    const wait = deniedAt === undefined ? 0 : deniedAt + REALTIME_DENIED_RETRY_MS - Date.now();
+    if (wait > 0) {
+      setRealtimeState("paused");
+      const timer = window.setTimeout(() => setRealtimeRetry(n => n + 1), wait);
+      return () => { window.clearTimeout(timer); setRealtimeState(null); };
+    }
     const current = () => sessionEpochRef.current === epoch && dataRef.current.currentProjectId === projectId;
     const stopRealtime = startRealtime({
       onState: state => { if (current()) setRealtimeState(state); },
@@ -393,13 +404,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // Reload authorization and project membership; stale cards disappear through normal bootstrap.
       onDenied: () => {
         if (!current()) return;
-        realtimeDenied.current.add(key);
+        realtimeDenied.current.set(key, Date.now());
         void bootstrap();
       },
       onUnauthorized: () => { if (current()) handleApiError(new ApiError(401, "UNAUTHORIZED", local("Сессия истекла", "Session expired"))); },
     });
     return () => { stopRealtime(); setRealtimeState(null); };
-  }, [bootStatus, data.currentProjectId, meId, refreshUnreadCount, refreshRealtime, bumpEpics, bootstrap, handleApiError, local]);
+  }, [bootStatus, data.currentProjectId, meId, refreshUnreadCount, refreshRealtime, bumpEpics, bootstrap, handleApiError, local, realtimeRetry]);
 
   const { createIssue, importIssues, updateIssue, moveStatus, deleteIssue, bulkApplyIssueAction } = useIssueCrudActions(storeCtx, {
     withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef,

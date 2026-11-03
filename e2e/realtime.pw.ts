@@ -228,16 +228,24 @@ test.describe("realtime collaboration", () => {
       }
       return route.fallback();
     });
+    await page.clock.install();
     await page.goto("/p/CORP/board");
     await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
     await expect.poll(() => syncReads).toBeGreaterThan(0);
     await expect.poll(() => me).toBe(2); // initial bootstrap + the single reload after denial
+    await expect(page.getByRole("status").filter({ hasText: "Живые обновления недоступны" })).toBeVisible();
     // Focus/poll triggers would restart a looping subscription; none may reach the API now.
     await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await page.waitForTimeout(3_000);
+    await page.clock.runFor(60_000);
     expect(me).toBe(2);
     expect(syncReads).toBe(1);
     await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
+    // One retry per five minutes: a fixed API or a later grant recovers without a reload.
+    await page.clock.runFor(4 * 60_000 + 5_000);
+    await expect.poll(() => syncReads).toBe(2);
+    await expect.poll(() => me).toBe(3);
+    await page.clock.runFor(60_000);
+    expect(syncReads).toBe(2);
   });
 
   test("remote rename preserves drafts and stale saves require explicit conflict resolution", async ({ browser, baseURL }) => {

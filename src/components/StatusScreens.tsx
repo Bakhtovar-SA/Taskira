@@ -86,11 +86,12 @@ export function OfflineBanner() {
     const timer = window.setTimeout(() => setShowRecovery(true), 3_000);
     return () => window.clearTimeout(timer);
   }, [recovering]);
-  if (online && !(recovering && showRecovery)) return null;
+  const paused = online && sync === "paused";
+  if (online && !paused && !(recovering && showRecovery)) return null;
   return (
     <div role="status" className="flex items-center justify-center gap-2 border-b border-linesoft bg-warnsoft px-4 py-1.5 text-[13.5px] font-medium text-[var(--status-progress-fg)]">
       <IcGlobe size={15} />
-      {t(online ? "status.sync.recovering" : "status.offline.banner")}
+      {t(!online ? "status.offline.banner" : paused ? "status.sync.paused" : "status.sync.recovering")}
     </div>
   );
 }
