@@ -256,6 +256,7 @@ const en: Record<keyof Dict, string> = {
   "status.offline.body": "Check your internet or VPN. Taskira will load by itself once you're back online.",
   "status.offline.banner": "You're offline. Changes won't be saved until the connection is back.",
   "status.sync.recovering": "Reconnecting to updates. Changes may appear with a delay.",
+  "status.sync.paused": "Live updates are unavailable. Refresh the page to see other people's changes.",
   "mention.choose": "Mention someone",
   "mention.empty": "No people found. Try a name or username.",
   "mention.error": "Couldn't load people.",

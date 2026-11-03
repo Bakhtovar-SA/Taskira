@@ -1,4 +1,5 @@
-export type RealtimeState = "connecting" | "live" | "recovering" | "offline" | null;
+/** paused: the server denied the project subscription; the board works without live updates until a retry. */
+export type RealtimeState = "connecting" | "live" | "recovering" | "offline" | "paused" | null;
 let state: RealtimeState = null;
 const listeners = new Set<() => void>();
 
