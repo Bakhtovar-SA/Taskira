@@ -2,7 +2,7 @@
 
 ## Текущее состояние (по репозиторию на данный момент)
 
-Работает клиент-серверная связка: React 18 + TypeScript + Vite SPA (`src/`)
+Работает клиент-серверная связка: React 19 + TypeScript + Vite SPA (`src/`)
 общается с Fastify 5 + PostgreSQL + JWT API (`server/`). JWT передаётся в
 `HttpOnly; SameSite=Strict` cookie и недоступен JavaScript; в `localStorage`
 остаются только настройки интерфейса. Проект, состав, задачи и workflow приходят
@@ -10,7 +10,7 @@
 
 Уже реализовано и работает:
 - **Backend** (`server/`): Fastify, миграции PostgreSQL (`server/migrations/`,
-  001–029), JWT-аутентификация по паролю (bcrypt) или через LDAP/AD, проверка
+  список — [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md)), JWT-аутентификация по паролю (bcrypt) или через LDAP/AD, проверка
   прав на каждом запросе (`middleware.ts` `requirePerm`/`requireIssuePerm`),
   отзыв токенов при выходе (`users.tokens_valid_from`, миграция 017),
   аудит-лог, интеграционные тесты (vitest, `server/test/`).
@@ -53,7 +53,6 @@
   «Мои задачи» (`GET /api/issues/assigned-to-me`) + «Недавние проекты».
 - Настраиваемый workflow — граф статусов/переходов в БД
   (`workflow_statuses` / `workflow_transitions`), редактор `WorkflowView.tsx`.
-  `src/seed.ts` оставлен только как `DEFAULT_WORKFLOW` для `DocsView.tsx`.
 - Карточка задачи: поля, история изменений (`activity`), комментарии, подписка
   (`issue_watchers`), связанные задачи (`issue_links`, миграция 014 —
   `relates` / `blocks`, `POST`/`DELETE …/issues/:id/links`).

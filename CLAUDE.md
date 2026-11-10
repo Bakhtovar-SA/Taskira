@@ -13,8 +13,7 @@ with a role-based permission system. Two independent npm packages:
 
 The client was originally a localStorage-only app; it now talks to the API exclusively
 (`src/api/`, `src/store.tsx`). `README.md` (root) and `ARCHITECTURE.md` track the current
-design; **`server/README.md`** is the authoritative API contract and data model. `src/seed.ts`
-is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still imports. The
+design; **`server/README.md`** is the authoritative API contract and data model. The
 `*_MIGRATION.md` files are historical records of completed schema/feature migrations; the list of
 migrations is generated from `server/migrations/` into [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md) and the
 permission table into [docs/PERMISSIONS.md](docs/PERMISSIONS.md) — don't maintain either by hand. Sprints (migration
@@ -386,13 +385,17 @@ who typed them used — there is no dictionary key for someone's actual data.
   admin PATCH through the WS-closing path force-disconnected other live tabs/devices for
   users whose access hadn't changed at all.
 - `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
-- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` (Этап 3c, notification push only,
-  *not* the full real-time board `WsMessage` still declares — `issue:upsert`/`presence`
-  remain unimplemented). Auth is the connection's first message (`{type:"auth",token}`),
-  not a header or query param (the latter would land in access logs) — a 5s timer closes
-  the socket (1008) if it never arrives or fails `app.jwt.verify` + `assertFreshUser`. On
-  success the server replies `{type:"auth_ok"}` — the client (`store.tsx`) waits for exactly
-  this message, not the transport-level `onopen`, to reset its reconnect backoff; resetting
+- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` carries two things: the notification
+  push (Этап 3c) and project realtime sync ([ADR-0036](docs/adr/0036-durable-project-realtime.md),
+  `services/realtime.ts`, protocol in [docs/REALTIME.md](docs/REALTIME.md)). After `auth_ok` a client
+  sends `{type:"sync:subscribe", projectId, cursor}` (one subscription per connection, the next
+  replaces it); the server answers with `sync` batches that only say *what to re-read* — the
+  client then calls `GET /api/projects/:projectId/sync`, never applies a pushed card. `presence`
+  is still unimplemented. Auth: the browser is authenticated by the same HttpOnly session cookie
+  during the handshake; a first message `{type:"auth",token}` is kept for older and CLI clients
+  (never a query param — it would land in access logs). A 5s timer closes the socket (1008) if
+  neither arrives or it fails `app.jwt.verify` + `assertFreshUser`. On success the server replies
+  `{type:"auth_ok"}` — the client (`src/realtime.ts`) waits for exactly this message, not the transport-level `onopen`, to reset its reconnect backoff; resetting
   on `onopen` was a real bug (caught in review) that made the backoff never compound on
   repeated auth failure — a tab with a revoked token hammered `/api/ws` roughly once a second
   forever instead of backing off. `wsHub.ts` keeps a `Map<userId, Set<WebSocket>>`;
