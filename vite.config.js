@@ -17,7 +17,7 @@ export default defineConfig({
           { name: "ds-overlays", includeDependenciesRecursively: false, test: /[\\/]src[\\/]ds[\\/](?:Overlay|floating|Select|Combobox|DatePicker|dateParse)\.tsx?$/ },
           // Issue editing, creation and their shared controls already load together;
           // without pulling either surface into the shell or increasing the budget.
-          { name: "issue-forms", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:IssueModal|CreateIssueModal|AssigneePicker|DeleteIssueDialog|BulkBar)\.tsx$/ },
+          { name: "issue-forms", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:IssueModal|IssueModalFields|IssueModalParts|CreateIssueModal|AssigneePicker|DeleteIssueDialog|BulkBar)\.tsx$/ },
           // Time views share date controls and related markup. Keep this family lazy,
           // but compress their similar markup together instead of tiny chunks.
           { name: "time-views", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:CalendarView|RoadmapView|TimelineView|TimeCanvas)\.tsx$/ },

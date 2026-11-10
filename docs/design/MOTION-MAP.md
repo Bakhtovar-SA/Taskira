@@ -82,7 +82,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:790 | css-keyframes | shimmer: background-position | из правила применения | см. правила применения | см. CSS |
 | src/index.css:801 | css-keyframes | dropLand: transform | из правила применения | см. правила применения | см. CSS |
 | src/index.css:810 | css-keyframes | doneFlash: background, box-shadow | из правила применения | см. правила применения | см. CSS |
-| src/index.css:821 | css-transition | .cl-text: text-decoration-color, color | text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard) | @media + личный выключатель | src/components/IssueModal.tsx |
+| src/index.css:821 | css-transition | .cl-text: text-decoration-color, color | text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard) | @media + личный выключатель | src/components/IssueModalFields.tsx |
 | src/index.css:829 | css-animation | .anim-fadeup: opacity, transform | fadeUp var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/components/IssueModal.tsx |
 | src/index.css:832 | css-animation | .anim-pop: opacity, transform | popIn var(--dur-2) var(--ease-out) both | @media + личный выключатель | src/components/Board.tsx, src/components/Topbar.tsx |
 | src/index.css:837 | css-keyframes | scrimIn: opacity | из правила применения | см. правила применения | см. CSS |
