@@ -50,6 +50,7 @@ npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
 npm run bundle:check    # after build: gzip JS/CSS + startup JS (entry + modulepreload) vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run repo:check      # docs/ total size and per-file size limits (part of docs:check); don't commit audit screenshots or raw dumps
 npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
