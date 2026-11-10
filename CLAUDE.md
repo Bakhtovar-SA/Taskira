@@ -208,6 +208,13 @@ the person may see. Screens: `src/components/settings/` (`SettingsView` shell; `
 `AdminView` (departments + project creation only). Every setting has exactly one home; env-only values are shown
 read-only with an `env` tag. `GET /api/admin/license` (read-only, `routes/license.ts`) feeds the license page.
 
+**Big screens are split by file, not by behaviour:** the board is `Board.tsx` (screen) + `BoardColumn.tsx` (column and its
+paged card list) + `BoardCard.tsx` (card, skeleton, drag ghost); the list is `Backlog.tsx` + `BacklogRow.tsx` +
+`BacklogFilters.tsx`; the issue card is `IssueModal.tsx` + `IssueModalFields.tsx` (collaborators, attachments, subtasks,
+checklist, custom fields, links, actions) + `IssueModalParts.tsx`; `MentionText.tsx` is separate so `SoloView` doesn't pull
+the card. On the server `routes/issues.ts` holds hooks, schemas and responses; the list queries are in
+`services/issueList.ts` and the PATCH logic in `services/issueUpdate.ts`.
+
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
 list/card renders — the linear scans were quadratic across a board.
