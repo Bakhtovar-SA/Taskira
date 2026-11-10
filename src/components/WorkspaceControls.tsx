@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useT } from "../i18n";
 import { IcCheck, IcChevD, IcFilter, IcSearch, IcX } from "../icons";
 import { Button } from "../ds/Button";
@@ -27,12 +27,12 @@ export function WorkspaceQuickFilters({ active, onToggle, overdue }: { active: (
 }
 
 
-/** Anchored panels keep task rows and toolbar positions stable. */
-export function WorkspaceControls({ search, filters, options, actions, summary, quickFilters, members, grouping, compact = false, count = 0 }: {
-  search: ReactNode; filters?: ReactNode; options?: ReactNode; actions?: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; members?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
-}) {
+/** Controlled on purpose: `Popover` comes from `ds/LazyOverlay`, and only a controlled surface keeps a click that lands
+ *  before the overlay chunk has loaded — it opens as soon as the chunk arrives. */
+function WorkspacePanel({ kind, content, compact, count }: { kind: "filters" | "options"; content: ReactNode; compact: boolean; count: number }) {
   const { t } = useT();
-  const panel = (kind: "filters" | "options", content: ReactNode) => <Popover placement="bottom-end" label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")} className="workspace-pop"
+  const [open, setOpen] = useState(false);
+  return <Popover open={open} onOpenChange={setOpen} placement="bottom-end" label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")} className="workspace-pop"
     trigger={p => <button {...p} type="button" className="workspace-toggle ds-focus" aria-label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")}>
       {kind === "filters" ? <><IcFilter size={16} />{!compact && t("workspace.filters")}{count > 0 && <span className="ds-count">{count}</span>}</> : <>{t("workspace.view")}<IcChevD size={14} /></>}
     </button>}>
@@ -41,11 +41,17 @@ export function WorkspaceControls({ search, filters, options, actions, summary, 
       {content}
     </section>}
   </Popover>;
+}
+
+/** Anchored panels keep task rows and toolbar positions stable. */
+export function WorkspaceControls({ search, filters, options, actions, summary, quickFilters, members, grouping, compact = false, count = 0 }: {
+  search: ReactNode; filters?: ReactNode; options?: ReactNode; actions?: ReactNode; summary?: ReactNode; quickFilters?: ReactNode; members?: ReactNode; grouping?: ReactNode; compact?: boolean; count?: number; selectionMode?: boolean;
+}) {
   return <div className="workspace-controls mt-3" data-layout={compact ? "compact" : undefined}>
     {search}{quickFilters}{members}
     <div className="workspace-controls-end">
       <div className="workspace-meta">{compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
-      {grouping}</div>{filters != null && panel("filters", filters)}{options != null && panel("options", options)}{actions}
+      {grouping}</div>{filters != null && <WorkspacePanel kind="filters" content={filters} compact={compact} count={count} />}{options != null && <WorkspacePanel kind="options" content={options} compact={compact} count={count} />}{actions}
       {!compact && summary && <span className="workspace-count text-[13px] tabular text-faint">{summary}</span>}
     </div>
   </div>;
@@ -61,7 +67,8 @@ export function WorkspaceSelect({ label, value, onChange, options }: {
   options: { value: string; label: string; icon?: ReactNode }[];
 }) {
   const current = options.find(option => option.value === value);
-  return <Menu label={label} placement="bottom-end" className="workspace-select-menu"
+  const [open, setOpen] = useState(false);
+  return <Menu open={open} onOpenChange={setOpen} label={label} placement="bottom-end" className="workspace-select-menu"
     trigger={p => <Button {...p} type="button" variant="ghost" size="sm" aria-label={label} className="workspace-select" iconRight={<IcChevD size={14} />}>{current?.label}</Button>}
     items={options.map(option => ({ id: option.value || "all", label: option.label,
       icon: option.icon ? <span aria-hidden="true">{option.icon}</span> : undefined,
