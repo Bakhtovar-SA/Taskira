@@ -6,7 +6,7 @@ import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, forbidden, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
-import { listAttachments, type AttachmentDto } from "./attachments.js";
+import { deleteStorageObjects, listAttachments, storageKeysForIssue, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
 import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
 import { listValuesForIssue, type CustomFieldValueDto } from "./customFields.js";
@@ -462,3 +462,25 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
 
 /** Запись в историю задачи — теперь событием (services/activity.ts); реэкспорт для прежних импортов. */
 export { logActivity } from "./activity.js";
+
+/** Задача проекта по id: null, если её нет или она в другом проекте (чужую не раскрываем). */
+export async function findIssueInProject(projectId: string, id: string): Promise<{ id: string; key: string } | null> {
+  return one<{ id: string; key: string }>(`SELECT id, key FROM issues WHERE id = $1 AND project_id = $2`, [id, projectId]);
+}
+
+/** Удаляет задачу и её файлы в хранилище. */
+export async function deleteIssue(issueId: string): Promise<void> {
+  // Ключи вложений собираем ДО удаления — каскад FK снесёт строки, но не файлы.
+  const attachKeys = await storageKeysForIssue(issueId);
+  // Каскады: комментарии/activity/watchers/attachments; epic_id дочерних обнулится FK
+  await q(`DELETE FROM issues WHERE id = $1`, [issueId]);
+  await deleteStorageObjects(attachKeys); // best-effort уборка хранилища (FILES_MIGRATION.md §5)
+}
+
+/** Подписывает или отписывает пользователя; возвращает число подписчиков задачи. */
+export async function setWatching(issueId: string, userId: string, watching: boolean): Promise<number> {
+  if (watching) await q(`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [issueId, userId]);
+  else await q(`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, [issueId, userId]);
+  const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [issueId]))!;
+  return Number(n.n);
+}

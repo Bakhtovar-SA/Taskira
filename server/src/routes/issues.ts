@@ -6,7 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { markStep } from "../services/onboarding.js";
 import type { PoolClient } from "pg";
 import type { z } from "zod";
-import { escLike, one, q, withTransaction } from "../db.js";
+import { withTransaction } from "../db.js";
 import {
   badRequest,
   formatZod,
@@ -24,33 +24,35 @@ import { setIssueReminder, validateReminder } from "../services/issueReminders.j
 import { roleCan } from "../permissions.js";
 import { forbidden } from "../middleware.js";
 import { assertValidTiming } from "../services/recurrence.js";
-import { issueRepeatBatch } from "../services/recurring.js";
 import { createIssueInTx, prepareIssueCreate } from "../services/issueCreate.js";
 import { transitionIssue } from "../services/issueTransition.js";
 import {
   assignParentLocked,
-  assertIssueWriteVersion,
   assertSelfAssignment,
+  deleteIssue,
+  findIssueInProject,
   getIssueDto,
   listActivity,
   listAssigneeIds,
-  listAssigneeIdsBatch,
-  subtasksSummaryBatch,
   loadIssue,
-  loadIssueForUpdate,
-  ISSUE_VERSION_SQL,
   logActivity,
   mapIssue,
   maskSprintId,
   nextIssueNum,
   precheckParentAssignment,
-  setAssignees,
-  validateAssigneesInProject,
-  withAdvisoryLocks,
-  withIssueParentLock,
+  setWatching,
   type IssueRow,
 } from "../services/issues.js";
-import { insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
+import {
+  countIssueAssignees,
+  countIssuesByStatus,
+  elapsedMs,
+  listEpics,
+  listIssuesPage,
+  type IssueListTiming,
+} from "../services/issueList.js";
+import { notifyIssuePatched, patchIssue } from "../services/issueUpdate.js";
+import { deleteIssueLink, insertIssueLink, linkExists, listIssueLinks } from "../services/issueLinks.js";
 import {
   countChecklistItems,
   createChecklistItem,
@@ -65,21 +67,11 @@ import {
   setCustomFieldValue,
   validateValueForField,
 } from "../services/customFields.js";
-import { storageKeysForIssue, deleteStorageObjects } from "../services/attachments.js";
 import { emit, autoWatch } from "../services/notify.js";
-import { parseMentions, resolveVisibleMentions } from "../services/mentions.js";
-import { assertSprintsEnabled, getSprintInProject } from "../services/sprints.js";
+import { assertSprintsEnabled, assignIssueToSprint, getSprintInProject, removeIssueFromSprint } from "../services/sprints.js";
 import { loadConfig } from "../config.js";
 import { createTtlCache } from "../services/ttlCache.js";
-import {
-  decodeIssueListCursor,
-  decodeIssueSortCursor,
-  encodeIssueListCursor,
-  encodeIssueSortCursor,
-  type IssueCursorSort,
-} from "../issueListCursor.js";
-import { buildIssueFilter, needsStatusJoin, SORT_EXPR } from "../services/issueFilters.js";
-import type { IssueAssigneesDto, IssueCountsDto, IssueEpicDto, IssueEpicsDto } from "../contract.js";
+import type { IssueAssigneesDto, IssueCountsDto, IssueEpicsDto } from "../contract.js";
 import {
   ChecklistItemCreateBody,
   ChecklistItemParams,
@@ -90,7 +82,6 @@ import {
   IssueAssigneesQuery,
   IssueEpicsQuery,
   IssueCountsQuery,
-  IssueListPageMeta,
   IssueLinkCreateBody,
   IssueLinkParams,
   IssuePatchBody,
@@ -98,26 +89,15 @@ import {
   LIMITS,
   MoveToSprintBody,
   TransitionBody,
-  type ActivityEvent,
-  type ComplexityId,
-  type PriorityId,
-  type IssueUndoDto,
 } from "../contract.js";
 
 const me = (req: { user: JwtPayload }) => req.user;
 
 const PERF_TRACE = process.env.PERF_TRACE === "1";
-const elapsedMs = (started: bigint): number => Number(process.hrtime.bigint() - started) / 1e6;
 
-interface IssueListPerfTrace {
-  requestStarted: bigint;
+interface IssueListPerfTrace extends IssueListTiming {
   permissionMs?: number;
   queryValidationMs?: number;
-  beforeFirstSqlMs?: number;
-  countSqlMs?: number;
-  listSqlMs?: number;
-  assigneesSqlMs?: number;
-  responseBuildMs?: number;
   serializationStarted?: bigint;
 }
 
@@ -193,96 +173,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const f = req.query as z.infer<typeof IssueQuery>;
       const trace = issueListPerfTraces.get(req);
 
-      const customField = f.cf ? await getCustomFieldInProject(project.id, f.cf) : undefined;
-      const { clauses, params } = buildIssueFilter(project.id, f, { sprintsEnabled: project.sprintsEnabled, customField });
-
-      // total относится ко всему отфильтрованному набору, а не к хвосту после
-      // курсора. Поэтому фиксируем WHERE/params до добавления keyset-предиката.
-      const countWhere = clauses.join(" AND ");
-      const countParams = [...params];
-      if (trace) trace.beforeFirstSqlMs = elapsedMs(trace.requestStarted);
-      const countStarted = trace && f.includeTotal ? process.hrtime.bigint() : undefined;
-      const total = f.includeTotal
-        ? await one<{ n: string }>(
-            `SELECT count(*)::text AS n FROM issues i
-               JOIN workflow_statuses ws ON ws.id = i.status_id
-              WHERE ${countWhere}`,
-            countParams,
-          )
-        : null;
-      if (trace && countStarted) trace.countSqlMs = elapsedMs(countStarted);
-
-      const secret = loadConfig().jwtSecret;
-      const byRank = f.sort === "rank";
-      const sortExpr = f.sort === "rank" ? "" : SORT_EXPR[f.sort];
-      if (f.cursor) {
-        try {
-          if (byRank) {
-            const cursor = decodeIssueListCursor(f.cursor, secret);
-            params.push(cursor.rank, cursor.id);
-            clauses.push(`(i.rank, i.id) > ($${params.length - 1}, $${params.length})`);
-          } else {
-            const cursor = decodeIssueSortCursor(f.cursor, secret);
-            if (cursor.sort !== f.sort || cursor.dir !== f.dir) throw new Error("cursor sort mismatch");
-            params.push(cursor.value, cursor.num);
-            // Тай-брейк зеркален направлению: индекс (project_id, <ключ>, num)
-            // читается и вперёд, и назад, а смешанный порядок (ключ DESC,
-            // num ASC) потребовал бы второго индекса на каждую сортировку.
-            // Из-за этого позицию можно задать сравнением строк: в отличие от
-            // `a > x OR (a = x AND b > y)` оно становится условием индекса и
-            // глубокая страница не читает пропущенное.
-            const cmp = f.dir === "asc" ? ">" : "<";
-            clauses.push(`(${sortExpr}, i.num) ${cmp} ($${params.length - 1}, $${params.length})`);
-          }
-        } catch {
-          throw badRequest("Некорректный курсор страницы");
-        }
-      }
-      const where = clauses.join(" AND ");
-      params.push(f.limit + 1, f.cursor ? 0 : f.offset);
-      const dirSql = f.dir === "desc" ? "DESC" : "ASC";
-      const orderBy = byRank ? "i.rank, i.id" : `${sortExpr} ${dirSql}, i.num ${dirSql}`;
-      const listStarted = trace ? process.hrtime.bigint() : undefined;
-      const rows = await q<IssueRow & { sort_val?: number }>(
-        `SELECT i.*${byRank ? "" : `, ${sortExpr} AS sort_val`} FROM issues i
-           JOIN workflow_statuses ws ON ws.id = i.status_id
-          WHERE ${where}
-          ORDER BY ${orderBy}
-          LIMIT $${params.length - 1} OFFSET $${params.length}`,
-        params,
-      );
-      if (trace && listStarted) trace.listSqlMs = elapsedMs(listStarted);
-      const hasMore = rows.length > f.limit;
-      const pageRows = hasMore ? rows.slice(0, f.limit) : rows;
-      const assigneesStarted = trace ? process.hrtime.bigint() : undefined;
-      const pageIds = pageRows.map((r) => r.id);
-      const [assigneesByIssue, subtasksByIssue, repeatByIssue] = await Promise.all([listAssigneeIdsBatch(pageIds), subtasksSummaryBatch(pageIds), issueRepeatBatch(project.id, pageIds)]);
-      if (trace && assigneesStarted) trace.assigneesSqlMs = elapsedMs(assigneesStarted);
-      const responseBuildStarted = trace ? process.hrtime.bigint() : undefined;
-      const pageMeta: IssueListPageMeta = {
-        hasMore,
-        nextCursor:
-          hasMore && pageRows.length > 0
-            ? byRank
-              ? encodeIssueListCursor(pageRows.at(-1)!, secret)
-              : encodeIssueSortCursor(
-                  { sort: f.sort as IssueCursorSort, dir: f.dir, value: pageRows.at(-1)!.sort_val!, num: pageRows.at(-1)!.num },
-                  secret,
-                )
-            : null,
-        ...(total ? { total: Number(total.n) } : {}),
-      };
-      const payload = {
-        items: pageRows.map((r) =>
-          maskSprintId(
-            { ...mapIssue(r, assigneesByIssue.get(r.id) ?? []), subtasksSummary: subtasksByIssue.get(r.id) ?? { total: 0, done: 0 }, repeat: repeatByIssue.get(r.id) ?? null },
-            project.sprintsEnabled,
-          ),
-        ),
-        ...pageMeta,
-      };
-      if (trace && responseBuildStarted) trace.responseBuildMs = elapsedMs(responseBuildStarted);
-      return reply.send(payload);
+      return reply.send(await listIssuesPage(project, f, trace));
     },
   );
 
@@ -293,22 +184,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/counts", { preHandler: [issueListPermission, zquery(IssueCountsQuery)] }, async (req): Promise<IssueCountsDto> => {
     const project = req.project!;
     const f = req.query as z.infer<typeof IssueCountsQuery>;
-    const customField = f.cf ? await getCustomFieldInProject(project.id, f.cf) : undefined;
-    const { clauses, params } = buildIssueFilter(project.id, f, { sprintsEnabled: project.sprintsEnabled, customField });
-    const rows = await q<{ status_id: string; n: string }>(
-      `SELECT i.status_id, count(*)::text AS n FROM issues i
-         ${needsStatusJoin(f) ? "JOIN workflow_statuses ws ON ws.id = i.status_id" : ""}
-        WHERE ${clauses.join(" AND ")}
-        GROUP BY i.status_id`,
-      params,
-    );
-    const byStatus: Record<string, number> = {};
-    let total = 0;
-    for (const r of rows) {
-      byStatus[r.status_id] = Number(r.n);
-      total += Number(r.n);
-    }
-    return { total, byStatus };
+    return countIssuesByStatus(project, f);
   });
 
   /* ------------------------------------------- исполнители (для фильтра доски) */
@@ -318,19 +194,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     // Агрегат по всем назначениям проекта (на 50 тыс. задач — 65 мс и Seq Scan), а список нужен лишь для
     // аватарок фильтра: точность «на эту секунду» не нужна, поэтому кэш на процесс на короткое время.
     // Результат не зависит от пользователя (только проект и лимит), поэтому ключ — без пользователя.
-    return assigneesCache.get(`${project.id}:${limit}`, async () => {
-      const rows = await q<{ user_id: string; n: number }>(
-        `SELECT ia.user_id, count(*)::int AS n
-           FROM issue_assignees ia
-           JOIN issues i ON i.id = ia.issue_id
-          WHERE i.project_id = $1 AND i.archived_at IS NULL
-          GROUP BY ia.user_id
-          ORDER BY n DESC, ia.user_id
-          LIMIT $2`,
-        [project.id, limit],
-      );
-      return { items: rows.map((r) => ({ userId: r.user_id, count: r.n })) };
-    });
+    return assigneesCache.get(`${project.id}:${limit}`, () => countIssueAssignees(project.id, limit));
   });
 
   /* ------------------------------------------------ направления (эпики) */
@@ -344,38 +208,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
   app.get("/epics", { preHandler: [issueListPermission, zquery(IssueEpicsQuery)] }, async (req): Promise<IssueEpicsDto> => {
     const project = req.project!;
     const { limit } = req.query as z.infer<typeof IssueEpicsQuery>;
-    const rows = await q<{
-      id: string;
-      key: string;
-      title: string;
-      color: string | null;
-      t_start: number | null;
-      t_span: number | null;
-      total: number;
-      done: number;
-    }>(
-      `SELECT e.id, e.key, e.title, e.color, e.t_start, e.t_span,
-              e.epic_child_total AS total, e.epic_child_done AS done
-         FROM issues e
-        WHERE e.project_id = $1 AND e.epic_child_total > 0 AND e.archived_at IS NULL
-        ORDER BY e.rank, e.id
-        LIMIT $2`,
-      [project.id, limit + 1],
-    );
-    const truncated = rows.length > limit;
-    return {
-      items: (truncated ? rows.slice(0, limit) : rows).map((r): IssueEpicDto => ({
-        id: r.id,
-        key: r.key,
-        title: r.title,
-        color: r.color,
-        tStart: r.t_start,
-        tSpan: r.t_span,
-        childTotal: r.total,
-        childDone: r.done,
-      })),
-      truncated,
-    };
+    return listEpics(project.id, limit);
   });
 
   /* ---------------------------------------------------------- создание */
@@ -452,170 +285,13 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const { id } = req.params as { id: string };
       const user = me(req);
       const body = req.body as z.infer<typeof IssuePatchBody>;
-      const iss = await loadIssue(project.id, id);
-      const beforeAssigneeIds = await listAssigneeIds(iss.id);
-
-      // Дедуп сразу — и для валидации, и для diff/записи ниже используем одно
-      // и то же нормализованное значение (см. аналогичный комментарий в POST /issues).
-      const newAssigneeIds = body.assigneeIds !== undefined ? [...new Set(body.assigneeIds)] : undefined;
-      if (newAssigneeIds !== undefined && req.projectRole === "employee") assertSelfAssignment(user.sub, beforeAssigneeIds, newAssigneeIds);
-      if (newAssigneeIds !== undefined) await validateAssigneesInProject(project.id, newAssigneeIds);
-      if (body.epicId !== undefined && body.epicId !== null) {
-        const e = await one<{ id: string }>(`SELECT id FROM issues WHERE id = $1 AND project_id = $2`, [body.epicId, project.id]);
-        if (!e) throw notFound("Задача-группа (epicId) не найдена в проекте");
-      }
-      const sets: string[] = [];
-      const vals: unknown[] = [];
-      const push = (col: string, val: unknown) => {
-        vals.push(val);
-        sets.push(`${col} = $${vals.length}`);
-      };
-      const log: ActivityEvent[] = [];
-
-      if (body.title !== undefined && body.title !== iss.title) {
-        push("title", body.title);
-        log.push({ kind: "renamed" });
-      }
-      if (body.description !== undefined && body.description !== iss.description) {
-        push("description", body.description);
-        log.push({ kind: "description" });
-      }
-      if (body.priorityId !== undefined && body.priorityId !== iss.priority_id) {
-        push("priority_id", body.priorityId);
-        log.push({ kind: "priority", from: iss.priority_id as PriorityId, to: body.priorityId });
-      }
-      // Исполнители (миграция 025) — не колонка issues, отдельная запись в
-      // issue_assignees ниже, после того как известно, действительно ли
-      // список изменился (added/removed для activity/уведомлений).
-      let addedAssigneeIds: string[] = [];
-      let removedAssigneeIds: string[] = [];
-      if (newAssigneeIds !== undefined) {
-        const beforeSet = new Set(beforeAssigneeIds);
-        const afterSet = new Set(newAssigneeIds);
-        addedAssigneeIds = newAssigneeIds.filter((x) => !beforeSet.has(x));
-        removedAssigneeIds = beforeAssigneeIds.filter((x) => !afterSet.has(x));
-        if (addedAssigneeIds.length > 0 || removedAssigneeIds.length > 0) {
-          const names = await q<{ id: string; name: string }>(`SELECT id, name FROM users WHERE id = ANY($1)`, [
-            [...addedAssigneeIds, ...removedAssigneeIds],
-          ]);
-          const nameOf = new Map(names.map((n) => [n.id, n.name]));
-          for (const uid of addedAssigneeIds) log.push({ kind: "assigneeAdded", name: nameOf.get(uid) ?? "?", userId: uid });
-          for (const uid of removedAssigneeIds) log.push({ kind: "assigneeRemoved", name: nameOf.get(uid) ?? "?", userId: uid });
-        }
-      }
-      if (body.epicId !== undefined && body.epicId !== iss.epic_id) {
-        push("epic_id", body.epicId);
-        log.push({ kind: "direction" });
-      }
-      // parentChanging — parentId реально меняется (не просто прислан тем же
-      // значением). newParentId — ветка назначения НОВОГО родителя (нужна
-      // повторная валидация под локом в assignParentLocked); isUnsettingParent —
-      // ветка снятия (парentId → null; инвариант глубины она не затрагивает,
-      // но собственный лок всё равно нужен — см. withIssueParentLock ниже).
-      const parentChanging = body.parentId !== undefined && body.parentId !== iss.parent_id;
-      const newParentId = parentChanging && body.parentId !== null ? body.parentId : null;
-      const isUnsettingParent = parentChanging && body.parentId === null;
-      if (parentChanging) {
-        push("parent_id", body.parentId);
-        log.push({ kind: "parent", set: !!body.parentId });
-      }
-      if (body.labels !== undefined && JSON.stringify(body.labels) !== JSON.stringify(iss.labels)) {
-        push("labels", body.labels);
-        log.push({ kind: "labels" });
-      }
-      if (body.complexity !== undefined && body.complexity !== iss.complexity) {
-        push("complexity", body.complexity);
-        log.push({ kind: "complexity", from: (iss.complexity as ComplexityId | null) ?? null, to: body.complexity });
-      }
-      if (body.dueDate !== undefined && body.dueDate !== iss.due_date) {
-        push("due_date", body.dueDate);
-        log.push({ kind: "due", from: iss.due_date ?? null, to: body.dueDate ?? null });
-      }
-      if (body.tStart !== undefined) push("t_start", body.tStart);
-      if (body.tSpan !== undefined) push("t_span", body.tSpan);
-      if (body.color !== undefined) push("color", body.color);
-
-      // Исполнители — отдельная таблица (миграция 025), не участвуют в sets
-      // (issues-колонках), поэтому "пустой патч" проверяем по обоим сразу.
-      if (sets.length === 0 && newAssigneeIds === undefined) {
-        const current = await withTransaction(async client => {
-          const locked = await loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt);
-          assertIssueWriteVersion(locked, body.expectedVersion);
-          return locked;
-        });
-        return maskSprintId(mapIssue(current, beforeAssigneeIds), project.sprintsEnabled);
-      }
-
-      let updateSql: string | null = null;
-      if (sets.length > 0) {
-        vals.push(iss.id);
-        updateSql = `UPDATE issues SET ${sets.join(", ")}, updated_at = ${ISSUE_VERSION_SQL} WHERE id = $${vals.length} RETURNING *`;
-      }
-      const mutate = async (client: PoolClient): Promise<{ row: IssueRow; undo?: IssueUndoDto }> => {
-        const previous = await loadIssueForUpdate(client, project.id, id, body.expectedUpdatedAt);
-        assertIssueWriteVersion(previous, body.expectedVersion);
-        const previousAssignees = newAssigneeIds !== undefined
-          ? (await client.query<{ user_id: string }>("SELECT user_id FROM issue_assignees WHERE issue_id = $1 ORDER BY added_at, user_id", [id])).rows.map(item => item.user_id)
-          : [];
-        const row = updateSql ? (await client.query<IssueRow>(updateSql, vals)).rows[0] : previous;
-        if (newAssigneeIds !== undefined) {
-          const assignedAt = await setAssignees(iss.id, newAssigneeIds, user.sub, client, req.projectRole === "employee");
-          if (assignedAt) row.updated_at = assignedAt;
-        }
-        for (const event of log) await logActivity(iss.id, user.sub, event, client);
-        // Offer undo only for removal-only writes, using the actual locked values, never the outer read/UI snapshot.
-        const onlyRemovalFields = Object.keys(body).every(key => ["labels", "assigneeIds", "expectedUpdatedAt", "expectedVersion"].includes(key));
-        const noAdditions = (next: string[] | undefined, before: string[]) => !next || next.every(value => before.includes(value));
-        const removed = (next: string[] | undefined, before: string[]) => next !== undefined && before.some(value => !next.includes(value));
-        const labelsRemoved = removed(body.labels, previous.labels) && JSON.stringify(row.labels) === JSON.stringify(body.labels);
-        const assigneesRemoved = removed(newAssigneeIds, previousAssignees);
-        const undo = onlyRemovalFields && noAdditions(body.labels, previous.labels) && noAdditions(newAssigneeIds, previousAssignees) && (labelsRemoved || assigneesRemoved)
-          ? { issueId: id, ...(labelsRemoved ? { labels: previous.labels } : {}), ...(assigneesRemoved ? { assigneeIds: previousAssignees } : {}), updatedAt: new Date(row.updated_at).toISOString() }
-          : undefined;
-        return { row, ...(undo ? { undo } : {}) };
-      };
-      // Поля задачи, полный список исполнителей и activity фиксируются одним
-      // коммитом; parent-ветки дополнительно используют прежние advisory locks.
-      const { row, undo } = newParentId
-        ? await assignParentLocked(project.id, newParentId, iss.id, mutate)
-        : isUnsettingParent
-          ? await withIssueParentLock(iss.id, mutate)
-          : await withTransaction(mutate);
-
+      const result = await patchIssue(project, id, body, { id: user.sub, role: req.projectRole });
+      const dto = maskSprintId(mapIssue(result.row, result.assigneeIds), project.sprintsEnabled);
+      if (result.noop) return dto;
+      const iss = result.issue;
       await auditFromRequest(req, "issue.update", "issue", iss.id, { key: iss.key, fields: Object.keys(body).filter(key => key !== "expectedUpdatedAt" && key !== "expectedVersion") });
-
-      // Уведомления (NOTIFICATIONS_MIGRATION.md D2) — только новым исполнителям,
-      // не всему списку: снятие или уже назначенных повторно пинговать не за что.
-      // Запрос с expectedUpdatedAt — восстановление отменой (трек O D-07): вернувшиеся исполнители были сняты
-      // секунды назад, повторное «назначена на вас» — шум. История (assigneeAdded) при этом остаётся.
-      if (addedAssigneeIds.length > 0 && body.expectedUpdatedAt === undefined) {
-        await emit({
-          type: "issue.assigned",
-          actorId: user.sub,
-          projectId: project.id,
-          issueId: iss.id,
-          recipientIds: addedAssigneeIds,
-          payload: { key: iss.key, title: row.title },
-        });
-      }
-      if (body.description !== undefined && body.description !== iss.description) {
-        // Уведомляем только НОВЫЕ упоминания — правка описания (фикс опечатки)
-        // не должна повторно пинговать уже упомянутых (review PR #19).
-        const was = new Set(parseMentions(iss.description));
-        const added = parseMentions(body.description).filter((l) => !was.has(l));
-        const mentionIds = await resolveVisibleMentions(project.id, iss.id, added);
-        if (mentionIds.length > 0) {
-          await emit({
-            type: "issue.mention",
-            actorId: user.sub,
-            projectId: project.id,
-            issueId: iss.id,
-            recipientIds: mentionIds,
-            payload: { key: iss.key, title: row.title, in: "description" },
-          });
-        }
-      }
-      return { ...maskSprintId(mapIssue(row, newAssigneeIds ?? beforeAssigneeIds), project.sprintsEnabled), ...(undo ? { undo } : {}) };
+      await notifyIssuePatched(project.id, user.sub, body, result);
+      return { ...dto, ...(result.undo ? { undo: result.undo } : {}) };
     },
   );
 
@@ -626,13 +302,8 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     async (req, reply) => {
       const project = req.project!;
       const { id } = req.params as { id: string };
-      const user = me(req);
       const iss = await loadIssue(project.id, id);
-      // Ключи вложений собираем ДО удаления — каскад FK снесёт строки, но не файлы.
-      const attachKeys = await storageKeysForIssue(iss.id);
-      // Каскады: комментарии/activity/watchers/attachments; epic_id дочерних обнулится FK
-      await q(`DELETE FROM issues WHERE id = $1`, [iss.id]);
-      await deleteStorageObjects(attachKeys); // best-effort уборка хранилища (FILES_MIGRATION.md §5)
+      await deleteIssue(iss.id);
       await auditFromRequest(req, "issue.delete", "issue", iss.id, { key: iss.key });
       reply.code(204).send();
     },
@@ -675,10 +346,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const user = me(req);
     const iss = await loadIssue(project.id, id);
-    await q(`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [iss.id, user.sub]);
-    const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
+    const watchers = await setWatching(iss.id, user.sub, true);
     await auditFromRequest(req, "watcher.add", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
-    return { watching: true, watchers: Number(n.n) };
+    return { watching: true, watchers };
   });
 
   app.delete("/:id/watchers/me", { preHandler: requireIssuePerm("browse") }, async (req) => {
@@ -686,10 +356,9 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     const { id } = req.params as { id: string };
     const user = me(req);
     const iss = await loadIssue(project.id, id);
-    await q(`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, [iss.id, user.sub]);
-    const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [iss.id]))!;
+    const watchers = await setWatching(iss.id, user.sub, false);
     await auditFromRequest(req, "watcher.remove", "issue", iss.id, { key: iss.key, viaCollaborator: req.isCollaborator || undefined });
-    return { watching: false, watchers: Number(n.n) };
+    return { watching: false, watchers };
   });
 
   /* ---------------------------------------------------------- связи между задачами
@@ -711,10 +380,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
 
       const iss = await loadIssue(project.id, id);
       if (body.linkedIssueId === iss.id) throw badRequest("Нельзя связать задачу с самой собой");
-      const other = await one<{ id: string; key: string }>(
-        `SELECT id, key FROM issues WHERE id = $1 AND project_id = $2`,
-        [body.linkedIssueId, project.id],
-      );
+      const other = await findIssueInProject(project.id, body.linkedIssueId);
       if (!other) throw notFound("Связываемая задача не найдена в проекте");
 
       // Хранимый тип и направление вставки. 'blocked_by' → 'blocks' наоборот.
@@ -739,12 +405,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const user = me(req);
       const iss = await loadIssue(project.id, id);
       // Удалять можно с любого конца связи, но только если этот конец — наша задача.
-      const del = await one<{ id: string }>(
-        `DELETE FROM issue_links
-          WHERE id = $1 AND (issue_id = $2 OR linked_issue_id = $2)
-          RETURNING id`,
-        [linkId, iss.id],
-      );
+      const del = await deleteIssueLink(linkId, iss.id);
       if (!del) throw notFound("Связь не найдена");
       await auditFromRequest(req, "issue.link.remove", "issue", iss.id, { key: iss.key, linkId });
       return { links: await listIssueLinks(iss.id) };
@@ -866,17 +527,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
         // — задача получила бы sprint_id уже завершённого спринта (ревью PR
         // #49, седьмой раунд). Общий ключ с completeSprint() сериализует
         // обоих через одну и ту же транзакцию, а не гонку снимков.
-        const rows = await withAdvisoryLocks([sprintId], async (client) => {
-          const res = await client.query<IssueRow>(
-            `UPDATE issues SET sprint_id = $2,
-                  updated_at = CASE WHEN sprint_id IS DISTINCT FROM $2::uuid THEN ${ISSUE_VERSION_SQL} ELSE updated_at END
-                WHERE id = $1
-                  AND EXISTS (SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed')
-              RETURNING *`,
-            [iss.id, sprintId, project.id],
-          );
-          return res.rows;
-        });
+        const rows = await assignIssueToSprint(iss.id, sprintId, project.id);
         // 0 строк — спринт прошёл precheck выше, но стал completed до захвата
         // лока (completeSprint выполнился первым и уже закоммитился); иных
         // причин не осталось — существование/проект уже проверены, а задача
@@ -886,7 +537,7 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       } else {
         // Снятие со спринта не завязано на его состояние — лок не нужен,
         // как и withIssueParentLock не нужен для снятия parentId.
-        row = (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL, updated_at = CASE WHEN sprint_id IS NOT NULL THEN ${ISSUE_VERSION_SQL} ELSE updated_at END WHERE id = $1 RETURNING *`, [iss.id]))[0];
+        row = await removeIssueFromSprint(iss.id);
       }
       await auditFromRequest(req, "issue.sprint.move", "issue", iss.id, { key: iss.key, sprintId: body.sprintId });
       return mapIssue(row, await listAssigneeIds(iss.id));
