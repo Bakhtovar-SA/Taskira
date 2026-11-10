@@ -59,21 +59,7 @@ export function useAnchored(
   }, [anchor, floating, open, placement, gap, matchWidth, fitContent, anchorElement]);
 }
 
-/** showPopover/hidePopover бросают, если состояние уже такое; в jsdom их нет вовсе. */
-export const showPop = (el: HTMLElement | null) => {
-  try {
-    if (el && !el.matches(":popover-open")) el.showPopover?.();
-  } catch {
-    /* уже открыт или API нет (jsdom) */
-  }
-};
-export const hidePop = (el: HTMLElement | null) => {
-  try {
-    if (el?.matches(":popover-open")) el.hidePopover?.();
-  } catch {
-    /* уже закрыт или API нет */
-  }
-};
+export { hidePop, showPop } from "./pop";
 
 /** Стабильный id для связок aria-* (useId в React 19 даёт «:r1:», это валидно, но в селекторах неудобно). */
 export { dsId } from "./ids";

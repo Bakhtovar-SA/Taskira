@@ -4,7 +4,7 @@
 import { one, q } from "../db.js";
 import { notFound } from "../middleware.js";
 import type { ProjectRow } from "./project.js";
-import { withAdvisoryLocks } from "./issues.js";
+import { ISSUE_VERSION_SQL, withAdvisoryLocks, type IssueRow } from "./issues.js";
 import type { SprintDto, SprintStatus } from "../contract.js";
 export type { SprintDto };
 
@@ -108,4 +108,27 @@ export async function completeSprint(sprintId: string): Promise<{ sprint: Sprint
     const movedRes = await client.query(`UPDATE issues SET sprint_id = NULL WHERE sprint_id = $1 AND done_at IS NULL`, [sprintId]);
     return { sprint: toDto(sprintRes.rows[0]), movedToBacklog: movedRes.rowCount ?? 0 };
   });
+}
+
+/**
+ * Назначает задачу в спринт под advisory-локом на sprintId — тем же ключом, что берёт completeSprint().
+ * Пустой результат: спринт стал completed до захвата лока.
+ */
+export async function assignIssueToSprint(issueId: string, sprintId: string, projectId: string): Promise<IssueRow[]> {
+  return withAdvisoryLocks([sprintId], async (client) => {
+    const res = await client.query<IssueRow>(
+      `UPDATE issues SET sprint_id = $2,
+            updated_at = CASE WHEN sprint_id IS DISTINCT FROM $2::uuid THEN ${ISSUE_VERSION_SQL} ELSE updated_at END
+          WHERE id = $1
+            AND EXISTS (SELECT 1 FROM sprints WHERE id = $2 AND project_id = $3 AND status <> 'completed')
+        RETURNING *`,
+      [issueId, sprintId, projectId],
+    );
+    return res.rows;
+  });
+}
+
+/** Снятие со спринта не завязано на его состояние — лок не нужен. */
+export async function removeIssueFromSprint(issueId: string): Promise<IssueRow> {
+  return (await q<IssueRow>(`UPDATE issues SET sprint_id = NULL, updated_at = CASE WHEN sprint_id IS NOT NULL THEN ${ISSUE_VERSION_SQL} ELSE updated_at END WHERE id = $1 RETURNING *`, [issueId]))[0];
 }

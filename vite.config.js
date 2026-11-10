@@ -10,10 +10,14 @@ export default defineConfig({
         // These primitives already load with the shell. One shared chunk compresses
         // their repeated JSX better; screen and overlay imports remain lazy.
         codeSplitting: { groups: [
-          { name: "ui-core", test: /[\\/]src[\\/](?:icons\.tsx|ui\.tsx|cssVars\.ts|workflowStatus\.ts|components[\\/](?:BrandMark|UserAvatar|WorkspaceControls|settings[\\/]parts)\.tsx|ds[\\/](?:Button|Display|Field|Overlay|floating|DatePicker|dateParse)\.tsx?)$/ },
+          { name: "ui-core", test: /[\\/]src[\\/](?:icons\.tsx|ui\.tsx|cssVars\.ts|workflowStatus\.ts|components[\\/](?:BrandMark|UserAvatar|WorkspaceControls|settings[\\/]parts)\.tsx|ds[\\/](?:Button|Display|Field)\.tsx?)$/ },
+          // Floating surfaces (menus, popovers, tooltips, selects, date picker) are not needed for the first
+          // paint: shell modules reach them through ds/LazyOverlay and ds/LazyTooltip. One lazy chunk
+          // compresses their shared markup better than five small ones.
+          { name: "ds-overlays", includeDependenciesRecursively: false, test: /[\\/]src[\\/]ds[\\/](?:Overlay|floating|Select|Combobox|DatePicker|dateParse)\.tsx?$/ },
           // Issue editing, creation and their shared controls already load together;
           // without pulling either surface into the shell or increasing the budget.
-          { name: "issue-forms", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:IssueModal|CreateIssueModal|AssigneePicker|DeleteIssueDialog|BulkBar)\.tsx$/ },
+          { name: "issue-forms", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:IssueModal|IssueModalFields|IssueModalParts|CreateIssueModal|AssigneePicker|DeleteIssueDialog|BulkBar)\.tsx$/ },
           // Time views share date controls and related markup. Keep this family lazy,
           // but compress their similar markup together instead of tiny chunks.
           { name: "time-views", includeDependenciesRecursively: false, test: /[\\/]src[\\/]components[\\/](?:CalendarView|RoadmapView|TimelineView|TimeCanvas)\.tsx$/ },

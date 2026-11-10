@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
-import { MentionText } from "./IssueModal";
+import { MentionText } from "./MentionText";
 import { LIMITS, localizeValidationError, validateComment } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { PRIORITY_ORDER } from "../types";

@@ -6,7 +6,7 @@ import { exit, flipFrom, motionReduced, preloadMotionIdle, stopMotion } from "./
 import { IcCheck } from "./icons";
 import { useT } from "./i18n";
 import { PROJECT_ICON_MAP, type ProjectColor, type ProjectIcon } from "./projectLook";
-import { hidePop, showPop } from "./ds/floating";
+import { hidePop, showPop } from "./ds/pop";
 import { NATIVE_DIALOG_CLOSE_EVENT, NATIVE_DIALOG_OPEN_EVENT } from "./ds/topLayer";
 
 /** Аватары — в components/UserAvatar.tsx (трек G). Карточку человека и загрузку фото берут и экраны трека H. */

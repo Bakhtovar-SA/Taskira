@@ -5,8 +5,11 @@
 // базой в scripts/bundle-budget.json плюс допустимым ростом. Шрифты и картинки не
 // считаются: у них отдельное правило (≤ 2 файла шрифтов на первом экране).
 //
-// Проверяются: весь JS, весь CSS, входной чанк (скрипт из dist/index.html) и
-// JS+CSS вместе — это и есть «рост за трек ≤ +80 КБ gzip». Превышение любого — код 1.
+// Проверяются: весь JS, весь CSS, входной чанк (скрипт из dist/index.html), JS+CSS
+// вместе — это и есть «рост за трек ≤ +80 КБ gzip» — и «старт»: входной чанк плюс всё,
+// что index.html тянет через modulepreload, то есть JS, который браузер скачивает до
+// первого экрана. Один входной чанк этого не показывает: общий код уезжает в соседний
+// preload-чанк, и метрика входа остаётся зелёной. Превышение любого — код 1.
 //
 //   node scripts/check-bundle-size.mjs            проверка (npm run bundle:check)
 //   node scripts/check-bundle-size.mjs --json     то же, машинный вывод
@@ -52,13 +55,14 @@ const current = {
   entry: files.find((f) => f.name === entryName)?.gzip ?? 0,
 };
 current.total = current.js + current.css;
-// Справочно, не проверяется: JS, который грузится до первого экрана (вход + modulepreload).
-const initialJs = [entryName, ...preloaded].reduce((a, n) => a + (files.find((f) => f.name === n)?.gzip ?? 0), 0);
+// JS, который грузится до первого экрана (вход + modulepreload).
+current.initial = [entryName, ...preloaded].reduce((a, n) => a + (files.find((f) => f.name === n)?.gzip ?? 0), 0);
+const initialJs = current.initial; // прежнее имя поля в --json
 
 const budget = JSON.parse(readFileSync(budgetPath, "utf8"));
 
 if (process.argv.includes("--update")) {
-  budget.base = { ...current, note: budget.base?.note ?? "" };
+  budget.base = { ...budget.base, ...current };
   writeFileSync(budgetPath, `${JSON.stringify(budget, null, 2)}\n`);
   console.log(`база обновлена: ${JSON.stringify(budget.base)}`);
   process.exit(0);
@@ -69,6 +73,7 @@ const METRICS = [
   ["js", "JS, все чанки"],
   ["css", "CSS"],
   ["entry", `входной чанк (${entryName.replace(/-[\w-]+\.js$/, ".js")})`],
+  ["initial", "старт: вход + modulepreload"],
 ];
 const results = METRICS.map(([key, label]) => {
   const base = budget.base[key];
@@ -86,7 +91,7 @@ if (process.argv.includes("--json")) {
   console.log("|---|---|---|---|---|---|");
   for (const r of results)
     console.log(`| ${r.label} | ${fmt(r.base)} | ${fmt(r.current)} | ${signed(r.growth)} | +${fmt(r.allowed)} | ${r.ok ? "ok" : "ПРЕВЫШЕН"} |`);
-  console.log(`\nСправочно: JS до первого экрана (вход + modulepreload: ${[entryName, ...preloaded].map((n) => basename(n)).join(", ")}) — ${fmt(initialJs)}`);
+  console.log(`\nСтарт = ${[entryName, ...preloaded].map((n) => basename(n)).join(" + ")}`);
   console.log("\nЧанки:");
   for (const f of [...files].sort((a, b) => b.gzip - a.gzip)) console.log(`  ${f.name.padEnd(44)} ${fmt(f.gzip).padStart(10)}`);
 }

@@ -10,7 +10,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/boardFlip.ts:234 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/boardFlip.ts:237 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/boardFlip.ts |
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
-| src/components/Board.tsx:141 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/Board.tsx |
+| src/components/BoardCard.tsx:89 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardCard.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
 | src/components/Sidebar.tsx:191 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
@@ -60,7 +60,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:1103 | css-animation | .anim-done-tail: grid-template-rows, opacity | doneTailIn var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/BoardDoneTail.tsx |
 | src/index.css:1104 | css-keyframes | doneTailIn: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:176 | css-transition | body: background-color, color | background-color var(--dur-4) var(--ease-standard), color var(--dur-4) var(--ease-standard) | личный выключатель | CSS / динамическая сборка классов |
-| src/index.css:345 | css-transition | .board-card: box-shadow | box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1) | личный выключатель | src/components/Board.tsx |
+| src/index.css:345 | css-transition | .board-card: box-shadow | box-shadow var(--dur-2, 180ms) cubic-bezier(0.16, 1, 0.3, 1) | личный выключатель | src/components/BoardCard.tsx |
 | src/index.css:440 | css-transition | .theme-choice: box-shadow, background-color | box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) | личный выключатель | src/components/ProjectLookPicker.tsx |
 | src/index.css:463 | css-animation | #splash path: stroke-dashoffset | splashDraw var(--dur-3) var(--ease-out) forwards | @media + личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:471 | css-animation | #splash[data-out]: opacity | splashOut var(--dur-3) var(--ease-standard) forwards | личный выключатель | CSS / динамическая сборка классов |
@@ -70,7 +70,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:487 | css-keyframes | splashLift: transform | из правила применения | см. правила применения | см. CSS |
 | src/index.css:511 | css-animation | .hint-line: grid-template-rows, margin-block, opacity | hintIn var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/Hint.tsx |
 | src/index.css:518 | css-keyframes | hintIn: grid-template-rows, margin-block, opacity | из правила применения | см. правила применения | см. CSS |
-| src/index.css:531 | css-animation | .skeleton-late: opacity | skeletonLate var(--dur-3) var(--ease-out) var(--dur-3) both | @media + личный выключатель | src/components/Backlog.tsx, src/components/Board.tsx |
+| src/index.css:531 | css-animation | .skeleton-late: opacity | skeletonLate var(--dur-3) var(--ease-out) var(--dur-3) both | @media + личный выключатель | src/components/Backlog.tsx, src/components/BoardColumn.tsx |
 | src/index.css:534 | css-keyframes | skeletonLate: opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:540 | css-transition | .look-choice: box-shadow, background-color | box-shadow var(--dur-2) var(--ease-standard), background-color var(--dur-2) | личный выключатель | src/components/ProjectLookPicker.tsx |
 | src/index.css:653 | css-transition | .palette-row: background-color, color | background-color var(--dur-1, 100ms) linear, color var(--dur-1, 100ms) linear | личный выключатель | src/components/CommandPalette.tsx |
@@ -82,9 +82,9 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:790 | css-keyframes | shimmer: background-position | из правила применения | см. правила применения | см. CSS |
 | src/index.css:801 | css-keyframes | dropLand: transform | из правила применения | см. правила применения | см. CSS |
 | src/index.css:810 | css-keyframes | doneFlash: background, box-shadow | из правила применения | см. правила применения | см. CSS |
-| src/index.css:821 | css-transition | .cl-text: text-decoration-color, color | text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard) | @media + личный выключатель | src/components/IssueModal.tsx |
+| src/index.css:821 | css-transition | .cl-text: text-decoration-color, color | text-decoration-color var(--dur-4) var(--ease-out), color var(--dur-3) var(--ease-standard) | @media + личный выключатель | src/components/IssueModalFields.tsx |
 | src/index.css:829 | css-animation | .anim-fadeup: opacity, transform | fadeUp var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/components/IssueModal.tsx |
-| src/index.css:832 | css-animation | .anim-pop: opacity, transform | popIn var(--dur-2) var(--ease-out) both | @media + личный выключатель | src/components/Board.tsx, src/components/Topbar.tsx |
+| src/index.css:832 | css-animation | .anim-pop: opacity, transform | popIn var(--dur-2) var(--ease-out) both | @media + личный выключатель | src/components/BoardColumn.tsx, src/components/Topbar.tsx |
 | src/index.css:837 | css-keyframes | scrimIn: opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:842 | css-animation | .anim-scrim: opacity | scrimIn var(--dur-3) var(--ease-standard) both | личный выключатель | src/components/Sidebar.tsx |
 | src/index.css:845 | css-animation | .anim-toast: opacity, transform | toastIn var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/motion.ts, src/ui.tsx |
@@ -94,7 +94,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:889 | css-keyframes | wfFlow: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
 | src/index.css:904 | css-animation | .anim-drop: transform, background, box-shadow | dropLand var(--dur-3) var(--ease-out) both, cardFlash var(--dur-5) ease-out both | @media + личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:907 | css-animation | .anim-drop-done: transform, background, box-shadow | dropLand var(--dur-3) var(--ease-out) both, doneFlash var(--dur-5) ease-out both | @media + личный выключатель | CSS / динамическая сборка классов |
-| src/index.css:911 | css-animation | .anim-flash: background, box-shadow | cardFlash var(--dur-5) ease-out both | личный выключатель | src/components/Board.tsx |
+| src/index.css:911 | css-animation | .anim-flash: background, box-shadow | cardFlash var(--dur-5) ease-out both | личный выключатель | src/components/BoardCard.tsx |
 | src/index.css:914 | css-animation | .anim-flash-done: background, box-shadow | doneFlash var(--dur-5) ease-out both | личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:928 | css-transition | .timeline-bar: transform, width | transform var(--dur-4) var(--ease-out), width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
 | src/index.css:954 | css-transition | .timeline-bar-fill: width | width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
@@ -128,7 +128,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/styles/workspace.css:263 | css-keyframes | directionClose: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
 | src/styles/workspace.css:274 | css-transition | .board-member-filter: transform | transform var(--dur-2) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
 | src/styles/workspace.css:277 | css-transition | .board-member-name: max-width, opacity, padding | max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
-| src/styles/workspace.css:422 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/Board.tsx |
+| src/styles/workspace.css:422 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/BoardColumn.tsx |
 | src/styles/workspace.css:761 | css-transition | .form-disclosure::details-content, .reports-chart-data::details-content: block-size, content-visibility | block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete | @media + личный выключатель | src/components/CreateIssueModal.tsx, src/components/ReportsView.tsx |
 | src/styles/workspace.css:775 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
 | src/theme.ts:147 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/theme.ts |
