@@ -49,7 +49,7 @@ npm run dev         # Vite dev server on http://localhost:3000 (strictPort — f
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
-npm run bundle:check    # after build: gzip JS/CSS vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run bundle:check    # after build: gzip JS/CSS + startup JS (entry + modulepreload) vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
 npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
@@ -772,7 +772,7 @@ since any edit touches it. The board shows the last 14 days in its done column
   showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
   (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
   exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
-  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel** — the barrel's re-exports pull `Overlay` into `modulepreload`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
+  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board and what it imports statically — `WorkspaceControls`, `BoardBackgroundControl` —, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel, and take `Menu`/`Popover` from `ds/LazyOverlay`** — the barrel's re-exports and a static `ds/Overlay` import pull `Overlay` and `@floating-ui/dom` into `modulepreload`; `bundle:check`'s «старт» metric (entry + every `modulepreload`) catches that. Entry code that only shows/hides a popover imports `showPop`/`hidePop` from `ds/pop.ts`, not `ds/floating.ts`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
   are all on `src/ds` (tracks G and H, done 01.10.2026); `src/ui.tsx` keeps only app-data helpers with no `ds` pair
   (`ProjectMark`, `projectTone`, `labelTone`, `directionColor`, `catColor`, `Toasts`, board column classes) — the
   finished map is in COMPONENTS.md. A window that should animate out stays mounted through `Presence`

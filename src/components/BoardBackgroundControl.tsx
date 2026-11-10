@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { Button, Popover } from "../ds";
+import { Button } from "../ds/Button";
+import { Popover } from "../ds/LazyOverlay";
 import { useT } from "../i18n";
 import { preparePhoto } from "../bgPhoto";
 import { saveBoardPhoto } from "../personalBoardPhoto";

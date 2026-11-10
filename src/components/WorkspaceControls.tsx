@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { useT } from "../i18n";
 import { IcCheck, IcChevD, IcFilter, IcSearch, IcX } from "../icons";
 import { Button } from "../ds/Button";
-import { Menu, Popover } from "../ds/Overlay";
+import { Menu, Popover } from "../ds/LazyOverlay";
 
 export function WorkspaceSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const { t } = useT();
