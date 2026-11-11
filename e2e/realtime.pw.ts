@@ -241,9 +241,11 @@ test.describe("realtime collaboration", () => {
     expect(syncReads).toBe(1);
     await expect(page.locator('.board-card[data-issue-id="i1"]')).toBeVisible();
     // One retry per five minutes: a fixed API or a later grant recovers without a reload.
-    await page.clock.runFor(4 * 60_000 + 5_000);
-    await expect.poll(() => syncReads).toBe(2);
-    await expect.poll(() => me).toBe(3);
+    // The retry is due 5 min after the denial. Step 30 s past it and poll longer: with 5 s past and a 5 s poll
+    // the second /sync read was once missed in CI (PR #238, cause not established; never reproduced locally).
+    await page.clock.runFor(4 * 60_000 + 30_000);
+    await expect.poll(() => syncReads, { timeout: 20_000 }).toBe(2);
+    await expect.poll(() => me, { timeout: 20_000 }).toBe(3);
     await page.clock.runFor(60_000);
     expect(syncReads).toBe(2);
   });
