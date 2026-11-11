@@ -120,10 +120,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return (key, params) => {
       const text = dict[key] ?? ruCore[key as keyof typeof ruCore] ?? (lang === "ru" ? ruLazyDict?.[key] : undefined);
       if (text === undefined) {
-        // A lazy-screen key was asked for before its chunk arrived (should not happen through lazyView):
-        // load it and re-render instead of crashing.
-        if (import.meta.env.DEV) console.warn(`[i18n] "${key}" was read before the lazy dictionary loaded; open this screen through lazyView()/withRuLazy()`);
-        if (lang === "ru") void loadRuLazy().catch(() => undefined);
+        // Two different cases. With the lazy part loaded (or another language) the key simply does not exist: callers
+        // such as webhookUi rely on "" for an unknown key (`t(key) || fallback`), so stay silent and do nothing.
+        // With the lazy part still missing, a lazy-screen key was read too early (should not happen through
+        // lazyView): start the load so the label fills in on the re-render, and say so in dev.
+        if (lang === "ru" && !ruLazyDict) {
+          if (import.meta.env.DEV) console.warn(`[i18n] "${key}" was read before the lazy dictionary loaded; open this screen through lazyView()/withRuLazy()`);
+          void loadRuLazy().catch(() => undefined);
+        }
         return "";
       }
       return interpolate(text, params);
