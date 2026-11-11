@@ -44,6 +44,8 @@ npm run docs:check   # generated docs are current, motion tokens/map, docs/ size
 
 Style checks that fail CI: `colors:check`, `contrast:check`, `motion:check`, `antilist:check`, `permissions:check`.
 `npm run perf:rerenders` prints re-render tables; `npm run test:ui` is Playwright + axe (CI only for PRs touching components).
+Playwright uses 2 workers in CI (`PLAYWRIGHT_WORKERS` overrides). Vitest stays on its default isolated pool: `isolate: false`
+breaks tests that rely on isolation and `pool: 'vmThreads'` was faster but flaky when measured.
 
 Server (`server/`):
 
