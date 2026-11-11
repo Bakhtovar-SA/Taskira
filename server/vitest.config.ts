@@ -4,7 +4,7 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     // env.ts задаёт DATABASE_URL_TEST / JWT_SECRET ДО первого loadConfig()
-    setupFiles: ["./test/env.ts"],
+    setupFiles: ["./test/env.ts", "./test/responseContract.setup.ts"],
     // global-setup.ts создаёт БД taskira_test, пересоздаёт в ней схему public и гоняет миграции один раз
     globalSetup: ["./test/global-setup.ts"],
     // Все файлы делят одну тестовую БД — параллелить нельзя

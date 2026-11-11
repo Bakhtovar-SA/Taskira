@@ -47,7 +47,8 @@ npm ci                # after every pull/merge from main — never trust an exis
                       # `npm ci` dies with EPERM halfway and leaves node_modules half-deleted; recover with `npm install`.
 npm run dev         # Vite dev server on http://localhost:3000 (strictPort — fails if taken)
 npm run build       # production build to dist/
-npm run typecheck   # tsc --noEmit
+npm run typecheck   # tsc --noEmit (noUnusedLocals is on in both packages: an unused import or local fails it)
+npm run lint        # eslint src — react-hooks rules only; errors fail CI, `npm run lint:all` also shows the exhaustive-deps warnings
 npm test            # vitest run — permissions / validation / store helpers
 npm run bundle:check    # after build: gzip JS/CSS + startup JS (entry + modulepreload) vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
 npm run repo:check      # docs/ total size and per-file size limits (part of docs:check); don't commit audit screenshots or raw dumps
@@ -85,7 +86,9 @@ branch or changing what an API method returns, extend this file rather than trus
 Full client verification is `npm run typecheck` + `npm test` + `npm run build`, and CI runs all
 three. A cross-package check also exists: `server/test/permissions-sync.test.ts` reads
 `src/permissions.ts` and `src/validation.ts` from disk and fails if the duplicated `MATRIX` or
-`LIMITS` drift from the server copies. **No linter** in either package. A local PostgreSQL
+`LIMITS` drift from the server copies. Linting is deliberately narrow: `tsc` with `noUnusedLocals` in both packages, plus a client-only ESLint (`eslint.config.js`)
+with just the React hooks rules — `rules-of-hooks` is an error, `exhaustive-deps` a warning (113 existing findings when it
+was enabled; don't "fix" them wholesale, each one changes when an effect runs). There is no style linter. A local PostgreSQL
 reachable via `DATABASE_URL` is required to run the server at all (`initPool` → `migrate`
 happen before `listen`).
 
@@ -132,7 +135,10 @@ imports the same types (`import type` from `../../server/src/contract`; root has
 nothing reaches the bundle). `src/types.ts` aliases them for pure mirrors and keeps only real view-models (ms timestamps
 etc.). Those schemas are **type sources only, never `.parse()`d at runtime** — they do not guarantee a mapper returns what
 it declares (SQL rows are cast `q<Row>`); don't assume the API is protected from drift against the DB because a schema
-exists. Still hand-written: request-side client params (`IssueFilterParams`, `IssueTemplateInput`, `ReportFilter`) and
+exists. The server tests close part of that gap: `server/test/responseContract.ts` maps routes to their response schema and
+an `onSend` hook on the test app (`getApp()`) parses every successful response of a mapped route; a mismatch fails the test
+that made the request. Production code is untouched. When a route's whole response is described by a `contract.ts` schema,
+add it to `RESPONSES` there; handler-built envelopes without a schema are not covered. Still hand-written: request-side client params (`IssueFilterParams`, `IssueTemplateInput`, `ReportFilter`) and
 small inline envelopes in `src/api/index.ts` (login, auth config, LDAP ping/resync, member PUT, link/checklist/custom-field
 wrappers, transition, sprint complete). CI job `types` typechecks server and client together (UI-02: not verifiably a
 required check). The old text-emitting `generate-client-contracts.mjs` / `contracts:check` is gone.
