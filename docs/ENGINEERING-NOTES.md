@@ -301,6 +301,13 @@ permanent breakage and a leaked private key has no recovery path. Custody, rotat
 - `idx` next to `data` has prebuilt `Map`s (`users`, `issues`, `statuses`) and the `doneStatusIds` `Set`; use them in list and card
   renders instead of `data.users.find(...)`, which was quadratic across a board.
 
+- `react-hooks/exhaustive-deps` warnings were triaged once (113 findings): one real stale closure (the sidebar `[` shortcut kept
+  a narrow-screen `changeCollapsed` after the window grew past 1024 px and skipped the width glide; fixed, test
+  `Sidebar.collapse.test.tsx`), 104 deliberate, 8 harmless. Deliberate groups: store action hooks omit `pid`, `local`,
+  `setData`, state setters and refs because they are stable; cleanups that bump a generation counter ref (`epoch.current++`) are
+  the intended way to cancel a request; mount-only effects (`BoardCard` enter animation, `SidebarResizeHandle`, `ds/Dialog`).
+  A new warning in new code is worth reading; the existing ones are not a to-do list.
+
 ## Client UI components
 
 - **Popups are `ds` `Menu` / `Popover`, never local open/close state.** They sit on the Popover API, so outside-click, Escape and

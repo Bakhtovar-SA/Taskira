@@ -185,8 +185,8 @@ export function useRouterSync(): void {
       cancelled = true;
       applyingRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- изменения задач/UI не переигрывают URL.
     // Списки доступа нужны для отмены устаревшего резолва и повторного поиска недоступного проекта.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- изменения задач/UI не переигрывают URL.
   }, [path, urlIssue, bootStatus, accessSignature]);
 
   // Спринты при выключенном модуле — на доску с объяснением, а не экран-отказ (ADR-0013 §5).

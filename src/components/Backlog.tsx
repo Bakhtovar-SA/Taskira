@@ -110,8 +110,8 @@ export default function Backlog() {
     if (next !== location.search.replace(/^\?/, "")) {
       navigate(`${path}${next ? `?${next}` : ""}`, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- path/navigate стабильны для текущего вида; включать их
-    // пересоздавало бы эффект на каждый чужой навигационный пуш и гоняло бы сравнение впустую.
+    // Включать navigate пересоздавало бы эффект на каждый чужой навигационный пуш и гоняло бы сравнение впустую.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- path/navigate стабильны для текущего вида
   }, [filters, fOverdue, showDone, qDebounced, group, path, data.project.key]);
 
   // Фильтры, сортировка и поиск — на сервере (PERF-05): клиент видит лишь часть

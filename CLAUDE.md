@@ -35,7 +35,8 @@ npm run dev          # Vite on http://localhost:3000 (strictPort)
 npm run build        # production build to dist/
 npm run typecheck    # tsc --noEmit; noUnusedLocals is on, so an unused import or local fails
 npm run lint         # eslint src --quiet: react-hooks rules only; errors fail CI. `lint:all` also shows exhaustive-deps warnings
-                     # (existing debt; do not fix them wholesale, each one changes when an effect runs)
+                     # (triaged: the ~110 that remain are deliberate — stable store actions, refs, generation counters;
+                     #  see ENGINEERING-NOTES "Client store". Do not add deps wholesale: each one changes when an effect runs)
 npm test             # vitest run (jsdom + Testing Library)
 npm run bundle:check # after build: gzip size and startup-JS budget vs scripts/bundle-budget.json
 npm run docs:check   # generated docs are current, motion tokens/map, docs/ size limit (repo:check)
