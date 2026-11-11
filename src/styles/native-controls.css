@@ -1,0 +1,92 @@
+/* Keep browser semantics while drawing controls with the Taskira tokens. */
+:where(details:not(.form-disclosure)) > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+  color: var(--text-2);
+  transition:
+    color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out);
+}
+:where(details:not(.form-disclosure)) > summary::-webkit-details-marker {
+  display: none;
+}
+:where(details:not(.form-disclosure)) > summary::before {
+  content: "";
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+:where(details[open]:not(.form-disclosure)) > summary::before {
+  transform: rotate(45deg);
+}
+:where(details:not(.form-disclosure)) > summary:hover {
+  color: var(--accent-text);
+  background: var(--bg-hover);
+}
+
+input[type="range"] {
+  appearance: none;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-s);
+}
+input[type="range"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 5px;
+  border-radius: var(--radius-s);
+  background: var(--border-strong);
+}
+input[type="range"]::-moz-range-track {
+  height: 5px;
+  border-radius: var(--radius-s);
+  background: var(--border-strong);
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin-top: -6.5px;
+  border: 2px solid var(--bg-panel);
+  border-radius: 50%;
+  background: var(--accent-solid);
+  box-shadow: 0 0 0 1px var(--accent-solid);
+  transition: box-shadow var(--dur-1) var(--ease-out);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg-panel);
+  border-radius: 50%;
+  background: var(--accent-solid);
+  box-shadow: 0 0 0 1px var(--accent-solid);
+  transition: box-shadow var(--dur-1) var(--ease-out);
+}
+input[type="range"]:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+input[type="range"]:hover::-moz-range-thumb {
+  box-shadow: 0 0 0 4px var(--focus-ring);
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(details:not(.form-disclosure)) > summary,
+  :where(details:not(.form-disclosure)) > summary::before,
+  input[type="range"]::-webkit-slider-thumb {
+    transition: none;
+  }
+  input[type="range"]::-moz-range-thumb {
+    transition: none;
+  }
+}
