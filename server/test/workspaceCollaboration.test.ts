@@ -69,6 +69,17 @@ test("two editors merge changes, reconnect pending edits, and persist across fre
     planning: true,
   });
   const d = (await call("POST", "/documents", { title: "Concurrent" })).json();
+  for (const suffix of ["", "?generation=invalid", "?generation=0"]) {
+    const socket = new WebSocket(
+      `${base}/api/projects/${f.projects.p1}/documents/${d.id}/collaboration${suffix}`,
+      { headers: auth(token) },
+    );
+    const closed = new Promise<number>((resolve, reject) => {
+      socket.once("error", reject);
+      socket.once("close", resolve);
+    });
+    expect(await closed).toBe(1008);
+  }
   const connect = async (username: string) => {
     const res = await app.inject({
       method: "POST",
@@ -208,4 +219,30 @@ test("two editors merge changes, reconnect pending edits, and persist across fre
   const large = await connect("emp1");
   expect(text(large.document).length).toBeGreaterThanOrEqual(330000);
   large.provider.destroy();
+  const disabled = await call("PATCH", "/workspace/modules", {
+    documents: false,
+    objects: true,
+    processes: true,
+    planning: true,
+  });
+  expect(disabled.statusCode, disabled.body).toBe(200);
+  // Existing materials remain readable, including after a new connection.
+  const readOnly = await connect("mgr1");
+  expect(text(readOnly.document).toString()).toContain("offline");
+  let readOnlyAcknowledged = false;
+  readOnly.provider.on("stateless", ({ payload }: { payload: string }) => {
+    if (JSON.parse(payload).type === "readonly") readOnlyAcknowledged = true;
+  });
+  text(readOnly.document).insert(0, "disabled_edit_must_not_persist");
+  readOnly.provider.sendStateless(JSON.stringify({ type: "persist" }));
+  await until(() => readOnlyAcknowledged);
+  const stillReadOnly = await connect("emp1");
+  expect(text(stillReadOnly.document).toString()).not.toContain(
+    "disabled_edit_must_not_persist",
+  );
+  expect((await call("GET", `/documents/${d.id}`)).json().document.text).not.toContain(
+    "disabled_edit_must_not_persist",
+  );
+  readOnly.provider.destroy();
+  stillReadOnly.provider.destroy();
 }, 25000);

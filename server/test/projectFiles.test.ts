@@ -128,6 +128,7 @@ test("catalogue combines original attachments with source links and remains read
       objects: false,
       processes: false,
       planning: false,
+      files: false,
     },
   });
   expect(disabled.statusCode, disabled.body).toBe(200);

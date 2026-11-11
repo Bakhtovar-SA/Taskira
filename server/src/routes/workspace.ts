@@ -728,6 +728,13 @@ export async function workspaceRoutes(
       preValidation: zparams(IdParams),
     },
     (socket, req) => {
+      const generation = z.coerce.number().int().positive().safeParse(
+        (req.query as { generation?: string }).generation,
+      );
+      if (!generation.success) {
+        socket.close(1008, "Invalid document generation");
+        return;
+      }
       const started = Date.now(),
         userId = req.user.sub;
       registerSocket(userId, socket);
@@ -736,15 +743,10 @@ export async function workspaceRoutes(
         socket.close(1008, "Session revoked");
         return;
       }
-      const generation = z.coerce
-        .number()
-        .int()
-        .positive()
-        .parse((req.query as { generation?: string }).generation);
       const ctx: CollaborationContext = {
         projectId: pid(req),
         documentId: id(req),
-        generation,
+        generation: generation.data,
         user: req.user,
         readOnly: req.projectRole === "viewer",
       };
