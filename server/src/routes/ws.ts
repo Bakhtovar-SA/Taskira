@@ -19,6 +19,7 @@ const AUTH_TIMEOUT_MS = 5_000;
 
 export async function wsRoutes(app: FastifyInstance): Promise<void> {
   app.get("/ws", { websocket: true }, (socket, req) => {
+    socket.on("message", (raw: unknown) => { if (Buffer.isBuffer(raw) && raw.byteLength > 8192) socket.close(1009, "Message too large"); });
     let userId: string | null = null;
     // Синхронный латч "первая auth-рама уже принята в обработку" — ОТДЕЛЬНО от
     // userId, который выставляется только ПОСЛЕ await assertFreshUser(). Без

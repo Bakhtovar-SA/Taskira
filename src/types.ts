@@ -288,6 +288,7 @@ export interface Data {
 export interface NotificationT {
   id: string;
   type:
+    | "workspace"
     | "issue.dueSoon"
     | "issue.reminder"
     | "issue.assigned"
@@ -301,6 +302,8 @@ export interface NotificationT {
   issueId: string | null;
   /** Денормализованные поля для показа (ключ/заголовок задачи, статусы…). */
   payload: {
+    entityKind?: "issue" | "document" | "object" | "process";
+    entityId?: string;
     dueDate?: string;
     leadDays?: string;
     key?: string;
@@ -318,6 +321,7 @@ export interface NotificationT {
 export type NotifyPrefsT = NotifyPrefs;
 
 export type ViewId =
+  | "library" | "documents" | "objects" | "processes" | "planning" | "files"
   /** «Обзор» проекта — его общий дашборд (ADR-0022). */
   | "overview"
   | "board"

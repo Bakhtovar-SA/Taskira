@@ -82,3 +82,5 @@
 | `20261008T0930_status_failure_times.sql` | Время окончательного почтового отказа и индексы суточных ошибок состояния системы. Both indexes serve the status snapshot's daily failure counters, including recurring runs. Writes are stopped during offline upgrade; transactional DDL keeps application atomic. Large-table scan/lock and maintenanc… |
 | `20261008T0931_webhook_failure_time.sql` | Historical failure times are unknown; do not infer them from mutable updated_at. Transactional index with writes stopped: docs/RELEASE-2026-10-08-SYSTEM-STATUS.md. |
 | `20261011T1600_issue_automation.sql` | (нет комментария-описания) |
+| `20261110T0800_workspace.sql` | Additive workspace modules. Existing projects remain disabled; task history is collected independently. |
+| `20261111T0730_project_files_module.sql` | Make the file catalogue configurable without hiding it on existing projects. Disabling hides its tab; attachments remain with their original materials. |

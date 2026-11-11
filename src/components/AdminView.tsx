@@ -1,6 +1,7 @@
 import { Switch, Input } from "../ds/Field";
 import { Avatar } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
+import { Dialog } from "../ds/Dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { openProjectWizard } from "../palette/events";
@@ -172,6 +173,7 @@ export default function AdminView() {
   }, [data.projects]);
 
   const [newDept, setNewDept] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const [openDeptMembers, setOpenDeptMembers] = useState<Record<string, boolean>>({});
   if (!canManage) {
@@ -237,11 +239,7 @@ export default function AdminView() {
                     <IcUsers size={14} /> {t("admin.members")}
                   </Button>
                   <IconButton variant="secondary" size="sm" label={t(projs.length > 0 ? "admin.deleteDepartmentBlocked" : "admin.deleteDepartment")}
-                    onClick={() =>
-                      projs.length === 0 &&
-                      window.confirm(t("admin.deleteDepartmentConfirm", { name: d.name })) &&
-                      deleteDepartment(d.id)
-                    }
+                    onClick={() => { if (projs.length === 0) setDeleteTarget(d); }}
                     disabled={projs.length > 0 ? t("admin.deleteDepartmentBlocked") : false}
 
                     className="shrink-0"
@@ -304,6 +302,16 @@ export default function AdminView() {
           )}
         </div>
       </div>
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" title={t("admin.deleteDepartment")}
+        footer={<>
+          <Button variant="ghost" data-autofocus onClick={() => setDeleteTarget(null)}>{t("common.cancel")}</Button>
+          <Button variant="danger" onClick={() => {
+            if (deleteTarget) deleteDepartment(deleteTarget.id);
+            setDeleteTarget(null);
+          }}>{t("common.delete")}</Button>
+        </>}>
+        <p>{deleteTarget && t("admin.deleteDepartmentConfirm", { name: deleteTarget.name })}</p>
+      </Dialog>
     </div>
   );
 }

@@ -24,6 +24,12 @@ import { pushRecent } from "./palette/recent";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
 // больше не тянет отчёты, документацию и админку одним монолитным бандлом.
+const ProjectFilesView = lazy(() => import("./workspace/ProjectFilesView"));
+const LibraryView = lazy(() => import("./workspace/LibraryView"));
+const DocumentsView = lazy(() => import("./workspace/DocumentsView"));
+const ObjectsView = lazy(() => import("./workspace/ObjectsView"));
+const ProcessesView = lazy(() => import("./workspace/ProcessesView"));
+const PlanningView = lazy(() => import("./workspace/PlanningView"));
 const Backlog = lazy(() => import("./components/Backlog"));
 const SprintsView = lazy(() => import("./components/SprintsView"));
 const TimelineView = lazy(() => import("./components/TimelineView"));
@@ -315,6 +321,12 @@ function Shell() {
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-fadeup h-full">
+            {ui.view === "library" && <LibraryView key={data.currentUserId} />}
+            {ui.view === "files" && <ProjectFilesView key={`${data.currentUserId}:${data.currentProjectId}`} />}
+             {ui.view === "documents" && <DocumentsView key={`${data.currentUserId}:${data.currentProjectId}`} />}
+            {ui.view === "objects" && <ObjectsView key={`${data.currentUserId}:${data.currentProjectId}`} />}
+            {ui.view === "processes" && <ProcessesView key={`${data.currentUserId}:${data.currentProjectId}`} />}
+            {ui.view === "planning" && <PlanningView key={`${data.currentUserId}:${data.currentProjectId}`} />}
             {ui.view === "overview" && <DashboardView mode="project" />}
             {ui.view === "board" && <Board key={data.currentProjectId} />}
             {ui.view === "backlog" && <Backlog key={data.currentProjectId} />}

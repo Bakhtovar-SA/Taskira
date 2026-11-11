@@ -159,6 +159,12 @@ sed \
   -e "s/__ARCH__/$IMAGE_ARCH/g" \
   "$TEMPLATE_DIR/README_INSTALL.md.in" > "$WORK_DIR/README_INSTALL.md"
 cp "$TEMPLATE_DIR/.env.example" "$WORK_DIR/.env.example"
+# Keep the new module guide and standalone reference available on disconnected hosts.
+mkdir -p "$WORK_DIR/docs/design/taskira-next" "$WORK_DIR/docs/adr"
+cp "$ROOT_DIR/docs/WORKSPACE.md" "$WORK_DIR/docs/WORKSPACE.md"
+cp "$ROOT_DIR/docs/adr/0035-project-workspace.md" "$WORK_DIR/docs/adr/0035-project-workspace.md"
+cp "$ROOT_DIR/docs/design/PERF-BUDGET.md" "$WORK_DIR/docs/design/PERF-BUDGET.md"
+cp "$ROOT_DIR/docs/design/taskira-next/"{README.md,reference.html,verification.md,bundle.json} "$WORK_DIR/docs/design/taskira-next/"
 cp "$ROOT_DIR/docs/OPERATIONS.md" "$WORK_DIR/OPERATIONS.md"
 cp "$ROOT_DIR/docs/SECURITY_OVERVIEW.md" "$WORK_DIR/SECURITY_OVERVIEW.md"
 cp "$ROOT_DIR/SECURITY.md" "$WORK_DIR/SECURITY.md"

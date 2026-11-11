@@ -698,7 +698,7 @@ export const issuesApi = {
   /** Исполнители активных задач проекта по убыванию нагрузки (полоска фильтров доски). */
   assignees: (projectId: string, limit?: number) =>
     api<IssueAssigneesDto>(`${P(projectId)}/issues/assignees`, { query: { limit } }),
-  get: (projectId: string, id: string) => api<ServerIssue>(`${P(projectId)}/issues/${id}`),
+  get: (projectId: string, id: string, signal?: AbortSignal) => api<ServerIssue>(`${P(projectId)}/issues/${id}`, {signal}),
   /** Задачи, к которым текущий пользователь приглашён (через все проекты). */
   collaborating: () => api<CollaboratingItem[]>("/api/issues/collaborating"),
   /** Открытые задачи, назначенные мне, по всем видимым проектам (главный экран).

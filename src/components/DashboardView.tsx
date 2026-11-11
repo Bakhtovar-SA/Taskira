@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 import { useT, type TKey } from "../i18n";
 import { useStore } from "../store";
 import { dashboardsApi, roadmapApi, type DashboardDto } from "../api";
-import { Button, Dialog, EmptyState, IconButton, Input, Menu } from "../ds";
+import { Button, Checkbox, Dialog, EmptyState, IconButton, Input, Menu } from "../ds";
 import { IcDashboard, IcDots, IcPencil, IcPlus, IcUndo } from "../icons";
 import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { LIMITS } from "../validation";
@@ -341,13 +341,7 @@ function NewDashboardDialog({ onClose, onCreated }: { onClose: () => void; onCre
           </div>
         </fieldset>
         {isAdmin && (
-          <label className="flex items-start gap-2 text-[13.5px] text-sub">
-            <input type="checkbox" checked={shared} onChange={(e) => setShared(e.target.checked)} className="mt-0.5" />
-            <span>
-              <span className="font-medium text-ink">{t("dash.shareLabel")}</span>
-              <span className="block text-[12.5px] text-faint">{t("dash.shareHint")}</span>
-            </span>
-          </label>
+          <Checkbox checked={shared} onChange={setShared} label={t("dash.shareLabel")} description={t("dash.shareHint")} />
         )}
       </div>
     </Dialog>

@@ -33,13 +33,26 @@ import { _setWebhookLookupForTests } from "../../src/services/webhooks.js";
 import { stopWebhookDispatch } from "../../src/services/webhookDispatch.js";
 import { BODIES, ROUTES } from "./routes.manifest.js";
 
-type Kind =
+import { seedWorkspace, type WorkspaceObjects } from "./workspaceFixture.js";
+
+type Kind = keyof WorkspaceObjects
   | "issue" | "attachment" | "checklistItem" | "link" | "customField" | "issueTemplate" | "milestone"
   | "savedView" | "webhook" | "delivery" | "transition" | "sprint" | "recurringRule";
 
 /** Вложенный параметр пути («<сегмент перед ним>/:<параметр>») → объект, который он адресует. */
 const OWNED: Readonly<Record<string, Kind>> = {
   "attachments/:attId": "attachment",
+  "attachments/:fileId": "workspaceFile",
+  "comments/:commentId": "workspaceComment",
+  "documents/:id": "workspaceDocument",
+  "objects/:id": "workspaceObject",
+  "object-types/:id": "workspaceObjectType",
+  "process-templates/:id": "workspaceTemplate",
+  "process-runs/:id": "workspaceRun",
+  "automation-rules/:id": "workspaceRule",
+  "plans/:id": "workspacePlan",
+  "entity-links/:id": "workspaceLink",
+  "executions/:eventId": "workspaceEvent",
   "checklist/:itemId": "checklistItem",
   "custom-fields/:fieldId": "customField",
   "deliveries/:deliveryId": "delivery",
@@ -178,7 +191,7 @@ async function seedProject(project: string, issue: string, token: string): Promi
     `INSERT INTO saved_views (user_id, project_id, name, filter_json) VALUES ($1, $2, 'mine', '{}') RETURNING id`,
     [fx.users.mgr1, project],
   );
-  return { issue, ...children, customField, issueTemplate, milestone, sprint, recurringRule, webhook, delivery, transition, savedView };
+  return { ...await seedWorkspace(app,project,token,fx.users.admin), issue, ...children, customField, issueTemplate, milestone, sprint, recurringRule, webhook, delivery, transition, savedView };
 }
 
 beforeAll(async () => {
@@ -236,6 +249,11 @@ const PROJECT_SCOPE: ReadonlyArray<readonly [string, string]> = [
   ["issue_links", `linked_issue_id IN (${PROJECT_ISSUES})`],
   ...["custom_fields", "issue_templates", "integration_events", "project_milestones", "recurring_rules", "saved_views", "sprints",
     "webhooks", "workflow_statuses", "workflow_transitions"].map((t) => [t, "project_id = $1"] as const),
+  ...["workspace_modules","workspace_documents","workspace_object_types","workspace_objects","workspace_entity_links","workspace_process_templates","workspace_process_runs","workspace_rules","workspace_plans","workspace_events","workspace_history","workspace_completion_history"].map(t=>[t,"project_id = $1"] as const),
+  ...["workspace_document_versions","workspace_document_comments","workspace_document_files","workspace_document_reviews"].map(t=>[t,"document_id IN (SELECT id FROM workspace_documents WHERE project_id=$1)"] as const),
+  ["workspace_action_executions","event_id IN (SELECT id FROM workspace_events WHERE project_id=$1)"],
+  ["workspace_process_steps","run_id IN (SELECT id FROM workspace_process_runs WHERE project_id=$1)"],
+  ["workspace_process_versions","template_id IN (SELECT id FROM workspace_process_templates WHERE project_id=$1)"],
   ["recurring_runs", "rule_id IN (SELECT id FROM recurring_rules WHERE project_id = $1)"],
   ["webhook_deliveries", "webhook_id IN (SELECT id FROM webhooks WHERE project_id = $1)"],
 ];
@@ -301,7 +319,7 @@ async function crossReferences(): Promise<Array<{ what: string; n: number }>> {
 interface Case { key: string; method: string; template: string; params: Param[]; actor: keyof typeof tokens }
 
 const CASES: Case[] = Object.keys(ROUTES)
-  .filter((key) => key.split(" ")[1].startsWith(PROJECT_PREFIX))
+  .filter((key) => key.split(" ")[1].startsWith(PROJECT_PREFIX) && ROUTES[key].anon !== "N/A")
   .map((key) => {
     const [method, template] = key.split(" ", 2) as [string, string];
     const params = nestedParams(template).filter((p) => p.key in OWNED);
@@ -350,6 +368,7 @@ const CASE_BODIES: Readonly<Record<string, () => { payload: unknown; headers?: R
 };
 
 function fill(value: unknown): unknown {
+  if (typeof value === "string" && value.startsWith("$workspace")) return objs.p1[value.slice(1) as keyof WorkspaceObjects];
   if (value === "$uuid") return randomUUID();
   if (Array.isArray(value)) return value.map(fill);
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, fill(v)]));

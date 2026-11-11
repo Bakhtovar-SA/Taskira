@@ -15,7 +15,7 @@ type VTDoc = Document & { startViewTransition?: (cb: () => void) => { finished: 
 
 /** Смена представления или открытие задачи полной страницей: короткое перекрёстное затухание (--dur-2,
  *  правила — `html.vt-nav` в index.css). Нет API, reduced-motion или вкладка скрыта — мгновенно. */
-export function viewTransition(update: () => void): void {
+export function viewTransition(update: () => void): void | Promise<void> {
   const doc = document as VTDoc;
   if (!doc.startViewTransition || reducedMotion() || document.visibilityState !== "visible") {
     update();
@@ -23,7 +23,7 @@ export function viewTransition(update: () => void): void {
   }
   const root = document.documentElement;
   root.classList.add("vt-nav");
-  doc
+  return doc
     .startViewTransition(() => flushSync(update))
     .finished.finally(() => root.classList.remove("vt-nav"))
     .catch(() => undefined);

@@ -1,6 +1,6 @@
 import { AutomationFields, AutomationPopover, RepeatIcon, type AutomationKind } from "./IssueAutomationControls";
 import { useIssueAutomation } from "../issueAutomation";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { useStore } from "../store";
@@ -40,6 +40,8 @@ import { issuesApi, usersApi } from "../api";
  *  (Logo, приоритеты, TypeIcon «Запрос»), а не новые придуманные цвета. */
 /** Палитра направлений = палитра проектов ТЗ 5.3 (одна светлота и хрома, разные
  *  тона; бренд-тон 288 не входит). Hex, а не токены: цвет хранится в БД. */
+const IssueMaterials = lazy(()=>import("../workspace/IssueMaterials"));
+
 const DIRECTION_COLORS = DATA_COLORS;
 
 /** Текст комментария/описания с подсветкой @-упоминаний (NOTIFICATIONS_MIGRATION.md D5). */
@@ -974,6 +976,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             <CustomFieldsSection issue={issue} />
 
             <LinksField issue={issue} />
+            {can("browse") && <Suspense fallback={null}><IssueMaterials id={issue.id} editable={can("edit",issue)} /></Suspense>}
 
             <CollaboratorField issue={issue} />
 

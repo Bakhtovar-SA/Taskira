@@ -8,6 +8,7 @@
 @import "./styles/workspace.css";
 @import "./styles/selection-dock.css";
 @import "./styles/issue-refinements.css";
+@import "./styles/native-controls.css";
 
 /* ============================================================
    Шрифт — Manrope (решение владельца 25.09.2026, ADR-0016), локально в

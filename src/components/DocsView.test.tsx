@@ -21,6 +21,14 @@ test("разделы RU и EN совпадают по id и порядку", () 
   expect(EN_SECTIONS.map(([id]) => id)).toEqual(SECTIONS.map((s) => s.id));
 });
 
+test.each(["ru", "en"] as const)("help covers current workspace modules and a real-life workflow in %s", lang => {
+  const sections = helpCopy[lang].sections;
+  for (const id of ["modules", "documents", "objects", "processes", "forecasts", "files", "library", "workspace-example"])
+    expect(sections.find(section => section.id === id)?.paragraphs.length, id).toBeGreaterThan(1);
+  expect(sections.find(section => section.id === "modules")?.table?.rows).toHaveLength(6);
+  expect(sections.find(section => section.id === "workspace-example")?.paragraphs).toHaveLength(6);
+});
+
 test("русская справка: у каждого пункта меню есть раздел", () => {
   render(
     <I18nProvider>
@@ -103,5 +111,5 @@ test("help keeps the requested section highlighted at the scroll limit until man
   fireEvent.scroll(root);
   expect(view.getByRole("button", { name: "Интеграции и вебхуки" }).getAttribute("aria-current")).toBe("location");
   fireEvent.wheel(root);
-  expect(view.getByRole("button", { name: "Резервные копии" }).getAttribute("aria-current")).toBe("location");
+  expect(view.getByRole("button", { name: "Пример: проверка портала" }).getAttribute("aria-current")).toBe("location");
 });

@@ -5,7 +5,7 @@
 export const ROLE_IDS = ["admin", "manager", "employee", "viewer"] as const;
 export type AccessRole = (typeof ROLE_IDS)[number];
 
-export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate", "editAppearance", "editRoadmap", "manageDashboards", "manageRecurring"] as const;
+export const PERM_IDS = ["browse", "create", "edit", "transition", "delete", "comment", "editWorkflow", "manageAccess", "manageCollaborators", "manageSprints", "saveProjectTemplate", "editAppearance", "editRoadmap", "manageDashboards", "manageRecurring", "writeDocuments", "manageDocuments", "writeObjects", "manageWorkspace", "manageProcesses", "managePlans"] as const;
 export type PermId = (typeof PERM_IDS)[number];
 
 /** Разрешение → роли, которым оно доступно (уровень задачи для employee сужается в permissions.ts). */
@@ -25,6 +25,12 @@ export const MATRIX: Record<PermId, readonly AccessRole[]> = {
   editRoadmap: ["admin", "manager"],
   manageDashboards: ["admin", "manager"],
   manageRecurring: ["admin", "manager"],
+  writeDocuments: ["admin", "manager", "employee"],
+  manageDocuments: ["admin", "manager"],
+  writeObjects: ["admin", "manager", "employee"],
+  manageWorkspace: ["admin", "manager"],
+  manageProcesses: ["admin", "manager"],
+  managePlans: ["admin", "manager"],
 };
 
 export const ROLE_NAMES: Record<AccessRole, string> = {
@@ -59,4 +65,10 @@ export const PERM_META: Record<PermId, { name: string; desc: string; scope: Perm
   editRoadmap: { name: "Сроки и вехи проекта", desc: "Даты начала и цели, вехи и зависимости от других проектов на роадмапе (ТЗ 5.15). Роадмап видят все, кому виден проект.", scope: "Проект" },
   manageDashboards: { name: "Обзор проекта", desc: "Собрать и изменить вкладку «Обзор» — общий дашборд проекта (ADR-0022). Смотрят все участники; данные каждый видит в пределах своих прав.", scope: "Проект" },
   manageRecurring: { name: "Повторяющиеся задачи", desc: "Создать, изменить и остановить правила, которые создают задачи по расписанию из шаблонов задач (ADR-0030). Правила и историю запусков видят все участники.", scope: "Проект" },
+  writeDocuments: { name: "Редактирование рабочих документов", desc: "Редактирование рабочих документов", scope: "Проект" },
+  manageDocuments: { name: "Версии и актуальность документов", desc: "Версии и актуальность документов", scope: "Проект" },
+  writeObjects: { name: "Редактирование объектов", desc: "Редактирование объектов", scope: "Проект" },
+  manageWorkspace: { name: "Управление модулями и структурой реестров", desc: "Управление модулями и структурой реестров", scope: "Проект" },
+  manageProcesses: { name: "Процессы и автоматизации", desc: "Процессы и автоматизации", scope: "Проект" },
+  managePlans: { name: "Общие планы и сценарии", desc: "Общие планы и сценарии", scope: "Проект" },
 };

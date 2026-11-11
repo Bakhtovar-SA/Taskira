@@ -29,6 +29,16 @@
 |---|---|---|
 | `id` | string (uuid) |  |
 
+### AutomationRuleBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…240 |
+| `event` | enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.due` \| `step.completed` |  |
+| `when` | object | необязательное; по умолчанию {"mode":"all","items":[]} |
+| `actions` | array&lt;discriminatedunion&gt; | 1…10 эл. |
+| `enabled` | boolean | необязательное; по умолчанию false |
+
 ### BrandPatchBody
 
 | Поле | Тип | Замечания |
@@ -198,11 +208,51 @@
 |---|---|---|
 | `ids` | array&lt;string (uuid)&gt; | необязательное; 0…500 эл. |
 
+### DocumentCommentBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `body` | string | длина 1…10000 |
+| `blockId` | string | необязательное, может быть null; по умолчанию null; длина 0…100 |
+| `parentId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+
+### DocumentCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `title` | string | длина 1…240 |
+| `parentId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `ownerId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `template` | enum: `blank` \| `instruction` \| `minutes` \| `decision` \| `regulation` | необязательное; по умолчанию "blank" |
+
+### DocumentPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `title` | string | необязательное; длина 1…240 |
+| `parentId` | string (uuid) | необязательное, может быть null |
+| `ownerId` | string (uuid) | необязательное, может быть null |
+| `archived` | boolean | необязательное |
+| `revision` | integer | 0…∞ |
+
+### EntityLinkBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `source` | object |  |
+| `target` | object |  |
+
 ### HintParams
 
 | Поле | Тип | Замечания |
 |---|---|---|
 | `hintId` | string |  |
+
+### IdParams
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
 
 ### IssueAssigneesQuery
 
@@ -455,6 +505,32 @@
 | `email` | enum: `instant` \| `daily` | необязательное |
 | `selfWatch` | boolean | необязательное |
 
+### ObjectCreateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `typeId` | string (uuid) |  |
+| `title` | string | длина 1…240 |
+| `ownerId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `values` | record&lt;string, string \| number \| boolean \| null&gt; | необязательное; по умолчанию {} |
+
+### ObjectPatchBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `title` | string | необязательное; длина 1…240 |
+| `ownerId` | string (uuid) | необязательное, может быть null |
+| `values` | record&lt;string, string \| number \| boolean \| null&gt; | необязательное |
+| `archived` | boolean | необязательное |
+| `revision` | integer | 0…∞ |
+
+### ObjectTypeBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…240 |
+| `fields` | array&lt;object&gt; | 0…30 эл. |
+
 ### OnboardingStepBody
 
 | Поле | Тип | Замечания |
@@ -474,6 +550,33 @@
 |---|---|---|
 | `q` | string | необязательное |
 | `includeService` | `"1"` | необязательное |
+
+### PlanBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…240 |
+| `targetDate` | string | необязательное, может быть null; по умолчанию null |
+| `items` | array&lt;object&gt; | 0…500 эл. |
+
+### ProcessStartBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `templateId` | string (uuid) |  |
+| `title` | string | длина 1…240 |
+| `objectId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…20 эл. |
+| `parameters` | record&lt;string, string \| number \| boolean \| null&gt; | необязательное; по умолчанию {} |
+| `requestId` | string (uuid) |  |
+
+### ProcessTemplateBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…240 |
+| `description` | string | необязательное; по умолчанию ""; длина 0…10000 |
+| `steps` | array&lt;object&gt; | 1…40 эл. |
 
 ### ProjectAppearanceBody
 
@@ -498,6 +601,16 @@
 | `icon` | enum: `rocket` \| `megaphone` \| `users` \| `headset` \| `document` \| `briefcase` \| `code` \| `chart` \| `shield` \| `cart` \| `book` \| `calendar` \| `star` \| `bolt` \| `globe` \| `sparkle` \| `flag` \| `home` \| `camera` \| `diamond` | необязательное, может быть null |
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null; по умолчанию null |
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null; по умолчанию null |
+
+### ProjectFilesQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `q` | string | необязательное; по умолчанию ""; длина 0…200 |
+| `source` | enum: `all` \| `issue` \| `document` | необязательное; по умолчанию "all" |
+| `sort` | enum: `newest` \| `oldest` \| `name` \| `size` | необязательное; по умолчанию "newest" |
+| `offset` | integer | необязательное; по умолчанию 0; 0…100000 |
+| `limit` | integer | необязательное; по умолчанию 50; 1…100 |
 
 ### ProjectOverviewBody
 
@@ -712,6 +825,19 @@
 |---|---|---|
 | `id` | string (uuid) |  |
 
+### VerifyDocumentBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `versionId` | string (uuid) |  |
+| `validUntil` | string | может быть null |
+
+### VersionBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | необязательное; по умолчанию ""; длина 0…160 |
+
 ### WebhookCreateBody
 
 | Поле | Тип | Замечания |
@@ -757,6 +883,16 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `since` | string (datetime) | необязательное; длина 0…64 |
+
+### WorkspaceModulesBody
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `documents` | boolean |  |
+| `objects` | boolean |  |
+| `processes` | boolean |  |
+| `planning` | boolean |  |
+| `files` | boolean | необязательное |
 
 ## Ответы
 
@@ -916,6 +1052,21 @@
 | `body` | string |  |
 | `createdAt` | string |  |
 
+### Condition
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `field` | string | длина 1…80 |
+| `op` | enum: `eq` \| `neq` \| `includes` \| `isSet` |  |
+| `value` | string \| number \| boolean \| null | необязательное; по умолчанию null |
+
+### Conditions
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `mode` | enum: `all` \| `any` | необязательное; по умолчанию "all" |
+| `items` | array&lt;object&gt; | необязательное; по умолчанию []; 0…20 эл. |
+
 ### CustomFieldDto
 
 | Поле | Тип | Замечания |
@@ -979,6 +1130,13 @@
 | `color` | string |  |
 | `jobRole` | string |  |
 | `source` | enum: `ldap` \| `manual` |  |
+
+### EntityRef
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `kind` | enum: `issue` \| `document` \| `object` \| `process` |  |
+| `id` | string (uuid) |  |
 
 ### IntegrationsConfigDto
 
@@ -1178,7 +1336,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `id` | string |  |
-| `type` | enum: `issue.dueSoon` \| `issue.reminder` \| `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
+| `type` | enum: `workspace` \| `issue.dueSoon` \| `issue.reminder` \| `issue.assigned` \| `issue.comment` \| `issue.mention` \| `issue.status` \| `issue.collaborator` \| `project.member` |  |
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `projectId` | string | может быть null |
@@ -1207,6 +1365,23 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `notifyPrefs` | object |  |
+
+### ObjectField
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `key` | string |  |
+| `name` | string | длина 1…240 |
+| `type` | enum: `text` \| `number` \| `date` \| `select` \| `checkbox` \| `user` \| `reference` |  |
+| `required` | boolean | необязательное; по умолчанию false |
+| `options` | array&lt;string&gt; | необязательное; по умолчанию []; 0…100 эл. |
+
+### ObjectTypeShape
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `name` | string | длина 1…240 |
+| `fields` | array&lt;object&gt; | 0…30 эл. |
 
 ### OnboardingDto
 
@@ -1273,6 +1448,31 @@
 | `jobRole` | string |  |
 | `authSource` | enum: `local` \| `ldap` \| `service` | необязательное |
 
+### PlanItem
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `kind` | enum: `issue` \| `step` |  |
+| `id` | string (uuid) |  |
+| `title` | string | длина 1…240 |
+| `complexity` | enum: `simple` \| `medium` \| `hard` | может быть null |
+| `dependsOn` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…100 эл. |
+
+### ProcessStep
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `key` | string |  |
+| `title` | string | длина 1…240 |
+| `description` | string | необязательное; по умолчанию ""; длина 0…30000 |
+| `dependsOn` | array&lt;string&gt; | необязательное; по умолчанию []; 0…40 эл. |
+| `complexity` | enum: `simple` \| `medium` \| `hard` | необязательное, может быть null; по умолчанию null |
+| `dueInDays` | integer | необязательное, может быть null; по умолчанию null; 0…365 |
+| `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…20 эл. |
+| `reviewerId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `documentVersionId` | string (uuid) | необязательное, может быть null; по умолчанию null |
+| `when` | object | необязательное; по умолчанию {"mode":"all","items":[]} |
+
 ### ProjectBootstrapDto
 
 | Поле | Тип | Замечания |
@@ -1303,6 +1503,29 @@
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | может быть null |
 | `backgroundPhoto` | object | может быть null |
 | `isDemo` | boolean |  |
+
+### ProjectFileDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `filename` | string |  |
+| `contentType` | string |  |
+| `size` | number |  |
+| `createdAt` | string |  |
+| `uploadedBy` | string (uuid) | может быть null |
+| `uploaderName` | string | может быть null |
+| `source` | object |  |
+
+### ProjectFilesResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `items` | array&lt;object&gt; |  |
+| `total` | number |  |
+| `totalBytes` | number |  |
+| `offset` | number |  |
+| `limit` | number |  |
 
 ### ProjectMemberDto
 
@@ -1471,6 +1694,10 @@
 | `total` | number |  |
 | `milestones` | array&lt;object&gt; |  |
 | `canEdit` | boolean |  |
+
+### RuleAction
+
+`discriminatedunion`
 
 ### SafeUser
 
@@ -1731,3 +1958,13 @@
 |---|---|---|
 | `statuses` | array&lt;object&gt; |  |
 | `transitions` | array&lt;object&gt; |  |
+
+### WorkspaceModules
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `documents` | boolean |  |
+| `objects` | boolean |  |
+| `processes` | boolean |  |
+| `planning` | boolean |  |
+| `files` | boolean |  |

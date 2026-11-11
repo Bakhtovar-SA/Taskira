@@ -120,7 +120,7 @@ export function useRouterSync(): void {
           return;
         }
         if (parsed.kind === "global") {
-          setView(parsed.view, parsed.section);
+          await setView(parsed.view, parsed.section);
           return;
         }
         // "view" и "issue" оба требуют резолва ключа проекта/задачи — переиспользуем
@@ -153,7 +153,9 @@ export function useRouterSync(): void {
             if (bootStatus === "home") enterProject(projectId);
             if (res || ui.selectedIssueId) openIssue(res?.id ?? null);
           }
-          setView(target.view, target.section);
+          // View Transitions apply state asynchronously. Keep URL priority until
+          // that update commits, or state → URL can drop the document query.
+          await setView(target.view, target.section);
           return;
         }
         // Прямая ссылка на приглашённую задачу (не в открытом проекте) — в «Мои подключения» с выбранной карточкой,

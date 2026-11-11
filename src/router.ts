@@ -15,6 +15,7 @@ import { DEFAULT_SECTION, isSection, isSettingsHome } from "./settings/sections"
  *  (IA §3): личные `/settings/:section`, проекта `/p/:projectKey/settings/:section`, организации
  *  `/admin/:section`; прочие разделы без проекта — свои пути верхнего уровня. */
 const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
+  files: "files", documents: "documents", objects: "objects", processes: "processes", planning: "planning",
   overview: "overview",
   board: "board",
   backlog: "list",
@@ -23,6 +24,7 @@ const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
   sprints: "sprints",
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
+  library: "/library",
   dashboards: "/dashboards",
   reports: "/reports",
   roadmap: "/roadmap",
