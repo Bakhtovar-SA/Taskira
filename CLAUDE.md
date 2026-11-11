@@ -52,7 +52,7 @@ cp .env.example .env   # fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERN
 npm run dev            # tsx watch with polling -> migrations -> seeds -> API on :8080 (dev:native: native fs events)
 npm run build && npm run start
 npm run typecheck      # also noUnusedLocals
-npm test               # vitest, about a thousand cases; needs local PostgreSQL
+npm test               # vitest, about 2400 tests (~5 min, files run serially); needs local PostgreSQL
 ```
 
 A local PostgreSQL reachable through `DATABASE_URL` is required to run the server at all (`initPool` and `migrate()` run before
@@ -233,7 +233,8 @@ instance row), `buildApp()`, then listens. `app.ts` registers plugins, the unifi
 - `middleware.ts` `requireAuth` verifies the JWT but re-reads role and active flag from the DB (30 s cache), so role changes and
   deactivation apply quickly. Two invalidation functions on purpose: `invalidateUserCache(userId)` is safe on any user write;
   `revokeUserSessions(userId, reason)` also closes the user's WebSockets, so call it only for a real revocation (logout,
-  deactivation, an actual role change). `audit()` is fire-and-forget; never await it in a request path.
+  deactivation, an actual role change). `audit()` awaits its INSERT but never throws into
+  the request; a failed audit write is only logged.
 - Realtime: `GET /api/ws` carries notification pushes and durable project sync ([REALTIME.md](docs/REALTIME.md), ADR-0036). The
   client never applies a pushed card; it re-reads through `GET /api/projects/:projectId/sync`. Handshake races and their fixes are in
   ENGINEERING-NOTES; touch `routes/ws.ts` / `wsHub.ts` only after reading that section.
@@ -261,7 +262,6 @@ instance row), `buildApp()`, then listens. `app.ts` registers plugins, the unifi
   the previous `comments` / `activity` by default).
 - jsdom has no Popover API (`showPopover` is guarded) and no jest-dom matchers; query popup content with `hidden: true` and use
   `getAttribute` / `textContent`. Await tooltips with `findByRole("tooltip")`.
-- Do not "fix" the `40P01` retry in `server/test/helpers.ts` `resetDb()` by awaiting `audit()` in production code.
 - `server/.env` is untracked and may hold real secrets; never paste it into shared output. `CORS_ORIGIN` must match the client origin
   (`http://localhost:3000` in dev). Behind nginx or a load balancer set `TRUST_PROXY`, or the per-IP login rate limit and audit IPs
   see the proxy address.

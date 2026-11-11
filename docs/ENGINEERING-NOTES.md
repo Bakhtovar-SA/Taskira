@@ -264,10 +264,10 @@ permanent breakage and a leaked private key has no recovery path. Custody, rotat
 
 ## Server tests
 
-- `resetDb()` in `server/test/helpers.ts` retries on Postgres `40P01` (deadlock, up to 5 attempts). Cause: `audit()` writes
-  `audit_log` through an un-awaited `void q(...)`; a late INSERT from the previous test can still hold `audit_log` and wait for an
-  FK-check lock on `users` while the next test's `TRUNCATE` takes ACCESS EXCLUSIVE on many tables at once. Do not fix it by awaiting
-  `audit()` in production code; that reintroduces the hot-path round-trip the fire-and-forget design avoids.
+- `resetDb()` in `server/test/helpers.ts` retries on Postgres `40P01` (deadlock, up to 5 attempts). History: `audit()` used to
+  write `audit_log` through an un-awaited `void q(...)`, and a late INSERT from the previous test could deadlock with the next
+  test's `TRUNCATE`. `audit()` now awaits its INSERT (see the comment in `server/src/audit.ts`), which removes that race; the
+  retry stays as protection when several test files run against one test database.
 - Tests run in a separate database `taskira_test` (created by `test/global-setup.ts`); files share it, so
   `fileParallelism: false`. See the "Тесты" section of [server/README.md](../server/README.md).
 - LDAP, S3 and mail suites are `describe.skip` unless their env vars are set; CI sets them via the `server/docker-compose.*.yml`
