@@ -89,7 +89,6 @@ function Probe({ onSnapshot }: { onSnapshot: (api: ReturnType<typeof useStoreSna
 }
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
-const settle = () => act(async () => { await flush(); await flush(); await flush(); });
 
 async function setup(opts: { role: "manager" | "employee"; listed: ServerIssue[] }) {
   localStorage.setItem("taskira.token", "test-token");

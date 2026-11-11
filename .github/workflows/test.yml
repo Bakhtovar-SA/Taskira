@@ -494,6 +494,9 @@ jobs:
 
       - run: npm run typecheck
 
+      - name: Lint — React hooks rules (eslint.config.js)
+        run: npm run lint
+
       - name: Design tokens — contrast of text/background pairs (ТЗ 5.4)
         run: npm run contrast:check
 

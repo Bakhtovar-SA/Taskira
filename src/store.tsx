@@ -21,11 +21,7 @@ import { ApiError, API_BASE, authApi, clearToken, getToken, issuesApi, type Bulk
 import { startRealtime } from "./realtime";
 import { setRealtimeState } from "./realtimeStatus";
 import {
-  applyNotificationAction,
-  canTransition,
   emptyData,
-  mapIssue,
-  statusById,
 } from "./store/mappers";
 import { createSlices, EMPTY_NOTIFICATIONS, SlicesCtx } from "./store/slices";
 import type { BootStatus, CreateInput, IssueMode, SoloState, StoreIndexes, UIState } from "./store/mappers";

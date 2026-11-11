@@ -35,7 +35,6 @@ type Person = Pick<User, "name"> & Partial<Pick<User, "id" | "avatarUpdatedAt" |
 export function PersonAvatar({ user, size = 24, ring = false, interactive = false }: {
   user: Person | null | undefined; size?: number; ring?: boolean; interactive?: boolean;
 }) {
-  const { t } = useT();
   const src = useAvatarSrc(user?.id, user?.avatarUpdatedAt);
   const tokenSize = size >= 52 ? 64 : size >= 36 ? 40 : size >= 30 ? 32 : size >= 27 ? 28 : size >= 22 ? 24 : 20;
   const circle = <Avatar person={user ? user.id ? { id: user.id, name: user.name, src } : { id: null, name: user.name } : null} size={tokenSize} ring={ring} />;

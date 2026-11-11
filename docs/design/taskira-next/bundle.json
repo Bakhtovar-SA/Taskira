@@ -1,25 +1,25 @@
 {
   "current": {
-    "js": 647811,
+    "js": 647823,
     "css": 42764,
-    "entry": 101944,
-    "total": 690575,
-    "initial": 196170
+    "entry": 101937,
+    "total": 690587,
+    "initial": 196164
   },
-  "initialJs": 196170,
+  "initialJs": 196164,
   "files": [
     {
-      "name": "AdminView-DcKVyAI-.js",
+      "name": "AdminView-CvqBTJ2T.js",
       "kind": "js",
-      "gzip": 2852
+      "gzip": 2833
     },
     {
-      "name": "Backlog-BrncOGHG.js",
+      "name": "Backlog-C6jqrXPD.js",
       "kind": "js",
-      "gzip": 10730
+      "gzip": 10727
     },
     {
-      "name": "CalendarView-DGjfxOg4.js",
+      "name": "CalendarView-BNGC5Vyh.js",
       "kind": "js",
       "gzip": 71
     },
@@ -29,19 +29,19 @@
       "gzip": 822
     },
     {
-      "name": "CollaboratingView-CSR1EE4X.js",
+      "name": "CollaboratingView-BA__RvMy.js",
       "kind": "js",
-      "gzip": 998
+      "gzip": 999
     },
     {
-      "name": "CommandPalette-a8ZsSU3g.js",
+      "name": "CommandPalette-Dzvk3kbP.js",
       "kind": "js",
-      "gzip": 4066
+      "gzip": 4068
     },
     {
-      "name": "CountUp-BLMClCR1.js",
+      "name": "CountUp-Ct58k8UR.js",
       "kind": "js",
-      "gzip": 423
+      "gzip": 424
     },
     {
       "name": "DashboardTabs-COhrR-sr.css",
@@ -49,67 +49,67 @@
       "gzip": 1473
     },
     {
-      "name": "DashboardTabs-DwYo-RYx.js",
+      "name": "DashboardTabs-CR42L-5w.js",
       "kind": "js",
       "gzip": 2964
     },
     {
-      "name": "DashboardView-CIJe5Nah.js",
+      "name": "DashboardView-DSpSoDZt.js",
       "kind": "js",
       "gzip": 12683
     },
     {
-      "name": "Dialog-3r-01mR0.js",
+      "name": "Dialog-DU72hBZc.js",
       "kind": "js",
-      "gzip": 1564
+      "gzip": 1563
     },
     {
-      "name": "DocsView-CLBgVOSm.js",
+      "name": "DocsView-Irz2Yp0y.js",
       "kind": "js",
-      "gzip": 24972
+      "gzip": 24973
     },
     {
-      "name": "DocumentEditor-kZrEBC06.js",
+      "name": "DocumentEditor-CfPsn_Fz.js",
       "kind": "js",
-      "gzip": 194710
+      "gzip": 194713
     },
     {
-      "name": "DocumentsView-C4CuKc3f.js",
+      "name": "DocumentsView-CDCarRTC.js",
       "kind": "js",
       "gzip": 3747
     },
     {
-      "name": "Flash-BEsjYXEH.js",
+      "name": "Flash-CEbW2mEf.js",
       "kind": "js",
-      "gzip": 269
+      "gzip": 270
     },
     {
-      "name": "HomeView-DQPkyJ-b.js",
+      "name": "HomeView-CNUNoY7W.js",
       "kind": "js",
-      "gzip": 3429
+      "gzip": 3432
     },
     {
-      "name": "ImportModal-D2LrcSAd.js",
+      "name": "ImportModal-1GnMxDPV.js",
       "kind": "js",
-      "gzip": 4180
+      "gzip": 4182
     },
     {
-      "name": "InboxView-BaM8IJx7.js",
+      "name": "InboxView-CEqkRtNB.js",
       "kind": "js",
-      "gzip": 3286
+      "gzip": 3284
     },
     {
-      "name": "IssueAutomationPanel-D1tQHXDR.js",
+      "name": "IssueAutomationPanel-D0iEnL9K.js",
       "kind": "js",
-      "gzip": 3296
+      "gzip": 3297
     },
     {
-      "name": "IssueMaterials-DVV4TWOL.js",
+      "name": "IssueMaterials-BbY10VHq.js",
       "kind": "js",
-      "gzip": 263
+      "gzip": 265
     },
     {
-      "name": "IssueModal-DtQgxTsD.js",
+      "name": "IssueModal-Dp8TLTgd.js",
       "kind": "js",
       "gzip": 779
     },
@@ -119,72 +119,72 @@
       "gzip": 1428
     },
     {
-      "name": "IssueSearchBox-MPagGTyK.js",
+      "name": "IssueSearchBox-DXhrw6uV.js",
       "kind": "js",
-      "gzip": 3232
+      "gzip": 3234
     },
     {
-      "name": "LibraryView-A6Eftm6p.js",
+      "name": "LibraryView-tvw7z4rO.js",
       "kind": "js",
       "gzip": 934
     },
     {
-      "name": "MentionText-BPeVpJfp.js",
+      "name": "MentionText-B3jajzkM.js",
       "kind": "js",
-      "gzip": 2271
+      "gzip": 2272
     },
     {
-      "name": "MyIssuesView-DijLiaAS.js",
+      "name": "MyIssuesView-D17RFQ_h.js",
       "kind": "js",
       "gzip": 2288
     },
     {
-      "name": "ObjectsView-B4b771rV.js",
+      "name": "ObjectsView-C-IDnNZR.js",
       "kind": "js",
-      "gzip": 3694
+      "gzip": 3698
     },
     {
-      "name": "PermissionsView-CRtaOrmF.js",
+      "name": "PermissionsView-cJzOVPWE.js",
       "kind": "js",
-      "gzip": 2617
+      "gzip": 2619
     },
     {
-      "name": "PersonalTokens-BP-XS772.js",
+      "name": "PersonalTokens-Bhx3F-n-.js",
       "kind": "js",
-      "gzip": 214
+      "gzip": 217
     },
     {
-      "name": "PlanningView-BoIx7LKF.js",
+      "name": "PlanningView-C7s3bue-.js",
       "kind": "js",
-      "gzip": 2893
+      "gzip": 2896
     },
     {
-      "name": "ProcessesView-Co1JPkl7.js",
+      "name": "ProcessesView-Bxauzo84.js",
       "kind": "js",
-      "gzip": 5326
+      "gzip": 5328
     },
     {
-      "name": "ProjectFilesView-3L_lfhxJ.js",
+      "name": "ProjectFilesView-BYjq6LlW.js",
       "kind": "js",
       "gzip": 1718
     },
     {
-      "name": "ProjectIntegrations-BWAGeKPx.js",
+      "name": "ProjectIntegrations-DK8dfEjc.js",
       "kind": "js",
-      "gzip": 230
+      "gzip": 231
     },
     {
-      "name": "ProjectLookPicker-CntdFVZC.js",
+      "name": "ProjectLookPicker-DR0kpqnj.js",
       "kind": "js",
-      "gzip": 887
+      "gzip": 886
     },
     {
-      "name": "ProjectWizard-o4cNPIEC.js",
+      "name": "ProjectWizard-D5-CM2MH.js",
       "kind": "js",
-      "gzip": 3738
+      "gzip": 3739
     },
     {
-      "name": "ReportsView-DFAFmh1C.js",
+      "name": "ReportsView-DbH4wxRw.js",
       "kind": "js",
       "gzip": 3712
     },
@@ -194,52 +194,52 @@
       "gzip": 2269
     },
     {
-      "name": "RoadmapView-DCl0gHKs.js",
+      "name": "RoadmapView-CzJpNEUn.js",
       "kind": "js",
-      "gzip": 1181
+      "gzip": 1180
     },
     {
-      "name": "ServiceAccounts-CXzUSlzg.js",
+      "name": "ServiceAccounts-DO0rUgn9.js",
       "kind": "js",
-      "gzip": 2372
+      "gzip": 2375
     },
     {
-      "name": "SettingsView-CVWixSmx.js",
+      "name": "SettingsView-DapekSfQ.js",
       "kind": "js",
-      "gzip": 15284
+      "gzip": 15286
     },
     {
-      "name": "SoloView-BTwJdjbY.js",
+      "name": "SoloView-BNKuYqNI.js",
       "kind": "js",
       "gzip": 3227
     },
     {
-      "name": "SprintsView-Po8TTd5l.js",
+      "name": "SprintsView-DcupqQnC.js",
       "kind": "js",
-      "gzip": 2855
+      "gzip": 2857
     },
     {
-      "name": "SystemStatus-CwnmSb_p.js",
+      "name": "SystemStatus-C46Prwow.js",
       "kind": "js",
-      "gzip": 3305
+      "gzip": 3307
     },
     {
-      "name": "TokenControls-CtiWu4hY.js",
+      "name": "TokenControls-CkVFPOby.js",
       "kind": "js",
-      "gzip": 2396
+      "gzip": 2397
     },
     {
-      "name": "WorkflowView-C9KWMWLd.js",
+      "name": "WorkflowView-DiH2_EQw.js",
       "kind": "js",
-      "gzip": 6717
+      "gzip": 6706
     },
     {
-      "name": "WorkspaceModules-sN5-DR00.js",
+      "name": "WorkspaceModules-Cu-23bbx.js",
       "kind": "js",
-      "gzip": 862
+      "gzip": 863
     },
     {
-      "name": "activityText-DCYtJ6wt.js",
+      "name": "activityText-Beuu-BqH.js",
       "kind": "js",
       "gzip": 1404
     },
@@ -249,12 +249,12 @@
       "gzip": 176
     },
     {
-      "name": "ds-CzxyuZ2Z.js",
+      "name": "ds-CHcaOoM3.js",
       "kind": "js",
       "gzip": 108
     },
     {
-      "name": "ds-overlays-B3PCMPSv.js",
+      "name": "ds-overlays-CjkQB2mT.js",
       "kind": "js",
       "gzip": 8724
     },
@@ -274,7 +274,7 @@
       "gzip": 511
     },
     {
-      "name": "hooks-DK9XKyOy.js",
+      "name": "hooks-CL4JSmza.js",
       "kind": "js",
       "gzip": 1402
     },
@@ -284,24 +284,24 @@
       "gzip": 33962
     },
     {
-      "name": "index-Df41UGmO.js",
+      "name": "index-lofsAZCL.js",
       "kind": "js",
-      "gzip": 101944
+      "gzip": 101937
     },
     {
-      "name": "integration-views-BLEf2fCc.js",
+      "name": "integration-views-DQ1-ZROk.js",
       "kind": "js",
-      "gzip": 4742
+      "gzip": 4744
     },
     {
-      "name": "issue-forms-BqHP0YlG.js",
+      "name": "issue-forms-C68GYVqt.js",
       "kind": "js",
       "gzip": 16938
     },
     {
-      "name": "listExit-WX92L8-O.js",
+      "name": "listExit-CAjRMlEF.js",
       "kind": "js",
-      "gzip": 1620
+      "gzip": 1619
     },
     {
       "name": "motionEngine-CqGX3oHw.js",
@@ -314,9 +314,9 @@
       "gzip": 2274
     },
     {
-      "name": "recurring-views-Cis5Eegj.js",
+      "name": "recurring-views-B5B1V_OO.js",
       "kind": "js",
-      "gzip": 5430
+      "gzip": 5432
     },
     {
       "name": "roadmapLayout-DONFKhZv.js",
@@ -329,9 +329,9 @@
       "gzip": 429
     },
     {
-      "name": "time-views-PHKT7G4T.js",
+      "name": "time-views-Cl2VcLhn.js",
       "kind": "js",
-      "gzip": 10759
+      "gzip": 10762
     },
     {
       "name": "timeScale-CNGCh8hY.js",
@@ -344,9 +344,9 @@
       "gzip": 118
     },
     {
-      "name": "ui-core-DsdrFLu2.js",
+      "name": "ui-core-CjKlU1Bw.js",
       "kind": "js",
-      "gzip": 92395
+      "gzip": 92396
     },
     {
       "name": "workspace-D50scUH9.css",
@@ -354,9 +354,9 @@
       "gzip": 2810
     },
     {
-      "name": "workspace-DqhlKSMw.js",
+      "name": "workspace-D7OySFN2.js",
       "kind": "js",
-      "gzip": 9950
+      "gzip": 9953
     }
   ],
   "results": [
@@ -366,8 +366,8 @@
       "base": 201204,
       "allowed": 493568,
       "limit": 694772,
-      "current": 690575,
-      "growth": 489371,
+      "current": 690587,
+      "growth": 489383,
       "ok": true
     },
     {
@@ -376,8 +376,8 @@
       "base": 187489,
       "allowed": 463872,
       "limit": 651361,
-      "current": 647811,
-      "growth": 460322,
+      "current": 647823,
+      "growth": 460334,
       "ok": true
     },
     {
@@ -396,8 +396,8 @@
       "base": 81035,
       "allowed": 40960,
       "limit": 121995,
-      "current": 101944,
-      "growth": 20909,
+      "current": 101937,
+      "growth": 20902,
       "ok": true
     },
     {
@@ -406,8 +406,8 @@
       "base": 193520,
       "allowed": 4096,
       "limit": 197616,
-      "current": 196170,
-      "growth": 2650,
+      "current": 196164,
+      "growth": 2644,
       "ok": true
     },
     {
@@ -416,8 +416,8 @@
       "base": 0,
       "allowed": 196608,
       "limit": 196608,
-      "current": 196170,
-      "growth": 196170,
+      "current": 196164,
+      "growth": 196164,
       "ok": true
     },
     {
@@ -426,8 +426,8 @@
       "base": 0,
       "allowed": 204800,
       "limit": 204800,
-      "current": 194710,
-      "growth": 194710,
+      "current": 194713,
+      "growth": 194713,
       "ok": true
     }
   ],

@@ -9,6 +9,7 @@
     "paths": { "#secure-jsx/*": ["src/secure-jsx/*"] },
     "moduleResolution": "bundler",
     "strict": true,
+    "noUnusedLocals": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "isolatedModules": true,

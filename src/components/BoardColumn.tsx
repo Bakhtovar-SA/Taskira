@@ -45,7 +45,7 @@ export const ColumnCards = memo(function ColumnCards({
   onRowsReady?: (ids: readonly string[], loading: boolean) => void;
 }) {
   const { t } = useT();
-  const { data, idx } = useStore();
+  const { idx } = useStore();
   const query = useMemo<IssueSetQuery>(() => ({ projectId, filters, sort: "rank", dir: "asc" }), [projectId, filters]);
   const set = useIssueSet(query, { withCounts: false });
   useOnRevision(revision, set.revalidate);

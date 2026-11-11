@@ -1,5 +1,4 @@
 import { projectFileRoutes } from "./projectFiles.js";
-import { randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { q, withTransaction } from "../db.js";
@@ -79,7 +78,6 @@ import {
   startProcess,
   getRun,
   advanceRun,
-  notifyWorkspace,
 } from "../services/workspaceProcesses.js";
 import {
   matches,

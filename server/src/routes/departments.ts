@@ -11,7 +11,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q } from "../db.js";
-import { badRequest, invalidateDeptMembership, notFound, requireAuth, requireGlobalAdmin, zparams, zbody, type JwtPayload } from "../middleware.js";
+import { badRequest, invalidateDeptMembership, notFound, requireAuth, requireGlobalAdmin, zparams, zbody } from "../middleware.js";
 import { conflict } from "../services/workflow.js";
 import { auditFromRequest } from "../audit.js";
 import { addDepartmentMember, getDepartment, listDepartmentMembers, listDepartments, removeDepartmentMember } from "../services/departments.js";
@@ -35,7 +35,6 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     "/",
     { preHandler: requireGlobalAdmin, preValidation: zbody(DepartmentBody) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { name, ldapGroupDn = null } = req.body as z.infer<typeof DepartmentBody>;
       let id: string;
       try {
@@ -57,7 +56,6 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     "/:id",
     { preHandler: requireGlobalAdmin, preValidation: [zparams(DepartmentParams), zbody(DepartmentPatchBody)] },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { id } = req.params as z.infer<typeof DepartmentParams>;
       const body = req.body as z.infer<typeof DepartmentPatchBody>;
 
@@ -85,7 +83,6 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     "/:id",
     { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { id } = req.params as z.infer<typeof DepartmentParams>;
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [id]);
       if (!dep) throw notFound("Команда не найдена");
@@ -111,7 +108,6 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     "/:id/members/:userId",
     { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentMemberParams) },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
       if (!(await getDepartment(id))) throw notFound("Команда не найдена");
       const user = await one<{ id: string; is_active: boolean }>(`SELECT id, is_active FROM users WHERE id = $1`, [userId]);
@@ -129,7 +125,6 @@ export async function departmentRoutes(app: FastifyInstance): Promise<void> {
     "/:id/members/:userId",
     { preHandler: requireGlobalAdmin, preValidation: zparams(DepartmentMemberParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { id, userId } = req.params as z.infer<typeof DepartmentMemberParams>;
       if (!(await getDepartment(id))) throw notFound("Команда не найдена");
 

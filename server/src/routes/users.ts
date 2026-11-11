@@ -7,7 +7,7 @@ import { q, withTransaction } from "../db.js";
 import { hashPassword } from "../services/passwordHash.js";
 import { assertPasswordAllowed } from "../services/passwords.js";
 import { loadConfig } from "../config.js";
-import { forbidden, invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, zquery, type JwtPayload } from "../middleware.js";
+import { forbidden, invalidateUserCache, notFound, requireAuth, requireGlobalAdmin, revokeUserSessions, zbody, zquery } from "../middleware.js";
 import { invalidateUserTokens } from "../services/apiTokens.js";
 import { conflict } from "../services/workflow.js";
 import { auditFromRequest } from "../audit.js";
@@ -53,7 +53,6 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     "/admin/users",
     { preHandler: requireGlobalAdmin, preValidation: zbody(CreateUserBody) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const body = req.body as z.infer<typeof CreateUserBody>;
 
       if (loadConfig().authMode === "ldap")
@@ -86,7 +85,6 @@ export async function userRoutes(app: FastifyInstance): Promise<void> {
     "/users/:id",
     { preHandler: requireGlobalAdmin, preValidation: zbody(ChangeRoleBody) },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { id } = req.params as { id: string };
       const body = req.body as z.infer<typeof ChangeRoleBody>;
       const { user, row } = await withTransaction(async (client) => {

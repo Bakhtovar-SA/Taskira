@@ -2,7 +2,6 @@ import { DateField } from "./shared";
 import { useMemo, useState } from "react";
 import type {
   PlanScenario,
-  PlanItem,
   ForecastResult,
 } from "../../server/src/workspaceContract";
 import { workspaceApi } from "./api";

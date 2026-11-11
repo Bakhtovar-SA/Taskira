@@ -15,7 +15,6 @@ import { useAction, useResource } from "./hooks";
 import type {
   EntityRef,
   WorkspaceModules,
-  LibraryItem,
   Conditions,
 } from "../../server/src/workspaceContract";
 export function useWorkspace() {

@@ -3,7 +3,7 @@
  *  задаче правится через issues.ts (/:id/custom-fields/:fieldId, право `edit`). */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
+import { badRequest, notFound, requirePerm, zbody, zparams } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
 import {
   createCustomField,
@@ -24,7 +24,6 @@ export async function customFieldsRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requirePerm("editWorkflow"), preValidation: zbody(CustomFieldCreateBody) },
     async (req, reply) => {
       const project = req.project!;
-      const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof CustomFieldCreateBody>;
 
       const existing = await listCustomFields(project.id);
@@ -63,7 +62,6 @@ export async function customFieldsRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requirePerm("editWorkflow"), preValidation: zparams(CustomFieldParams) },
     async (req, reply) => {
       const project = req.project!;
-      const user: JwtPayload = req.user;
       const { fieldId } = req.params as z.infer<typeof CustomFieldParams>;
 
       const field = await getCustomFieldInProject(project.id, fieldId);

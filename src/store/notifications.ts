@@ -3,7 +3,7 @@
 import { refreshOnboardingSoon } from "../onboarding";
 import { markHomeStep } from "../homeSteps";
 import { useCallback } from "react";
-import type { NotifyPrefsT, User } from "../types";
+import type { NotifyPrefsT } from "../types";
 import { avatarApi, invalidateAvatarBlobUrl, notificationsApi, type NotifyPrefs } from "../api";
 import { applyNotificationAction, mapNotification } from "./mappers";
 import type { StoreCtx } from "./ctx";

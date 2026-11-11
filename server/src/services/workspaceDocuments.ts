@@ -15,7 +15,7 @@ import type {
   DocumentComment,
   DocumentFile,
 } from "../workspaceContract.js";
-import { iso, history, conflict, query } from "./workspace.js";
+import { iso, history, query } from "./workspace.js";
 import type { PoolClient } from "pg";
 
 export interface DocumentRow {

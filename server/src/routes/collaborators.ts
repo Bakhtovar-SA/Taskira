@@ -59,7 +59,6 @@ export async function collaboratorRoutes(app: FastifyInstance): Promise<void> {
     "/:id/collaborators/:userId",
     { preHandler: requireIssuePerm("manageCollaborators"), preValidation: zparams(CollaboratorParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { id } = req.params as { id: string };
       const { userId } = req.params as z.infer<typeof CollaboratorParams>;
 

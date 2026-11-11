@@ -1,4 +1,4 @@
-import {lazy,Suspense,useEffect,type ReactNode} from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import {Popover} from '../ds/LazyOverlay';
 import {IcBell,IcChevD} from '../icons';
 import {useT} from '../i18n';

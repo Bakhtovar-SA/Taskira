@@ -13,7 +13,7 @@ import { useNotifications, useStore, useUnreadCount } from "../store";
 import { usePulse } from "../usePulse";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
-import { IcBell, IcCheck, IcChevD, IcChevR, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
+import { IcBell, IcCheck, IcChevD, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
 import { ProjectMark } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";

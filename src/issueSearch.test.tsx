@@ -7,7 +7,6 @@ import {
   issuesApi,
   notificationsApi,
   projectsApi,
-  type IssuePageParams,
   type ProjectBootstrap,
   type ServerIssue,
 } from "./api";

@@ -7,6 +7,7 @@ import { initPool, closePool, q } from "../src/db.js";
 export { q };
 import { buildApp } from "../src/app.js";
 import { seedProjectWorkflow } from "../src/services/workflow.js";
+import { installResponseContract } from "./responseContract.js";
 
 const PASS = "password123";
 
@@ -18,6 +19,7 @@ export async function getApp(): Promise<FastifyInstance> {
   initConfig();
   initPool(loadConfig().databaseUrl);
   app = buildApp();
+  installResponseContract(app); // ответы сверяются со схемами contract.ts
   await app.ready();
   return app;
 }

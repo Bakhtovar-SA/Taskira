@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { RecurringConfigDto, RecurringRuleDto, RecurringRunDto } from "../../../server/src/contract";
 import { recurringApi } from "../../api";
 import { Button, IconButton } from "../../ds/Button";
