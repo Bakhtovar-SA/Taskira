@@ -4,13 +4,16 @@ import { useStore } from "../store";
 import { useT } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { IcCheck, IcX } from "../icons";
+import { cancelBoardFlip } from "../boardFlip";
 
-export default function QuickCreate({ status, onDone }: { status: Status; onDone: () => void }) {
+/** `onBeforeSubmit` — доска снимает положения карточек перед созданием (FLIP соседей, ADR-0035 прототип). */
+export default function QuickCreate({ status, onDone, onBeforeSubmit }: { status: Status; onDone: () => void; onBeforeSubmit?: () => object | null }) {
   const { t } = useT();
   const { createIssue } = useStore();
   const [text, setText] = useState("");
   const submit = () => {
     if (!text.trim()) return onDone();
+    const flip = onBeforeSubmit?.() ?? null;
     createIssue({
       title: text,
       description: "",
@@ -21,11 +24,11 @@ export default function QuickCreate({ status, onDone }: { status: Status; onDone
       labels: [],
       complexity: null,
       statusId: status.id,
-    });
+    }).then(created => { if (!created) cancelBoardFlip(flip); });
     setText("");
   };
   return (
-    <div className="anim-fadeup rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
+    <div className="anim-view rounded-lg border border-accent bg-panel p-2.5 shadow-focus">
       <textarea
         autoFocus
         aria-label={t("board.quickCreatePlaceholder", { status: workflowStatusName(status, t) })}

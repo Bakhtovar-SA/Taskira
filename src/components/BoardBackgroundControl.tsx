@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { Button, Popover } from "../ds";
+import { Button } from "../ds/Button";
+import { Popover } from "../ds/LazyOverlay";
 import { useT } from "../i18n";
 import { preparePhoto } from "../bgPhoto";
 import { saveBoardPhoto } from "../personalBoardPhoto";
@@ -10,6 +11,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [open, setOpen] = useState(false); // controlled: a click before the lazy overlay chunk loads is kept
   const run = async (file?: File) => {
     if (busy) return;
     setError("");
@@ -28,7 +30,7 @@ export default function BoardBackgroundControl({ userId, projectId, hasPhoto }: 
   return <>
     <input ref={input} type="file" accept=".png,.jpg,.jpeg,.gif,.webp" className="hidden" tabIndex={-1} aria-label={t("look.photo.upload")}
       onChange={event => { const file = event.target.files?.[0]; if (file) void run(file); }} />
-    <Popover label={t("board.view")} className="w-[300px] p-3"
+    <Popover open={open} onOpenChange={setOpen} label={t("board.view")} className="w-[300px] p-3"
     trigger={(props) => <Button {...props} type="button" size="sm" disabled={busy} iconLeft={<IcCamera size={14} />}>{t("board.photoAction")}</Button>}>
     <p className="mb-1 text-[15px] font-semibold text-ink">{t("board.personalPhoto")}</p>
     <p className="mb-3 text-[13px] leading-relaxed text-sub">{t("board.personalPhotoHint")}</p>

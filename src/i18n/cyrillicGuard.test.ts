@@ -2,7 +2,7 @@
  *
  *  Ловит новую строку вида `toast("error", "Не удалось …")` без английской половины — такое в английском интерфейсе
  *  показывается по-русски, и раньше это находили только глазами. Разрешено:
- *  - словари (`src/i18n/*`), тесты, витрина `src/dev/`, мёртвые демо-данные `seed.ts`;
+ *  - словари (`src/i18n/*`), тесты, витрина `src/dev/`;
  *  - пара RU/EN: внутри `local(…)` (стор) или строка с выбором по `lang`;
  *  - запасной русский вариант после словаря: `t ? t("…") : "…"`;
  *  - сообщения для разработчика: `console.*`, `throw new Error(…)`, `new ApiError(…)` (ошибки API переводятся по коду,
@@ -38,7 +38,7 @@ function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) return ["i18n", "dev", "perf"].includes(name) && dir === ROOT ? [] : files(p);
-    return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) && name !== "seed.ts" ? [p] : [];
+    return /\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name) ? [p] : [];
   });
 }
 

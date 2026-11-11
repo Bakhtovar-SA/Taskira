@@ -7,7 +7,7 @@ import { resolveRole, roleCan, type GlobalRole, type ProjectRole } from "../perm
 import { q, withAdvisoryLock, withTransaction } from "../db.js";
 import { ApiHttpError } from "../errors.js";
 import { badRequest, notFound } from "../middleware.js";
-import { LIMITS, type ComplexityId, type RecurrenceSchedule, type RecurringRuleBody, type RecurringRuleDto,
+import { LIMITS, type ComplexityId, type IssueRepeatDto, type RecurrenceSchedule, type RecurringRuleBody, type RecurringRuleDto,
   type RecurringRulePatchBody, type RecurringRunDto } from "../contract.js";
 import { validateAssigneesInProject, validateParentAssignmentTx, type IssueRow } from "./issues.js";
 import { createIssueInTx } from "./issueCreate.js";
@@ -416,7 +416,29 @@ export async function runRecurringOnce(now = new Date()): Promise<RecurringStats
   return stats;
 }
 
+/** Правило повторения для страницы задач одним запросом: исходная задача правила или задача, созданная его запуском.
+ *  Если задач покрывают несколько правил, побеждает правило, исходной задачей которого она является, затем самое
+ *  раннее (`created_at`, `id`): ответ детерминирован и совпадает с `issueRecurringRule` (карточка). */
+export async function issueRepeatBatch(projectId: string, issueIds: string[]): Promise<Map<string, IssueRepeatDto>> {
+  const map = new Map<string, IssueRepeatDto>();
+  if (issueIds.length === 0) return map;
+  const rows = await q<{ issue_id: string; schedule: RecurrenceSchedule; time_of_day: string; state: string }>(
+    `SELECT issue_id, schedule, time_of_day, state FROM (
+       SELECT r.source_issue_id::text AS issue_id, r.schedule, to_char(r.time_of_day, 'HH24:MI') AS time_of_day, r.state,
+              0 AS prio, r.created_at, r.id
+         FROM recurring_rules r WHERE r.project_id = $1 AND r.source_issue_id = ANY($2)
+       UNION ALL
+       SELECT run.issue_id::text, r.schedule, to_char(r.time_of_day, 'HH24:MI'), r.state, 1, r.created_at, r.id
+         FROM recurring_runs run JOIN recurring_rules r ON r.id = run.rule_id
+        WHERE r.project_id = $1 AND run.issue_id = ANY($2)
+     ) t ORDER BY prio, created_at, id`,
+    [projectId, issueIds],
+  );
+  for (const r of rows) if (!map.has(r.issue_id)) map.set(r.issue_id, { schedule: r.schedule, timeOfDay: r.time_of_day, paused: r.state === "paused" });
+  return map;
+}
+
 export async function issueRecurringRule(projectId: string, issueId: string): Promise<RecurringRuleDto | null> {
- const row = (await q<RuleRow>(`${RULE_SELECT} WHERE r.project_id = $1 AND (r.source_issue_id = $2 OR EXISTS (SELECT 1 FROM recurring_runs run WHERE run.rule_id = r.id AND run.issue_id = $2)) LIMIT 1`, [projectId, issueId]))[0];
+ const row = (await q<RuleRow>(`${RULE_SELECT} WHERE r.project_id = $1 AND (r.source_issue_id = $2 OR EXISTS (SELECT 1 FROM recurring_runs run WHERE run.rule_id = r.id AND run.issue_id = $2)) ORDER BY COALESCE(r.source_issue_id = $2, false) DESC, r.created_at, r.id LIMIT 1`, [projectId, issueId]))[0];
  return row ? toDto(row) : null;
 }

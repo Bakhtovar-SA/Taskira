@@ -237,7 +237,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
             ))}
           {series.map((s) => (
             <g key={s.key}>
-              <path d={path(s.values)} fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              <path d={path(s.values)} pathLength={1} className="chart-line" fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
               <circle cx={x(idx)} cy={y(s.values[idx] ?? 0)} r="4" fill={s.color} stroke="var(--bg-panel)" strokeWidth="2" />
               {endLabels && hover === null && (
                 <text x={x(last) + 8} y={y(s.values[last] ?? 0) + 3.5} className="fill-[var(--text-2)] text-[11.5px] font-semibold tabular">

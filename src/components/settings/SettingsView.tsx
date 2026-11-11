@@ -166,7 +166,7 @@ export default function SettingsView() {
       </nav>
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         <Suspense fallback={null}>
-          <div key={`${home}:${section}`} className="h-full">
+          <div key={`${home}:${section}`} className="anim-view h-full">
             {page}
           </div>
         </Suspense>

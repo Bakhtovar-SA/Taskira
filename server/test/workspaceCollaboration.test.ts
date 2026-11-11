@@ -34,6 +34,19 @@ async function until(check: () => boolean | Promise<boolean>, timeout = 8000) {
     await new Promise((resolve) => setTimeout(resolve, 40));
   }
 }
+test("notification transport retains its 8 KiB limit alongside document collaboration", async () => {
+  const socket = new WebSocket(`${base}/api/ws`);
+  const closed = new Promise<number>((resolve, reject) => {
+    socket.once("error", reject);
+    socket.once("close", resolve);
+    socket.once("open", () => socket.send(Buffer.alloc(8193, 32)));
+  });
+  try {
+    expect(await closed).toBe(1009);
+  } finally {
+    socket.terminate();
+  }
+});
 test("two editors merge changes, reconnect pending edits, and persist across fresh connections", async () => {
   await resetDb();
   const f = await seedFixture();

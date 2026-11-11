@@ -1,11 +1,11 @@
 import { Button, IconButton } from "../ds/Button";
 import { Avatar } from "../ds/Display";
-import { Textarea } from "../ds/Field";
+import MentionTextarea from "./MentionTextarea";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { relTime } from "../store/mappers";
 import { attachmentsApi, commentsApi, issuesApi, type ServerComment, type ServerIssue, type ServerParticipant } from "../api";
-import { MentionText } from "./IssueModal";
+import { MentionText } from "./MentionText";
 import { LIMITS, localizeValidationError, validateComment } from "../validation";
 import type { IssueTypeId, PriorityId } from "../types";
 import { PRIORITY_ORDER } from "../types";
@@ -20,9 +20,8 @@ import { workflowStatusName } from "../workflowStatus";
  *  проекта, но приглашённый (issue collaborator) к отдельным задачам. Урезанная
  *  оболочка — «Мои подключения» + карточка задачи с комментариями, без проекта. */
 
-function Ava({ p, size = 24 }: { p: { name: string; initials: string; color: string } | undefined; size?: number }) {
-  const { t } = useT();
-  return <Avatar person={{ name: p?.name ?? t("createIssue.unassigned") }} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
+function Ava({ p, size = 24 }: { p: { id?: string; name: string; initials: string; color: string } | undefined; size?: number }) {
+  return <Avatar person={p ? { id: p.id ?? null, name: p.name } : null} size={size >= 30 ? 32 : size >= 25 ? 28 : size >= 22 ? 24 : 20} />;
 }
 
 /** Карточка приглашённой задачи: сама грузит задачу + комментарии, поля read-only,
@@ -218,9 +217,9 @@ export function SoloIssueCard({
         </div>
 
         <div className="mt-3 flex gap-2">
-          <div className="min-w-0 flex-1"><Textarea aria-label={t("solo.commentPlaceholder")} maxChars={LIMITS.comment.max}
+          <div className="min-w-0 flex-1"><MentionTextarea key={issueId} field projectId={projectId} issueId={issueId} aria-label={t("solo.commentPlaceholder")} maxChars={LIMITS.comment.max}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onValueChange={setDraft}
             onKeyDown={(e) => {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();

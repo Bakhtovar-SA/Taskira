@@ -92,6 +92,7 @@
   background: var(--border-default);
 }
 .project-view-tabs {
+  --project-tab-active-bg: color-mix(in oklch, var(--accent-solid) 16%, var(--bg-panel));
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: thin;
@@ -115,10 +116,14 @@
   font-weight: 500;
 }
 .project-view-tabs [data-tab] > span:first-child { color: var(--text-3); }
+/* Выбранная вкладка: лёгкая акцентная заливка и контур — в тёмных темах серая плашка на сером фоне была почти незаметна. */
 .project-view-tabs [data-tab][aria-current="page"] {
   font-weight: 700;
-  box-shadow: var(--elev-1), inset 0 0 0 1px var(--border-subtle);
+  background: var(--project-tab-active-bg);
+  box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted);
 }
+.project-view-tabs [data-glide] [data-tab][aria-current="page"] { background: transparent; box-shadow: none; }
+.project-view-tabs .ds-tab-glider { border-radius: 8px; background: var(--project-tab-active-bg); box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted); }
 .project-view-tabs [data-tab][aria-current="page"] > span:first-child { color: var(--accent-solid); }
 .project-members .ds-av[data-ring] {
   box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 30%, transparent), 0 0 0 2px var(--bg-canvas);
@@ -250,19 +255,84 @@
   transform: rotate(45deg);
 }
 .form-disclosure[open] > summary::after { transform: rotate(225deg); }
+
+/* In-flow direction picker: surrounding form fields move with the panel. */
+.create-direction-reveal { display: grid; grid-template-rows: 1fr; animation: directionOpen var(--dur-4) var(--ease-out) both; }
+.create-direction-reveal[data-open="false"] { animation: directionClose var(--dur-3) var(--ease-out) both; pointer-events: none; }
+@keyframes directionOpen { from { grid-template-rows: 0fr; opacity: 0; } to { grid-template-rows: 1fr; opacity: 1; } }
+@keyframes directionClose { from { grid-template-rows: 1fr; opacity: 1; } to { grid-template-rows: 0fr; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .create-direction-reveal { animation: none; } }
+html[data-motion="reduce"] .create-direction-reveal { animation: none; }
+
+.mention-pop { max-width: min(420px, calc(100vw - 24px)); padding: 6px; }
+.mention-pop [role="listbox"] { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
 .workspace-toggle:hover,
 .form-disclosure summary:hover { background: var(--bg-hover); }
 .workspace-toggle { flex: 0 0 auto; white-space: nowrap; }
 .workspace-toggle[aria-expanded="true"] { background: var(--accent-subtle); border-color: var(--accent-muted); color: var(--accent-text); }
 .workspace-toggle[aria-expanded="true"] > svg:last-child { transform: rotate(180deg); }
-.board-member-filter { position: relative; transition: transform var(--dur-2) var(--ease-out); }
-.board-member-filter:hover { z-index: 1; transform: translateY(-2px); }
+.board-member-filter { position: relative; isolation: isolate; flex: none; transition: transform var(--dur-2) var(--ease-out); }
+.board-member-filter .ds-av { z-index: 1; }
+.board-member-filter:is(:hover, :focus-visible) { z-index: 3; opacity: 1; transform: translateY(-2px); }
+.board-member-name {
+  position: absolute;
+  z-index: 0;
+  left: calc(100% - 4px);
+  top: 0;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border-radius: 0 999px 999px 0;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  box-shadow: var(--elev-1);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out);
+}
+.board-member-name > span { overflow: hidden; text-overflow: ellipsis; }
+.board-member-filter:is(:hover, :focus-visible) .board-member-name {
+  max-width: var(--member-name-max, 168px);
+  padding: 0 10px 0 8px;
+  opacity: 1;
+}
+.board-member-filter[data-label-side="left"] .board-member-name {
+  left: auto;
+  right: calc(100% - 4px);
+  border-radius: 999px 0 0 999px;
+}
 .board-member-filter[aria-pressed="true"] { z-index: 2; outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+.board-member-filter[aria-pressed="true"]:is(:hover, :focus-visible) { z-index: 3; }
 .board-member-more[data-active="true"] { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
-.board-move-touch-hint { display: none; }
+.board-member-touch-picker { display: inline-flex; min-width: 0; max-width: 100%; }
+.board-member-touch-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: min(220px, calc(100vw - 32px));
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-panel);
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+.board-member-touch-trigger > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+@media (prefers-reduced-motion: reduce) {
+  .board-member-filter, .board-member-name { transition: none; }
+}
+/* Двойной класс: .hint-line (index.css) ставит display: grid и идёт в каскаде позже — одиночный класс ему проигрывал. */
+.hint-line.board-move-touch-hint { display: none; }
 @media (hover: none) {
-  .board-move-touch-hint { display: flex; }
-  .board-card button[aria-keyshortcuts="M"] { opacity: 1; min-width: 44px; min-height: 44px; }
+  .hint-line.board-move-touch-hint { display: grid; }
+  .board-card button[aria-keyshortcuts="M"], .board-select-hint button { opacity: 1; min-width: 44px; min-height: 44px; }
 }
 .workspace-filters-body :is(select, input:not([type="checkbox"])),
 .workspace-options-body > button,
@@ -278,7 +348,7 @@
   overflow-wrap: anywhere;
 }
 .list-table { width: 100%; min-width: var(--list-min); max-width: calc(var(--list-min) + 160px); }
-.list-row { min-height: var(--row-h); }
+.list-row, .list-row-ghost-shell { min-height: var(--row-h); }
 .list-title a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .list-head { min-height: 36px; border-radius: 12px 12px 0 0; font-size: 13.5px; color: var(--text-2); }
 .list-actions { min-width: 32px; min-height: 32px; }
@@ -331,11 +401,11 @@
     padding-inline: 12px;
   }
   .list-grid > [data-col]:not([data-col="title"]):not([data-col="status"]):not([data-col="assignee"]):not([data-col="actions"]):not([data-col="select"]) { display: none; }
-  .list-row { min-height: 88px; padding-block: 12px; row-gap: 6px; }
+  .list-row, .list-row-ghost-shell { min-height: 88px; padding-block: 12px; row-gap: 6px; }
   .list-title { grid-column: var(--list-title-start) / -2; grid-row: 1; }
   .list-title a { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; overflow-wrap: anywhere; }
-  .list-row > [data-col="status"] { display: flex; grid-column: var(--list-title-start) / var(--list-status-end); grid-row: 2; }
-  .list-row > [data-col="assignee"] { grid-column: -3 / -2; grid-row: 2; justify-content: flex-end; }
+  .list-row > [data-col="status"], .list-row-ghost-shell > [data-col="status"] { display: flex; grid-column: var(--list-title-start) / var(--list-status-end); grid-row: 2; }
+  .list-row > [data-col="assignee"], .list-row-ghost-shell > [data-col="assignee"] { grid-column: -3 / -2; grid-row: 2; justify-content: flex-end; }
   .list-grid > [data-col="actions"] { grid-column: -2 / -1; grid-row: 1 / span 2; }
   .list-grid > [data-col="select"] { grid-column: 1; grid-row: 1 / span 2; }
   .list-head { min-height: 44px; }
@@ -349,9 +419,21 @@
 .board-lane > .board-col { height: auto; min-height: 0; }
 .board-lane { height: 100%; max-height: 100%; }
 .board-col-header { height: 32px; }
-.board-col-highlight { z-index: 2; border-radius: inherit; }
-.board-col-highlight[data-drop-state="allowed"] { box-shadow: inset 0 0 0 2px var(--accent-solid); }
-.board-col-highlight[data-drop-state="forbidden"] { box-shadow: inset 0 0 0 2px var(--status-danger); }
+.board-col-highlight {
+  z-index: 2;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px transparent;
+  background-color: transparent;
+  transition: box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard);
+}
+.board-col-highlight[data-drop-state="allowed"] {
+  box-shadow: inset 0 0 0 2px var(--accent-solid);
+  background-color: color-mix(in oklch, var(--accent-solid) 7%, transparent);
+}
+.board-col-highlight[data-drop-state="forbidden"] {
+  box-shadow: inset 0 0 0 2px var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 6%, transparent);
+}
 .board-done-window { white-space: nowrap; }
 .board-scroll[data-personal-board-photo] { background-size: cover; background-position: center; }
 .board-card h3 { font-weight: 500; color: var(--text-1); text-wrap: pretty; overflow-wrap: anywhere; }
@@ -361,6 +443,16 @@
 .board-card-direction span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board-card-meta { display: flex; align-items: center; flex-wrap: wrap; min-height: 22px; gap: 8px; color: var(--text-3); }
 .board-card-key { font-size: 13px; font-weight: 500; }
+/* Метки — отдельная тихая строка под заголовком: не спорит с мета-строкой (приоритет, срок, исполнители). */
+.board-card-labels { display: flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; }
+.board-card-labels > * { min-width: 0; }
+.board-card-labels-more { font-size: 12.5px; color: var(--text-3); flex-shrink: 0; }
+/* Повторение: со сроком — значок рядом с ним; без срока — расписание на месте срока. */
+.board-card-repeat, .list-repeat { display: inline-flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-3); }
+.board-card-repeat[data-solo] { height: 22px; padding: 0 6px 0 5px; border-radius: 6px; font-size: 13px; font-weight: 500; background: var(--status-todo-bg); color: var(--text-2); }
+.board-card-repeat > span, .list-repeat > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-card-repeat[data-paused], .list-repeat[data-paused] { opacity: 0.6; }
+.list-repeat { font-size: 14px; font-weight: 500; }
 .board-card-due { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 13px; font-weight: 600; background: var(--status-todo-bg); color: var(--text-2); white-space: nowrap; }
 .board-card-due[data-urgency="late"] { background: var(--status-danger-bg); color: var(--status-danger-fg); }
 .board-card-due[data-urgency="soon"] { background: var(--status-progress-bg); color: var(--status-progress-fg); }
@@ -419,7 +511,7 @@
 .issue-properties .issue-field-value > :is(button, div:not(.ds-pop), .ds-input) { max-width: 100%; }
 .issue-properties .issue-field-value > button,
 .issue-properties .issue-field-value > .ds-input,
-.issue-properties .issue-field-value > div[title] { min-height: 30px; padding: 5px 8px; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: none; border-radius: 6px; }
+.issue-properties .issue-field-value > .issue-locked { min-height: 30px; padding: 5px 8px; background: var(--bg-panel); border: 1px solid var(--border-default); box-shadow: none; border-radius: 6px; }
 .issue-properties .issue-field-value > button:hover { background: var(--bg-hover); }
 .issue-properties .issue-field-value > button { text-align: left; font-size: 14px; font-weight: 600; }
 .issue-properties .issue-field-value > button .ds-adorn,
@@ -479,7 +571,7 @@
 .list-view .workspace-view-header { max-width: none; }
 .list-table-wrap { padding: 0 18px 18px; }
 .list-table { border-radius: 12px; }
-.list-row[data-done] { background: var(--bg-group); }
+.list-row[data-done], .list-row-ghost-shell[data-done] { background: var(--bg-group); }
 .list-row:hover { background: var(--bg-hover); }
 .list-title { position: relative; padding-right: 32px; }
 .list-title > span:first-child { font-size: 13px; }
@@ -609,7 +701,7 @@
 .list-select { opacity: 0; }
 .list-select .ds-check { min-width: 28px; min-height: 28px; align-items: center; justify-content: center; }
 .list-row:is(:hover, :focus-within) .list-select, .list-head:hover .list-select, .list-select:focus-within, .list-view[data-selecting] .list-select { opacity: 1; }
-.list-row[aria-selected="true"] { background: var(--accent-subtle); }
+.list-row[aria-selected="true"], .list-row-ghost-shell[aria-selected="true"] { background: var(--accent-subtle); }
 @media (hover: none) { .list-select { opacity: 1; } .list-select .ds-check { min-height: 44px; min-width: 44px; } .list-bulk-bar .ds-btn { min-height: 44px; } }
 
 /* The same quiet surface family serves filters, view preferences and bulk actions. */
@@ -662,3 +754,45 @@
 /* ds Select in the properties column: the flat field look above hides a trigger's trailing icon, but a list needs its
    chevron (like «Сложность»). */
 .issue-properties .issue-field-value > .ds-select > .ds-select-chevron { display: block; }
+
+/* Раскрытие <details> по высоте (Chromium 131+, Safari/Firefox — мгновенно): блок «Дополнительно» в форме создания и данные графика. */
+.form-disclosure,
+.reports-chart-data { interpolate-size: allow-keywords; } /* не на :root — `transition-all` у остальных элементов начал бы анимировать height:auto */
+.form-disclosure::details-content,
+.reports-chart-data::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete;
+}
+.form-disclosure[open]::details-content,
+.reports-chart-data[open]::details-content { block-size: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .form-disclosure::details-content,
+  .reports-chart-data::details-content { transition: none; }
+}
+
+/* «Главная»: карточки появляются друг за другом (по порядку в колонке), один раз при показе экрана. */
+.home-grid > div > .home-card { animation: fadeOnly var(--dur-4) var(--ease-out) both; } /* только прозрачность: transform сдвигал бы замеры раскладки на долю пикселя */
+.home-grid > div > .home-card:nth-child(2) { animation-delay: 60ms; }
+.home-grid > div > .home-card:nth-child(3) { animation-delay: 120ms; }
+.home-grid > div:nth-child(2) > .home-card:first-child { animation-delay: 40ms; }
+@media (prefers-reduced-motion: reduce) {
+  .home-grid > div > .home-card { animation: none; }
+}
+
+/* Уход строки списка: копия-призрак на прежнем месте (listExit.ts). */
+.list-table { position: relative; }
+.list-table > .list-row-ghost, .inbox-list > .list-row-ghost { position: absolute; z-index: 1; margin: 0; pointer-events: none; }
+
+/* FIX-03 (трек N): сдвиги и масштабы, которых не было под reduce: выезд панели меню на узком экране, «подъём» фильтра
+   участников и увеличение образца цвета (Tailwind v4 ставит `scale`, не `transform`). */
+@media (prefers-reduced-motion: reduce) {
+  .side-drawer { transition: none; }
+  .board-member-filter, .issue-color-swatch { transition: none; }
+  .board-member-filter:hover { transform: none; }
+  .issue-color-swatch:hover { scale: none; transform: none; }
+}
+
+/* Inbox ghosts remain anchored after the final live row disappears. */
+.inbox-list { position: relative; display: flow-root; }
+.inbox-list > .list-row-ghost { background: var(--bg-panel); }

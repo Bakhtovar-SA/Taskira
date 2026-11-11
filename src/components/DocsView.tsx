@@ -8,6 +8,7 @@ import { PRIORITY_ORDER, TYPE_ORDER } from "../types";
 import { useT } from "../i18n";
 import { helpCopy } from "../i18n/help";
 import PlanningGuide from "./PlanningGuide";
+import { motionReduced } from "../motion";
 
 export const SECTIONS = helpCopy.ru.sections.map(({ id, label }) => ({ id, label }));
 export const EN_SECTIONS = helpCopy.en.sections.map(({ id, label }) => [id, label] as const);
@@ -23,7 +24,7 @@ function useDocsNavigation(prefix: string, enabled = true) {
       .find(value => value.id === `${prefix}${id}`);
     if (!section) return;
     const root = rootRef.current!;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced = motionReduced();
     const margin = parseFloat(getComputedStyle(section).scrollMarginTop) || 0;
     const target = Math.max(0, Math.min(root.scrollHeight - root.clientHeight,
       root.scrollTop + section.getBoundingClientRect().top - root.getBoundingClientRect().top - root.clientTop - margin));

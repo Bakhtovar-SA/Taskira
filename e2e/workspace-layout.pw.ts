@@ -131,7 +131,7 @@ test("native drag accepts the blank lane below a compact column", async ({ page 
     const issue = issues.find(i => new URL(route.request().url()).pathname.endsWith(`/issues/${i.id}`));
     return issue ? route.fulfill({ json: issue }) : route.fallback();
   });
-  const writes: { to: string; beforeId: string | null }[] = [];
+  const writes: { to: string; beforeId: string | null; expectedVersion: string }[] = [];
   await page.route("**/issues/*/transition", route => {
     const body = route.request().postDataJSON();
     writes.push(body);
@@ -147,10 +147,10 @@ test("native drag accepts the blank lane below a compact column", async ({ page 
   const block = (await lane.locator(".board-col").boundingBox())!;
   expect(box.height).toBeGreaterThan(block.height + 100);
   await page.locator('[data-issue-id="i2"]').dragTo(lane, { sourcePosition: { x: 20, y: 20 }, targetPosition: { x: box.width / 2, y: box.height - 30 } });
-  await expect.poll(() => writes).toEqual([{ to: "s3", beforeId: null }]);
+  await expect.poll(() => writes).toEqual([{ to: "s3", beforeId: null, expectedVersion: "2026-10-03T12:00:00.000Z" }]);
   await expect(lane.locator('[data-issue-id="i2"]')).toBeVisible();
   await page.locator('[data-issue-id="i3"]').dragTo(lane.locator('[data-issue-id="i6"]'));
-  await expect.poll(() => writes[1]).toEqual({ to: "s3", beforeId: "i6" });
+  await expect.poll(() => writes[1]).toEqual({ to: "s3", beforeId: "i6", expectedVersion: "2026-10-03T12:00:00.000Z" });
 });
 
 test("full column highlight follows branding and rejects forbidden transitions", async ({ page }) => {
@@ -175,11 +175,22 @@ test("full column highlight follows branding and rejects forbidden transitions",
   const block = (await allowed.locator(".board-col").boundingBox())!;
   expect(Math.abs(highlight.y - block.y)).toBeLessThan(0.1);
   expect(Math.abs(highlight.height - block.height)).toBeLessThan(0.1);
+  const expectedShadow = (token: string) => allowed.locator(".board-col-highlight").evaluate((el, colorToken) => {
+    const probe = document.createElement("span");
+    probe.style.boxShadow = `inset 0 0 0 2px var(${colorToken})`;
+    el.append(probe);
+    const shadow = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    return shadow;
+  }, token);
+  // Read the settled token color, rather than the transparent first frame of the CSS transition.
+  await expect(allowed.locator(".board-col-highlight")).toHaveCSS("box-shadow", await expectedShadow("--accent-solid"));
   const allowedShadow = await allowed.locator(".board-col-highlight").evaluate(el => getComputedStyle(el).boxShadow);
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand-h").trim())).toBe("185");
   const forbidden = page.locator(".board-lane").nth(2);
   await forbidden.dispatchEvent("dragover", { dataTransfer: transfer });
   await expect(forbidden.locator(".board-col-highlight")).toHaveAttribute("data-drop-state", "forbidden");
+  await expect(forbidden.locator(".board-col-highlight")).toHaveCSS("box-shadow", await expectedShadow("--status-danger"));
   const shadow = await forbidden.locator(".board-col-highlight").evaluate(el => getComputedStyle(el).boxShadow);
   expect(shadow).not.toBe(allowedShadow);
   await forbidden.dispatchEvent("drop", { dataTransfer: transfer });

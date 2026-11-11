@@ -36,7 +36,7 @@
 | `name` | string | длина 1…240 |
 | `event` | enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.due` \| `step.completed` |  |
 | `when` | object | необязательное; по умолчанию {"mode":"all","items":[]} |
-| `actions` | array&lt;discriminatedunion&gt; | 1…10 эл. |
+| `actions` | array&lt;union (type: `"createIssue"` \| `"updateIssue"` \| `"notify"` \| `"startProcess"`)&gt; | 1…10 эл. |
 | `enabled` | boolean | необязательное; по умолчанию false |
 
 ### BrandPatchBody
@@ -132,6 +132,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `value` | string | может быть null; длина 0…500 |
+| `expectedValue` | string | необязательное, может быть null; длина 0…500 |
 
 ### DashboardCreateBody
 
@@ -139,13 +140,13 @@
 |---|---|---|
 | `name` | string | длина 1…80 |
 | `shared` | boolean | необязательное; по умолчанию false |
-| `widgets` | array&lt;discriminatedunion&gt; | необязательное; по умолчанию []; 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | необязательное; по умолчанию []; 0…24 эл. |
 
 ### DashboardDataBody
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | 0…24 эл. |
 | `projectId` | string (uuid) | необязательное |
 
 ### DashboardParams
@@ -160,7 +161,7 @@
 |---|---|---|
 | `name` | string | необязательное; длина 1…80 |
 | `shared` | boolean | необязательное |
-| `widgets` | array&lt;discriminatedunion&gt; | необязательное; 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | необязательное; 0…24 эл. |
 
 ### DepartmentBody
 
@@ -233,7 +234,7 @@
 | `parentId` | string (uuid) | необязательное, может быть null |
 | `ownerId` | string (uuid) | необязательное, может быть null |
 | `archived` | boolean | необязательное |
-| `revision` | integer | 0…∞ |
+| `revision` | integer |  |
 
 ### EntityLinkBody
 
@@ -354,6 +355,8 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `expectedUpdatedAt` | string (datetime) | необязательное |
+| `expectedVersion` | string (datetime) | необязательное |
 | `title` | string | необязательное; длина 1…250 |
 | `description` | string | необязательное; длина 0…5000 |
 | `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` | необязательное |
@@ -403,7 +406,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -462,6 +465,12 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `userId` | string (uuid) |  |
+
+### MentionCandidatesQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `q` | string | необязательное; длина 0…80 |
 
 ### MilestoneCreateBody
 
@@ -522,7 +531,7 @@
 | `ownerId` | string (uuid) | необязательное, может быть null |
 | `values` | record&lt;string, string \| number \| boolean \| null&gt; | необязательное |
 | `archived` | boolean | необязательное |
-| `revision` | integer | 0…∞ |
+| `revision` | integer |  |
 
 ### ObjectTypeBody
 
@@ -616,7 +625,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `widgets` | array&lt;discriminatedunion&gt; | 0…24 эл. |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; | 0…24 эл. |
 
 ### ProjectParams
 
@@ -654,7 +663,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -663,7 +672,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -684,7 +693,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion | необязательное |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) | необязательное |
 | `timeOfDay` | string | необязательное |
 | `timeZone` | string | необязательное; длина 1…100 |
 | `startDate` | string | необязательное |
@@ -809,6 +818,8 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `expectedUpdatedAt` | string (datetime) | необязательное |
+| `expectedVersion` | string (datetime) | необязательное |
 | `to` | string (uuid) |  |
 | `beforeId` | string (uuid) | необязательное, может быть null |
 
@@ -904,12 +915,12 @@
 | `actorId` | string | может быть null |
 | `actor` | object | может быть null |
 | `text` | string |  |
-| `event` | discriminatedunion | может быть null |
+| `event` | union (kind: `"created"` \| `"renamed"` \| `"description"` \| `"priority"` \| `"complexity"` \| `"due"` \| `"assigneeAdded"` \| `"assigneeRemoved"` \| `"assigneeBulk"` \| `"direction"` \| `"parent"` \| `"labels"` \| `"status"` \| `"checklistAdded"` \| `"checklistRemoved"` \| `"link"`) | может быть null |
 | `createdAt` | string |  |
 
 ### ActivityEvent
 
-`discriminatedunion`
+union (kind: `"created"` \| `"renamed"` \| `"description"` \| `"priority"` \| `"complexity"` \| `"due"` \| `"assigneeAdded"` \| `"assigneeRemoved"` \| `"assigneeBulk"` \| `"direction"` \| `"parent"` \| `"labels"` \| `"status"` \| `"checklistAdded"` \| `"checklistRemoved"` \| `"link"`)
 
 ### ApiTokenAdminDto
 
@@ -997,12 +1008,13 @@
 
 ### BulkIssueAction
 
-`discriminatedunion`
+union (action: `"status"` \| `"assignee"` \| `"priority"` \| `"delete"`)
 
 ### BulkIssueResultDto
 
 | Поле | Тип | Замечания |
 |---|---|---|
+| `undo` | array&lt;object&gt; | необязательное |
 | `succeeded` | array&lt;string&gt; |  |
 | `failed` | array&lt;object&gt; |  |
 
@@ -1088,7 +1100,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `results` | record&lt;string, discriminatedunion&gt; |  |
+| `results` | record&lt;string, union (type: `"projects"` \| `"projectHealth"` \| `"milestones"` \| `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"error"`)&gt; |  |
 
 ### DashboardDto
 
@@ -1100,16 +1112,16 @@
 | `projectId` | string | может быть null |
 | `ownerId` | string | может быть null |
 | `canEdit` | boolean |  |
-| `widgets` | array&lt;discriminatedunion&gt; |  |
+| `widgets` | array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt; |  |
 | `updatedAt` | string |  |
 
 ### DashboardWidget
 
-`discriminatedunion`
+union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)
 
 ### DashboardWidgets
 
-`array&lt;discriminatedunion&gt;`
+array&lt;union (type: `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"projects"` \| `"projectHealth"` \| `"milestones"`)&gt;
 
 ### DepartmentDto
 
@@ -1196,6 +1208,7 @@
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
 | `subtasksSummary` | object |  |
+| `repeat` | object | необязательное, может быть null |
 | `collaborators` | array&lt;object&gt; |  |
 | `participants` | array&lt;object&gt; |  |
 | `attachments` | array&lt;object&gt; |  |
@@ -1235,6 +1248,7 @@
 | `doneAt` | string | может быть null |
 | `archivedAt` | string | может быть null |
 | `subtasksSummary` | object | необязательное |
+| `repeat` | object | необязательное, может быть null |
 
 ### IssueEpicDto
 
@@ -1273,6 +1287,47 @@
 | `nextCursor` | string | может быть null |
 | `total` | integer | необязательное; 0…∞ |
 
+### IssueMutationResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `projectId` | string |  |
+| `num` | number |  |
+| `key` | string |  |
+| `title` | string |  |
+| `description` | string |  |
+| `typeId` | enum: `task` \| `bug` \| `request` |  |
+| `statusId` | string |  |
+| `priorityId` | enum: `low` \| `medium` \| `high` \| `critical` |  |
+| `assigneeIds` | array&lt;string&gt; |  |
+| `reporterId` | string |  |
+| `epicId` | string | может быть null |
+| `parentId` | string | может быть null |
+| `sprintId` | string | может быть null |
+| `color` | string | может быть null |
+| `tStart` | number | может быть null |
+| `tSpan` | number | может быть null |
+| `complexity` | enum: `simple` \| `medium` \| `hard` | может быть null |
+| `labels` | array&lt;string&gt; |  |
+| `dueDate` | string | может быть null |
+| `rank` | number |  |
+| `createdAt` | string |  |
+| `updatedAt` | string |  |
+| `doneAt` | string | может быть null |
+| `archivedAt` | string | может быть null |
+| `subtasksSummary` | object | необязательное |
+| `repeat` | object | необязательное, может быть null |
+| `undo` | object | необязательное |
+
+### IssueRepeatDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
+| `timeOfDay` | string |  |
+| `paused` | boolean |  |
+
 ### IssueResolveDto
 
 | Поле | Тип | Замечания |
@@ -1293,6 +1348,16 @@
 | `description` | string |  |
 | `statusId` | string | может быть null |
 | `position` | number |  |
+
+### IssueUndoDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `issueId` | string |  |
+| `statusId` | string | необязательное |
+| `labels` | array&lt;string&gt; | необязательное |
+| `assigneeIds` | array&lt;string&gt; | необязательное |
+| `updatedAt` | string (datetime) |  |
 
 ### LoginResultDto
 
@@ -1322,6 +1387,18 @@
 | `favoriteProjectIds` | array&lt;string&gt; |  |
 | `lang` | enum: `ru` \| `en` |  |
 | `mustChangePassword` | boolean |  |
+
+### MentionCandidateDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string |  |
+| `name` | string |  |
+| `initials` | string |  |
+| `color` | string |  |
+| `jobRole` | string |  |
+| `authSource` | enum: `local` \| `ldap` \| `service` | необязательное |
+| `username` | string |  |
 
 ### MilestoneDto
 
@@ -1402,7 +1479,7 @@
 
 ### OpsKind
 
-`enum: `backup` \| `restore_drill``
+enum: `backup` \| `restore_drill`
 
 ### OpsRunDto
 
@@ -1566,7 +1643,7 @@
 
 ### RecurrenceSchedule
 
-`discriminatedunion`
+union (kind: `"daily"` \| `"weekly"` \| `"monthly"`)
 
 ### RecurringConfigDto
 
@@ -1579,7 +1656,7 @@
 
 | Поле | Тип | Замечания |
 |---|---|---|
-| `schedule` | discriminatedunion |  |
+| `schedule` | union (kind: `"daily"` \| `"weekly"` \| `"monthly"`) |  |
 | `timeOfDay` | string |  |
 | `timeZone` | string | длина 1…100 |
 | `startDate` | string |  |
@@ -1697,7 +1774,7 @@
 
 ### RuleAction
 
-`discriminatedunion`
+union (type: `"createIssue"` \| `"updateIssue"` \| `"notify"` \| `"startProcess"`)
 
 ### SafeUser
 
@@ -1815,7 +1892,7 @@
 
 ### StatusState
 
-`enum: `ok` \| `warn` \| `fail` \| `off` \| `unknown``
+enum: `ok` \| `warn` \| `fail` \| `off` \| `unknown`
 
 ### SubtasksSummaryDto
 
@@ -1826,7 +1903,7 @@
 
 ### SystemCheck
 
-`discriminatedunion`
+union (id: `"database"` \| `"storage"` \| `"mail"` \| `"ldap"` \| `"jobs"` \| `"license"` \| `"search"` \| `"backup"` \| `"restoreDrill"` \| `"webhooks"` \| `"recurring"`)
 
 ### SystemStatusDto
 
@@ -1834,7 +1911,7 @@
 |---|---|---|
 | `version` | string |  |
 | `checkedAt` | string |  |
-| `checks` | array&lt;discriminatedunion&gt; |  |
+| `checks` | array&lt;union (id: `"database"` \| `"storage"` \| `"mail"` \| `"ldap"` \| `"jobs"` \| `"license"` \| `"search"` \| `"backup"` \| `"restoreDrill"` \| `"webhooks"` \| `"recurring"`)&gt; |  |
 
 ### TransitionDto
 
@@ -1905,7 +1982,7 @@
 
 ### WebhookDeliveryState
 
-`enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled``
+enum: `pending` \| `sending` \| `succeeded` \| `failed` \| `cancelled`
 
 ### WebhookDto
 
@@ -1927,7 +2004,7 @@
 
 ### WebhookEventType
 
-`enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due``
+enum: `issue.created` \| `issue.updated` \| `issue.statusChanged` \| `issue.assigned` \| `issue.commented` \| `issue.due`
 
 ### WebhookQueuedDto
 
@@ -1950,7 +2027,7 @@
 
 ### WidgetDataDto
 
-`discriminatedunion`
+union (type: `"projects"` \| `"projectHealth"` \| `"milestones"` \| `"count"` \| `"breakdown"` \| `"trend"` \| `"issues"` \| `"workload"` \| `"progress"` \| `"activity"` \| `"error"`)
 
 ### WorkflowDto
 

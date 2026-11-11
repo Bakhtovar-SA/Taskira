@@ -51,7 +51,7 @@ class FakeWebSocket {
 
 let unmountCurrent: (() => void) | null = null;
 
-async function boot(opts: { me?: typeof admin | typeof employee; issues?: ServerIssue[]; members?: { userId: string; role: "manager" | "employee" | "viewer" }[] } = {}) {
+async function boot(opts: { me?: typeof admin | typeof employee; issues?: ServerIssue[]; members?: { userId: string; role: "manager" | "employee" | "viewer" }[]; reverse?: boolean } = {}) {
   const me = opts.me ?? admin;
   localStorage.setItem("taskira.token", "test-token");
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -60,7 +60,7 @@ async function boot(opts: { me?: typeof admin | typeof employee; issues?: Server
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(bootPayload([admin, employee], opts.members ?? [{ userId: "u2", role: "employee" }]));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({...bootPayload([admin, employee], opts.members ?? [{ userId: "u2", role: "employee" }]), ...(opts.reverse ? {workflow:{...workflow,transitions:[...workflow.transitions,{id:"reverse",from:"s2",to:"s1"}]}} : {})});
   const listSpy = vi.spyOn(issuesApi, "list").mockResolvedValue({ items: opts.issues ?? [], hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -153,13 +153,34 @@ describe("createIssue", () => {
 });
 
 describe("updateIssue", () => {
+  test("business conflict keeps its server reason and does not pretend the issue version changed", async () => {
+    const initial = dto("i1");
+    const { get } = await boot({ issues: [initial] });
+    vi.spyOn(issuesApi, "patch").mockRejectedValue(new ApiError(409, "CONFLICT", "Родитель недоступен"));
+    const read = vi.spyOn(issuesApi, "get");
+    await act(async () => { expect(await get().updateIssue("i1", { parentId: "i2" })).toBe(false); });
+    expect(get().toasts.at(-1)?.text).toBe("Родитель недоступен");
+    expect(find(get, "i1")!.parentId).toBeNull();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  test("stale version refreshes the issue and reports that the draft was preserved", async () => {
+    const { get } = await boot({ issues: [dto("i1")] });
+    vi.spyOn(issuesApi, "patch").mockRejectedValue(new ApiError(409, "STALE_VERSION", "Задача изменена"));
+    const read = vi.spyOn(issuesApi, "get").mockResolvedValue(dto("i1", { title: "Серверное изменение" }));
+    await act(async () => { expect(await get().updateIssue("i1", { title: "Мой черновик" })).toBe(false); });
+    expect(read).toHaveBeenCalledWith("p1", "i1");
+    expect(find(get, "i1")!.title).toBe("Серверное изменение");
+    expect(get().toasts.at(-1)?.text).toContain("Ваш текст сохранён в редакторе");
+  });
+
   test("в API уходят только изменённые поля (заголовок обрезается); ответ сервера заменяет задачу; title → epicsRevision растёт", async () => {
     const { get } = await boot({ issues: [dto("i1")] });
     const patch = vi.spyOn(issuesApi, "patch").mockResolvedValue(dto("i1", { title: "Новый", priorityId: "high" }));
     const [r0, e0] = [get().issuesRevision, get().epicsRevision];
     await act(async () => { await get().updateIssue("i1", { title: "  Новый  ", priorityId: "high" }); });
     await settle();
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый", priorityId: "high" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый", priorityId: "high", expectedVersion: expect.any(String) });
     expect(find(get, "i1")!.title).toBe("Новый");
     expect(find(get, "i1")!.priorityId).toBe("high");
     expect(get().issuesRevision).toBe(r0 + 1);
@@ -210,7 +231,7 @@ describe("moveStatus", () => {
     const settled = vi.fn();
     act(() => get().moveStatus("c", "s2", "x", settled));
     await settle();
-    expect(tr).toHaveBeenCalledWith("p1", "c", "s2", "x");
+    expect(tr).toHaveBeenCalledWith("p1", "c", "s2", "x", undefined, child.updatedAt);
     expect(find(get, "c")!.statusId).toBe("s2");
     expect(find(get, "c")!.doneAt).not.toBeNull();
     expect(find(get, "p")!.subtasksSummary).toEqual({ total: 1, done: 1 });
@@ -322,6 +343,47 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     expect(last?.text).toBe("Изменено 1 из 2, 1 пропущено — нет прав");
   });
 
+  test("запрещённый переход (CONFLICT) — тост называет причину, а не «нет прав»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Переход «К выполнению → На ревью» запрещён схемой рабочего процесса", code: "CONFLICT" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a"], statusId: "s3" });
+    });
+    const last = get().toasts.at(-1);
+    expect(last?.kind).toBe("error");
+    expect(last?.text).toBe("Не применено ни к одной задаче — переход запрещён схемой рабочего процесса или задача уже изменилась");
+  });
+
+  test("VALIDATION (статус/исполнитель не из проекта) — тост называет причину, а не «не удалось применить»", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: [],
+      failed: [{ issueId: "a", reason: "Целевой статус не принадлежит проекту", code: "VALIDATION" }],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a"], statusId: "foreign" });
+    });
+    expect(get().toasts.at(-1)?.text).toBe("Не применено ни к одной задаче — недопустимое значение (статус или исполнитель не из этого проекта)");
+  });
+
+  test("смешанные причины пропуска перечисляются через запятую", async () => {
+    const { get } = await boot();
+    vi.spyOn(issuesApi, "bulk").mockResolvedValue({
+      succeeded: ["a"],
+      failed: [
+        { issueId: "b", reason: "x", code: "CONFLICT" },
+        { issueId: "c", reason: "y", code: "FORBIDDEN" },
+      ],
+    });
+    await act(async () => {
+      await get().bulkApplyIssueAction({ action: "status", issueIds: ["a", "b", "c"], statusId: "s2" });
+    });
+    expect(get().toasts.at(-1)?.text).toBe("Изменено 1 из 3, 2 пропущено — переход запрещён схемой рабочего процесса или задача уже изменилась, нет прав");
+  });
+
   test("succeeded=0 (полный отказ) — issuesRevision не растёт, тост error, список не перечитывается зря", async () => {
     const { get } = await boot();
     const bulk = vi.spyOn(issuesApi, "bulk").mockResolvedValue({
@@ -347,4 +409,31 @@ describe("bulkApplyIssueAction — ТЗ 3.3 (план v2 Трек 3)", () => {
     expect(res).toBeNull();
     expect(get().toasts.at(-1)?.kind).toBe("error");
   });
+});
+
+
+describe("Track O: authoritative undo metadata", () => {
+ test("a confirmed reversible status offers Undo and restores through a versioned API request",async()=>{
+  const before=dto("i1",{updatedAt:"2026-10-15T10:00:00.000Z"});
+  const {get}=await boot({issues:[before],reverse:true});
+  const after=dto("i1",{statusId:"s2",updatedAt:"2026-10-15T10:00:00.001Z",undo:{issueId:"i1",statusId:"s1",updatedAt:"2026-10-15T10:00:00.001Z"}});
+  const transition=vi.spyOn(issuesApi,"transition").mockResolvedValueOnce(after).mockResolvedValueOnce(dto("i1",{updatedAt:"2026-10-15T10:00:00.002Z"}));
+  act(()=>get().moveStatus("i1","s2"));await settle();
+  const action=get().toasts.at(-1)!.action!;expect(action.label).toBe("Отменить");
+  await act(async()=>{expect(await action.run()).toBe(true)});
+  expect(transition.mock.calls[1]).toEqual(["p1","i1","s1",null,after.updatedAt]);expect(find(get,"i1")!.statusId).toBe("s1");
+ });
+ test("no reverse edge means no Undo button",async()=>{
+  const {get}=await boot({issues:[dto("i1")],members:[]});
+  vi.spyOn(issuesApi,"transition").mockResolvedValue(dto("i1",{statusId:"s2",undo:{issueId:"i1",statusId:"s1",updatedAt:"2026-10-15T10:00:00.001Z"}}));
+  act(()=>get().moveStatus("i1","s2"));await settle();expect(get().toasts.some(toast=>toast.action)).toBe(false);
+ });
+ test("only server removal metadata offers a field restoration",async()=>{
+  const {get}=await boot({issues:[dto("i1",{labels:["prior"]})]});
+  const after=dto("i1",{labels:[],updatedAt:"2026-10-15T10:00:00.001Z",undo:{issueId:"i1",labels:["prior"],updatedAt:"2026-10-15T10:00:00.001Z"}});
+  const patch=vi.spyOn(issuesApi,"patch").mockResolvedValueOnce(after).mockResolvedValueOnce(dto("i1",{labels:["prior"],updatedAt:"2026-10-15T10:00:00.002Z"}));
+  await act(async()=>{await get().updateIssue("i1",{labels:[]})});
+  await act(async()=>{await get().toasts.at(-1)!.action!.run()});
+  expect(patch.mock.calls[1]).toEqual(["p1","i1",{labels:["prior"],expectedUpdatedAt:after.updatedAt}]);expect(find(get,"i1")!.labels).toEqual(["prior"]);
+ });
 });

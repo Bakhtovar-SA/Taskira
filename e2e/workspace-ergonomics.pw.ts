@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
 import { homeFixture } from "./home-fixture";
 import { issueFixture } from "./issue-fixture";
+import { settle, settleScroll } from "./motion-helpers";
 
 for (const theme of ["light", "dark"]) {
   test(`workspace stays readable without stretching on a 4K screen (${theme})`, async ({ page }) => {
@@ -16,7 +17,7 @@ for (const theme of ["light", "dark"]) {
       // Pins the ultrawide profile (2560–3199 CSS px, zoom 1.1, --lane-max 376px => ~317-414px, see refinement-2026-10-10/report.md);
       // >=3200 px is the very wide profile at 90% of it, tested below.
       expect(lane.width).toBeLessThanOrEqual(420);
-      expect(lane.height).toBeLessThan(600);
+      expect(lane.height).toBeLessThan(660); // карточки с метками и повтором выше: строка меток ~24 px, чип расписания ~28 px
     }
     await page.screenshot({ path: test.info().outputPath(`board-wide-${theme}.png`) });
     await page.goto("/p/CORP/list?done=1");
@@ -110,10 +111,12 @@ test("a long board lane scrolls to its last card while the header stays reachabl
   await page.goto("/p/CORP/board");
   const lane = page.locator(".board-col").first();
   await expect(lane.locator(".board-card")).toHaveCount(100);
+  await settle(page);
   const header = await lane.locator("header").boundingBox();
   const body = lane.locator(".board-col-body");
   expect(await body.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true);
-  await body.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  await settleScroll(body, { trigger: () => body.evaluate(el => { el.scrollTop = el.scrollHeight; }) });
+  await settle(page);
   await expect(lane.locator(".board-card").last()).toBeInViewport();
   const settledHeader = (await lane.locator("header").boundingBox())!;
   for (const edge of ["x", "y", "width", "height"] as const) {

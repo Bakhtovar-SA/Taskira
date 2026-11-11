@@ -177,13 +177,15 @@ export const ISSUES_PAGE = 200;
 /** Клиентские доска/бэклог/таймлайн фильтруют локально, поэтому им нужен весь
  * активный набор, а не молча первые 200 строк. Сервер всё равно ограничивает
  * один ответ; дочитываем страницы последовательно, не создавая всплеск запросов. */
-export async function listAllIssues(projectId: string): Promise<{ items: ServerIssue[]; total: number }> {
-  let page = await issuesApi.list(projectId, { limit: ISSUES_PAGE });
+export async function listAllIssues(projectId: string, signal?: AbortSignal): Promise<{ items: ServerIssue[]; total: number }> {
+  let page = await (signal ? issuesApi.list(projectId, { limit: ISSUES_PAGE }, signal) : issuesApi.list(projectId, { limit: ISSUES_PAGE }));
   const items = [...page.items];
   while (page.nextCursor) {
     // Курсор — эфемерное состояние обхода. В URL/localStorage он намеренно не
     // попадает: сохранённая ссылка описывает фильтр, а не позицию в выдаче.
-    page = await issuesApi.list(projectId, { limit: ISSUES_PAGE, cursor: page.nextCursor });
+    signal?.throwIfAborted();
+    const query = { limit: ISSUES_PAGE, cursor: page.nextCursor };
+    page = await (signal ? issuesApi.list(projectId, query, signal) : issuesApi.list(projectId, query));
     if (page.items.length === 0) break;
     items.push(...page.items);
   }
@@ -401,6 +403,10 @@ export function mapIssue(dto: ServerIssue, prev?: Issue): Issue {
     customFieldValues: dto.customFieldValues ?? prev?.customFieldValues ?? [],
     // subtasksSummary — тоже только в детальном ответе; null, пока не загружено.
     subtasksSummary: dto.subtasksSummary ?? prev?.subtasksSummary ?? null,
+    // repeat приходит только в списке; отсутствие поля в детальном ответе
+    // отличается от явного null (правило снято).
+    // Тот же объект, пока правило не изменилось: иначе каждое обновление списка перерисовывало бы все повторяющиеся карточки.
+    repeat: dto.repeat === undefined ? prev?.repeat : prev?.repeat && JSON.stringify(prev.repeat) === JSON.stringify(dto.repeat) ? prev.repeat : dto.repeat,
     epicChildrenCount: dto.epicChildrenCount ?? prev?.epicChildrenCount ?? null,
     watch: dto.watch ?? prev?.watch ?? null,
     createdAt: Date.parse(dto.createdAt) || Date.now(),

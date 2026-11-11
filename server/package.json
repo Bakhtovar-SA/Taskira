@@ -26,23 +26,25 @@
     "password:reset": "tsx src/resetPassword.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1147.0",
-    "@aws-sdk/lib-storage": "^3.1147.0",
-    "@fastify/cors": "^11.3.1",
-    "@fastify/helmet": "^13.1.1",
-    "@fastify/jwt": "^10.2.3",
+    "@aws-sdk/client-s3": "^3.1162.0",
+    "@aws-sdk/lib-storage": "^3.1162.0",
+    "@fastify/cors": "^11.4.1",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/jwt": "^10.2.7",
     "@fastify/multipart": "^9.4.0",
-    "@fastify/rate-limit": "^11.2.0",
-    "@fastify/websocket": "^11.3.3",
+    "@fastify/rate-limit": "^11.2.2",
+    "@fastify/websocket": "^11.3.7",
     "@hocuspocus/server": "^4.8.0",
     "@tiptap/y-tiptap": "^3.2.0",
     "bcryptjs": "^2.4.3",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.8",
     "ldapts": "^9.2.0",
-    "nodemailer": "^10.0.16",
+    "nodemailer": "^10.3.1",
     "pg": "^8.23.1",
+    "taskira": "file:..",
+    "ws": "^8.21.3",
     "yjs": "^13.6.33",
-    "zod": "^3.24.1"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@hocuspocus/provider": "^4.8.0",
@@ -54,11 +56,11 @@
     "autocannon": "^8.0.0",
     "cross-env": "^10.1.0",
     "ldapjs": "^3.0.7",
-    "mailparser": "^3.9.37",
-    "smtp-server": "^3.19.18",
+    "mailparser": "^3.14.2",
+    "smtp-server": "^3.21.3",
     "tsx": "^4.23.15",
     "typescript": "^5.7.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "hyperid": {

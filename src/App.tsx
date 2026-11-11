@@ -5,7 +5,7 @@ import { onThemeChosen, setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
 import Sidebar from "./components/Sidebar";
-import Topbar from "./components/Topbar";
+import Topbar, { SR_VIEW_HEADING, VIEW_LABEL } from "./components/Topbar";
 import GlobalTopbar from "./components/GlobalTopbar";
 import Board from "./components/Board";
 import LoginForm from "./components/LoginForm";
@@ -320,7 +320,8 @@ function Shell() {
             <NotFoundPage path={ui.missing} onHome={() => (data.projects.length >= 2 ? goHome() : setView("board"))} onBack={() => history.back()} />
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
-          ) : (<div key={ui.view} className="anim-fadeup h-full">
+          ) : (<div key={ui.view} className="anim-view h-full">
+            {SR_VIEW_HEADING.has(ui.view) && <h1 data-view-heading tabIndex={-1} className="sr-only">{t(VIEW_LABEL[ui.view])}</h1>}
             {ui.view === "library" && <LibraryView key={data.currentUserId} />}
             {ui.view === "files" && <ProjectFilesView key={`${data.currentUserId}:${data.currentProjectId}`} />}
              {ui.view === "documents" && <DocumentsView key={`${data.currentUserId}:${data.currentProjectId}`} />}

@@ -1409,6 +1409,8 @@ export async function workspaceRoutes(
             null,
             req.user.sub,
             true,
+            undefined,
+            undefined,
             client,
           );
           await client.query(
@@ -1571,7 +1573,7 @@ export async function workspaceRoutes(
       preHandler: requirePerm("manageProcesses"),
       preValidation: zbody(
         z
-          .object({ rule: AutomationRuleBody, values: z.record(z.unknown()) })
+          .object({ rule: AutomationRuleBody, values: z.record(z.string(), z.unknown()) })
           .strict(),
       ),
     },

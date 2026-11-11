@@ -10,6 +10,7 @@ import { PersonAvatar } from "./settings/parts";
 import { useEffect, useRef, useState } from "react";
 import { lookOf } from "../projectLook";
 import { useNotifications, useStore, useUnreadCount } from "../store";
+import { usePulse } from "../usePulse";
 import { relTime } from "../store/mappers";
 import type { NotificationT, ProjectSummary, SearchResultItem, ViewId } from "../types";
 import { IcBell, IcCheck, IcChevD, IcChevR, IcSearch, IcStar, IcX, PriorityIcon, TypeIcon } from "../icons";
@@ -38,6 +39,13 @@ export const VIEW_LABEL: Record<ViewId, TKey> = {
   inbox: "sidebar.nav.inbox",
   my: "sidebar.nav.my",
 };
+
+/** Цели фокуса после смены вида (`focusViewHeading` в motion.ts). Свой h1 в <main> есть почти у всех
+ *  видов (Board, DashboardView, DashboardTabs, TimelineView, CalendarView, Roadmap, …). Исключения:
+ *  у «Бэклога» и «Спринтов» h1 нет нигде (шапка проекта — вкладки) — App.tsx рисует sr-only h1;
+ *  у «Моих подключений» h1 уже есть в шапке (вне <main>) — помечаем его, а не дублируем. */
+export const SR_VIEW_HEADING: ReadonlySet<ViewId> = new Set<ViewId>(["backlog", "sprints"]);
+const TOPBAR_VIEW_HEADING: ReadonlySet<ViewId> = new Set<ViewId>(["collaborating"]);
 
 /** Быстрый поиск: «в этом проекте» — серверный поиск (250 мс, топ-8), «во всех проектах» — кросс-проектный. */
 export function SearchBox() {
@@ -380,6 +388,7 @@ export function Bell() {
   const { t } = useT();
   // Только счётчик (ADR-0011, шаг 2): Bell не подписан на общий контекст стора.
   const unread = useUnreadCount();
+  const dotRef = usePulse<HTMLSpanElement>(unread);
   return (
     <ScreenPopover
       className="w-[360px]" label={t("topbar.notifications")}
@@ -391,7 +400,7 @@ export function Bell() {
         >
           <IcBell size={18} />
           {unread > 0 && (
-            <span aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
+            <span ref={dotRef} aria-hidden="true" className="absolute right-1 top-1 h-[7px] w-[7px] rounded-full bg-accent ring-2 ring-canvas" />
           )}
         </IconButton>
       )}
@@ -566,7 +575,7 @@ export default function Topbar() {
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
               items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
           </nav>
-        </> : <h1 className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
+        </> : <h1 data-view-heading={TOPBAR_VIEW_HEADING.has(ui.view) || undefined} className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
 
       </div>
     </div>

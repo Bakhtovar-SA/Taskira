@@ -37,7 +37,7 @@ test("issue refresh: workflow action, overdue text, visible properties and subsc
   await panel.locator(".issue-action-row").getByRole("button", { name: "К выполнению", exact: true }).click();
   await page.getByRole("menuitem", { name: "В работе", exact: true }).click();
   await expect(panel.locator(".issue-action-row").getByRole("button", { name: "В работе", exact: true })).toBeVisible();
-  expect(writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null });
+  expect(writes.find(w => w.path.endsWith("/transition"))?.body).toEqual({ to: "s2", beforeId: null, expectedVersion: "2026-10-03T12:00:00.000Z" });
   await panel.getByRole("button", { name: "Отписаться", exact: true }).click();
   await expect(panel.getByText("Вы не подписаны на задачу")).toBeVisible();
   expect(writes.some(w => w.path.endsWith("/watchers/me") && w.method === "DELETE")).toBe(true);
@@ -94,6 +94,11 @@ for (const width of [390, 320]) test(`issue refresh: mobile order and targets at
   await page.setViewportSize({ width, height: 900 });
   await issueFixture(page, "dark");
   const panel = await openIssue(page);
+  // Окно въезжает пружиной (ADR-0035): пока идёт хвост, transform предка даёт шум float32 в getBoundingClientRect
+  // (43.99998 против 44), — ждём конца конечных анимаций страницы.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(a => a.effect?.getComputedTiming().iterations !== Infinity)
+    .map(a => a.finished.catch(() => undefined))));
   expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
   for (const name of ["Действия", "Закрыть"]) {
     const box = (await panel.getByRole("button", { name, exact: true }).boundingBox())!;
@@ -115,6 +120,11 @@ for (const width of [768, 1024]) test(`issue properties remain readable at ${wid
   await page.setViewportSize({ width, height: 900 });
   await issueFixture(page, "dark");
   const panel = await openIssue(page);
+  // Окно въезжает пружиной (ADR-0035): пока идёт её хвост, transform предка даёт шум float32 в getBoundingClientRect
+  // (±2^-14 px), а ширина сравнивается точно, — ждём конца конечных анимаций окна.
+  await panel.evaluate(el => Promise.all(el.getAnimations({ subtree: true })
+    .filter(a => a.effect?.getComputedTiming().iterations !== Infinity)
+    .map(a => a.finished.catch(() => undefined))));
   const properties = (await panel.locator(".issue-properties").boundingBox())!;
   const content = (await panel.locator(".issue-content").boundingBox())!;
   expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth + 1)).toBe(true);

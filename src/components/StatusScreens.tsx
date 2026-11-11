@@ -1,6 +1,7 @@
 /** Экраны состояний (ТЗ 5.12 a): не удалось загрузить / нет связи, «не найдено или нет доступа», полоса офлайна.
  *  Правило для текста: что случилось — одной фразой, что делать — одним-двумя действиями. */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { getRealtimeState, subscribeRealtimeState } from "../realtimeStatus";
 import { useT } from "../i18n";
 import { useOnline } from "../useOnline";
 import { Button } from "../ds/Button";
@@ -77,11 +78,20 @@ export function NotFoundPage({ path, onHome, onBack }: { path: string; onHome: (
 export function OfflineBanner() {
   const { t } = useT();
   const online = useOnline();
-  if (online) return null;
+  const sync = useSyncExternalStore(subscribeRealtimeState, getRealtimeState, getRealtimeState);
+  const recovering = online && (sync === "connecting" || sync === "recovering");
+  const [showRecovery, setShowRecovery] = useState(false);
+  useEffect(() => {
+    if (!recovering) { setShowRecovery(false); return; }
+    const timer = window.setTimeout(() => setShowRecovery(true), 3_000);
+    return () => window.clearTimeout(timer);
+  }, [recovering]);
+  const paused = online && sync === "paused";
+  if (online && !paused && !(recovering && showRecovery)) return null;
   return (
     <div role="status" className="flex items-center justify-center gap-2 border-b border-linesoft bg-warnsoft px-4 py-1.5 text-[13.5px] font-medium text-[var(--status-progress-fg)]">
       <IcGlobe size={15} />
-      {t("status.offline.banner")}
+      {t(!online ? "status.offline.banner" : paused ? "status.sync.paused" : "status.sync.recovering")}
     </div>
   );
 }

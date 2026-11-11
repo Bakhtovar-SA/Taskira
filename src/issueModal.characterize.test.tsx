@@ -131,6 +131,7 @@ async function setup(opts: {
   withMain?: boolean;
   comments?: ServerComment[];
   activity?: ServerActivity[];
+  customFields?: ProjectBootstrap["customFields"];
 }) {
   const { listed, get, memberRole = "manager", mode = "panel", withMain = false, comments = [], activity = [] } = opts;
 
@@ -141,7 +142,7 @@ async function setup(opts: {
   vi.spyOn(projectsApi, "list").mockResolvedValue([project] as never);
   vi.spyOn(departmentsApi, "list").mockResolvedValue([]);
   vi.spyOn(issuesApi, "collaborating").mockResolvedValue([]);
-  vi.spyOn(projectsApi, "get").mockResolvedValue(makeBoot(memberRole));
+  vi.spyOn(projectsApi, "get").mockResolvedValue({ ...makeBoot(memberRole), customFields: opts.customFields ?? [] });
   vi.spyOn(issuesApi, "list").mockResolvedValue({ items: listed, hasMore: false, nextCursor: null });
   vi.spyOn(notificationsApi, "list").mockResolvedValue({ items: [], nextCursor: null });
   vi.spyOn(notificationsApi, "unreadCount").mockResolvedValue({ count: 0 });
@@ -269,7 +270,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.blur(textarea);
     await settle();
 
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый заголовок" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { title: "Новый заголовок", expectedVersion: expect.any(String) });
     expect(screen.getByRole("button", { name: "Переименовать задачу: Новый заголовок" })).toBeTruthy();
     h.ui.unmount();
   });
@@ -296,7 +297,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.change(area, { target: { value: "Стало" } });
     fireEvent.blur(area);
     await settle();
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { description: "Стало" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { description: "Стало", expectedVersion: expect.any(String) });
     h.ui.unmount();
   });
 
@@ -324,7 +325,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.click(screen.getByRole("menuitem", { name: /В работе/, hidden: true }));
     await settle();
 
-    expect(transition).toHaveBeenCalledWith("p1", "i1", "s2", null);
+    expect(transition).toHaveBeenCalledWith("p1", "i1", "s2", null, undefined, expect.any(String));
     h.ui.unmount();
   });
 
@@ -342,7 +343,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.click(screen.getByRole("menuitem", { name: /Высокий/, hidden: true }));
     await settle();
 
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { priorityId: "high" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { priorityId: "high", expectedVersion: expect.any(String) });
     h.ui.unmount();
   });
 
@@ -369,13 +370,13 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     expect(screen.queryByRole("option", { name: /Чужая подзадача/, hidden: true })).toBeNull();
     fireEvent.click(screen.getByRole("option", { name: /Свободная/, hidden: true }));
     await settle();
-    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: "i3" });
+    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: "i3", expectedVersion: expect.any(String) });
 
     fireEvent.click(screen.getByRole("button", { name: "Действия" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Изменить родителя", hidden: true }));
     fireEvent.click(screen.getByRole("button", { name: "Сделать самостоятельной", hidden: true }));
     await settle();
-    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: null });
+    expect(patch).toHaveBeenLastCalledWith("p1", "i1", { parentId: null, expectedVersion: expect.any(String) });
     h.ui.unmount();
   });
 
@@ -396,7 +397,7 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     fireEvent.keyDown(dateInput, { key: "Enter" });
     await settle();
 
-    expect(patch).toHaveBeenCalledWith("p1", "i1", { dueDate: "2026-10-01" });
+    expect(patch).toHaveBeenCalledWith("p1", "i1", { dueDate: "2026-10-01", expectedVersion: expect.any(String) });
     h.ui.unmount();
   });
 
@@ -495,6 +496,13 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     // Приоритет показан текстом, но не как интерактивная кнопка-дропдаун.
     expect(screen.getByText("Средний")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Средний/ })).toBeNull();
+    // Причина запрета уже видна в баннере: системная подсказка при наведении
+    // перекрывала соседние поля и зрительно сдвигала их.
+    const lockedPriority = screen.getByText("Средний").closest('[role="group"]');
+    const reasonId = lockedPriority?.getAttribute("aria-describedby");
+    expect(reasonId).toBeTruthy();
+    expect(document.getElementById(reasonId!)?.textContent).toContain("Недоступно для роли");
+    expect(lockedPriority?.hasAttribute("title")).toBe(false);
     // Комментировать нельзя: вместо поля ввода — сообщение об отказе.
     expect(screen.queryByPlaceholderText("Комментарий, @ — упомянуть")).toBeNull();
     expect(screen.getByText("Ваша роль не позволяет оставлять комментарии")).toBeTruthy();
@@ -602,6 +610,32 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
     expect(screen.queryByRole("textbox", { name: "Описание" })).toBeNull();
     expect(h.store().toasts.some(t => t.kind === "success" && t.text.includes("Описание"))).toBe(true);
+    h.ui.unmount();
+  });
+
+  test("remote custom-field change preserves a dirty draft and requires explicit save against the latest value", async () => {
+    let remote = dto("i1", { customFieldValues: [{ fieldId: "f1", value: "Original value" }] });
+    const h = await setup({ listed: [remote], get: () => remote,
+      customFields: [{ id: "f1", name: "Contract reference", fieldType: "text", options: [], position: 0 }] });
+    const save = vi.spyOn(issuesApi, "setCustomFieldValue").mockResolvedValue({ values: [{ fieldId: "f1", value: "My unsaved value" }] });
+    await act(async () => { h.store().openIssue("i1"); });
+    await settle();
+    const input = screen.getByRole("textbox", { name: "Contract reference" }) as HTMLInputElement;
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "My unsaved value" } });
+    remote = dto("i1", { customFieldValues: [{ fieldId: "f1", value: "Remote replacement" }] });
+    await act(async () => { h.store().openIssue("i1"); });
+    await settle();
+    expect(input.value).toBe("My unsaved value");
+    expect(screen.getByText("Сейчас на сервере: Remote replacement")).toBeTruthy();
+    fireEvent.blur(input);
+    await settle();
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить мой вариант" }));
+    await settle();
+    expect(save).toHaveBeenCalledExactlyOnceWith("p1", "i1", "f1", "My unsaved value", "Remote replacement");
+    expect(input.value).toBe("My unsaved value");
+    expect(screen.queryByText("Сейчас на сервере: Remote replacement")).toBeNull();
     h.ui.unmount();
   });
 

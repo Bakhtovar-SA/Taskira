@@ -561,13 +561,13 @@ describe("межпроектный IDOR: идентификаторы P2 в те
       label: "PATCH issues/bulk status=P2", actor: "mgr1", method: "PATCH", url: `${p1()}/issues/bulk`,
       body: (id) => ({ action: "status", issueIds: [issue.id], statusId: id }), p2Id: p2Status, p2Table: "workflow_statuses", status: 200,
     });
-    expect(res.json()).toEqual({ succeeded: [], failed: [{ issueId: issue.id, reason: "Целевой статус не принадлежит проекту" }] });
+    expect(res.json()).toEqual({ succeeded: [], failed: [{ issueId: issue.id, reason: "Целевой статус не принадлежит проекту", code: "VALIDATION" }], undo: [] });
     // Контроль: статус P1 применяется. Цель — по существующему ребру: контрольный DELETE workflow/transitions/:id выше
     // удаляет случайный переход P1.
     const to = await latest(`SELECT to_status_id AS id FROM workflow_transitions WHERE project_id = $1 AND from_status_id = $2 LIMIT 1`,
       [fx.projects.p1, issue.statusId]);
     const control = await ok(tokens.mgr1, "PATCH", `${p1()}/issues/bulk`, { action: "status", issueIds: [issue.id], statusId: to });
-    expect(control.json()).toEqual({ succeeded: [issue.id], failed: [] });
+    expect(control.json()).toEqual({ succeeded: [issue.id], failed: [], undo: [{ issueId: issue.id, statusId: issue.statusId, updatedAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T.*Z$/) }] });
   });
 
   test("PATCH шаблона задачи P1 со статусом P2 — 404 как на несуществующий статус, шаблон не изменён", async () => {

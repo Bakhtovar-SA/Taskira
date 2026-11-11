@@ -6,6 +6,7 @@ import { Presence } from "./Presence";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
   delete (Element.prototype as Partial<Element>).getAnimations;
 });
 
@@ -24,6 +25,8 @@ test("без анимаций (jsdom) снимает окно сразу", () =>
 
 test("держит окно на время ухода, передаёт open=false, при новом открытии — свежий экземпляр", () => {
   vi.useFakeTimers();
+  // Как в браузере: matchMedia есть и системного reduce нет (без matchMedia движение считается уменьшенным).
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
   (Element.prototype as { getAnimations?: () => Animation[] }).getAnimations = () => [];
   const view = (show: boolean) => <Presence show={show}>{(open) => <Child open={open} />}</Presence>;
   const { container, rerender } = render(view(true));

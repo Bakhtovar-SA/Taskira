@@ -93,3 +93,13 @@ export async function insertIssueLink(
   );
   return row!.id;
 }
+
+/** Удалять можно с любого конца связи, но только если этот конец — наша задача. */
+export async function deleteIssueLink(linkId: string, issueId: string): Promise<{ id: string } | null> {
+  return one<{ id: string }>(
+    `DELETE FROM issue_links
+      WHERE id = $1 AND (issue_id = $2 OR linked_issue_id = $2)
+      RETURNING id`,
+    [linkId, issueId],
+  );
+}

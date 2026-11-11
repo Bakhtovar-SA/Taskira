@@ -197,6 +197,33 @@ for (const h of [...Array.from({ length: hueMax - hueMin + 1 }, (_, i) => hueMin
 }
 console.log(`\nоттенок бренда ${hueMin}…${hueMax}: все пары во всех темах, худший текст ${hueWorst.toFixed(2)}`);
 
+// Портреты без фото используют любой угол цветового круга. Контур/волосы
+// лежат на панели, плечи — на поле, смешанном на 14% с акцентом в OKLCH.
+// Нейтральный силуэт: --text-2 на --bg-hover уже проверяется в PAIRS выше.
+for (const [name, vars] of variants) {
+  const panelCss = resolve(vars, vars["--bg-panel"]);
+  const panel = oklch(panelCss).rgb;
+  const [, panelL, panelC, panelHue] = /oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(panelCss);
+  const l = resolve(vars, vars["--ic-l"]);
+  const c = resolve(vars, vars["--ic-c"]);
+  let outlineWorst = Infinity;
+  let accentWorst = Infinity;
+  for (let hue = 0; hue < 360; hue++) {
+    const color = oklch(`oklch(${l} ${c} ${hue})`).rgb;
+    outlineWorst = Math.min(outlineWorst, ratio(color, panel));
+    for (let offset = 48; offset <= 143; offset++) {
+      const accentHue = (hue + offset) % 360;
+      const accent = oklch(`oklch(${l} ${c} ${accentHue})`).rgb;
+      const turn = ((accentHue - Number(panelHue) + 540) % 360) - 180;
+      const fieldHue = (Number(panelHue) + 0.14 * turn + 360) % 360;
+      const field = oklch(`oklch(${0.14 * Number(l) + 0.86 * Number(panelL)} ${0.14 * Number(c) + 0.86 * Number(panelC)} ${fieldHue})`).rgb;
+      accentWorst = Math.min(accentWorst, ratio(accent, field));
+    }
+  }
+  if (outlineWorst < UI || accentWorst < UI) failed++;
+  console.log(`  ${outlineWorst >= UI && accentWorst >= UI ? "ok  " : "FAIL"} ≥ ${UI}  ${name}: контур ${outlineWorst.toFixed(2)}, плечи на поле ${accentWorst.toFixed(2)}`);
+}
+
 // ── Текст хрома поверх фона (ТЗ 5.14, проверка «≥ 4.5:1 с подложкой»). Боковая панель — стекло (--glass-side)
 // прямо над атмосферой; под ней — либо свечения фона галереи, либо своё фото под подложкой цвета рамки.
 // Тестовый набор фото — ровные серые от чёрного до белого (худшие случаи для любой светлоты); плотность подложки —

@@ -22,6 +22,8 @@
     var bg = localStorage.getItem("taskira.bg");
     if (bg && bg !== "default") root.setAttribute("data-atmosphere", bg);
     if (localStorage.getItem("taskira.density") === "compact") root.setAttribute("data-density", "compact");
+    // Личный выключатель «Уменьшить движение» (src/motion.ts): CSS гасит анимации по этому атрибуту.
+    if (localStorage.getItem("taskira.reduceMotion") === "1") root.setAttribute("data-motion", "reduce");
     // Оттенок бренда (ТЗ 5.14 п.5, src/brand.ts): CSSOM, не style="" — CSP style-src-attr 'none'.
     var brand = JSON.parse(localStorage.getItem("taskira.brand") || "null");
     if (brand && Number.isInteger(brand.hue) && ((brand.hue >= 255 && brand.hue <= 320) || [55, 145, 185, 235, 345].indexOf(brand.hue) !== -1)) {

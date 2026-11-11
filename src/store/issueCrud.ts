@@ -1,3 +1,5 @@
+import { createIssueUndo } from "./issueUndo";
+import type { IssueUndoDto } from "../../server/src/contract";
 /* CRUD задач: создание, массовый импорт, правка, смена статуса, удаление — действия стора. Вынесено из store.tsx без
  * изменений поведения (ТЗ 2.3, шаг 5). Действия не оптимистичны: сначала запрос, затем применение ответа сервера;
  * откат с перечитыванием задач — только у moveStatus. Поведение зафиксировано store.issueCrud.test.tsx. */
@@ -29,10 +31,31 @@ export interface IssueCrudDeps {
   langRef: MutableRefObject<"ru" | "en">;
 }
 
+/** Почему массовая операция пропустила задачи — по машинному `code` каждой неудачи (сервер: FORBIDDEN, CONFLICT — переход
+ *  запрещён схемой рабочего процесса, NOT_FOUND…). Раньше тост на любой отказ говорил «нет прав», хотя частый отказ —
+ *  запрещённый переход («К выполнению» → «На ревью»). Нет `code` (старый сервер) — прежнее «нет прав». */
+type Localize = StoreCtx["local"];
+function skipLabel(code: string, local: Localize): string {
+  switch (code) {
+    case "FORBIDDEN": return local("нет прав", "no permission");
+    case "CONFLICT": return local("переход запрещён схемой рабочего процесса или задача уже изменилась", "transition not allowed by the workflow or the issue has changed");
+    case "NOT_FOUND": return local("задача не найдена", "issue not found");
+    case "VALIDATION": return local("недопустимое значение (статус или исполнитель не из этого проекта)", "invalid value (status or assignee not in this project)");
+    default: return local("не удалось применить", "couldn't be applied");
+  }
+}
+/** Причины на языке интерфейса, через запятую; без `code` (старый сервер) — прежнее «нет прав». */
+export function skipReason(failed: readonly { code?: string }[], local: Localize): string {
+  return [...new Set(failed.map((f) => skipLabel(f.code ?? "FORBIDDEN", local)))].join(", ");
+}
+
 export function useIssueCrudActions(
   { setData, dataRef, pid, toast, handleApiError, requirePerm, local, sessionEpochRef }: StoreCtx,
   { withIssue, resolveIssue, refreshIssues, setUi, bumpIssues, bumpEpics, langRef }: IssueCrudDeps,
 ) {
+  const undoFor = useCallback((changes: readonly (IssueUndoDto & {currentStatusId?:string})[] | undefined) => createIssueUndo(
+    {setData,dataRef,pid,toast,local,sessionEpochRef,requirePerm,handleApiError}, {bumpIssues,setUi,resolveIssue}, changes),
+    [setData,dataRef,pid,toast,local,sessionEpochRef,requirePerm,handleApiError,bumpIssues,setUi,resolveIssue]);
   const createIssue = useCallback(
     async (input: CreateInput): Promise<Issue | null> => {
       if (!requirePerm("create")) return null;
@@ -46,6 +69,8 @@ export function useIssueCrudActions(
         const dto = await issuesApi.create(requestProjectId, payload.body);
         if (sessionEpochRef.current !== epoch) return null;
         const issue = mapIssue(dto);
+        // Ответ на создание не несёт repeat (его знает только список): карточка сразу показывает заданное повторение.
+        if (payload.body.recurrence) { const { schedule, timeOfDay } = payload.body.recurrence; issue.repeat = { schedule, timeOfDay, paused: false }; }
         markHomeStep(dataRef.current.currentUserId, "create");
         const isDone = statusById(requestWorkflow, issue.statusId)?.category === "done";
         setData((prev) => {
@@ -196,7 +221,7 @@ export function useIssueCrudActions(
   );
 
   const updateIssue = useCallback(
-    async (id: string, patch: Partial<Issue>): Promise<boolean> => {
+    async (id: string, patch: Partial<Issue>, expectedVersion?: number): Promise<boolean> => {
       const epoch = sessionEpochRef.current;
       const requestProjectId = pid();
       const iss = dataRef.current.issues.find(i => i.id === id) ?? await resolveIssue(id);
@@ -226,20 +251,34 @@ export function useIssueCrudActions(
 
 
       if (Object.keys(body).length === 0) return true;
+      body.expectedVersion = new Date(expectedVersion ?? iss.updatedAt).toISOString();
       try {
         const dto = await issuesApi.patch(requestProjectId, id, body);
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
         setData(prev => ({ ...prev, issues: prev.issues.map(i => i.id === id ? mapIssue(dto, i) : i) }));
         bumpIssues();
         if (body.epicId !== undefined || body.title !== undefined || body.color !== undefined) bumpEpics();
+        const action = undoFor(dto.undo ? [dto.undo] : []);
+        if (action) toast("success",local("Изменение сохранено", "Change saved"),action);
         return true;
       } catch (err) {
         if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return false;
+        if (err instanceof ApiError && err.status === 409 && err.code === "STALE_VERSION") {
+          toast("error", local("Задачу уже изменил другой участник. Ваш текст сохранён в редакторе — проверьте актуальную задачу перед повторным сохранением.", "Another member changed this issue. Your draft remains in the editor; review the latest issue before saving again."));
+          try {
+            const latest = await issuesApi.get(requestProjectId, id);
+            if (epoch === sessionEpochRef.current && pid() === requestProjectId) {
+              setData(prev => ({ ...prev, issues: prev.issues.map(issue => issue.id === id ? mapIssue(latest, issue) : issue) }));
+              bumpIssues();
+            }
+          } catch { /* The safety reconciliation retries without discarding the draft. */ }
+          return false;
+        }
         handleApiError(err, local("Не удалось сохранить задачу", "Couldn't save the issue"));
         return false;
       }
     },
-    [requirePerm, toast, handleApiError, resolveIssue, bumpIssues, bumpEpics],
+    [requirePerm, toast, handleApiError, resolveIssue, bumpIssues, bumpEpics, undoFor, refreshIssues],
   );
 
   const moveStatus = useCallback(
@@ -262,7 +301,7 @@ export function useIssueCrudActions(
         void (async () => {
           let confirmed = false;
           try {
-            const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId);
+            const dto = await issuesApi.transition(requestProjectId, issueId, toStatus, beforeId, undefined, new Date(iss.updatedAt).toISOString());
             if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
             refreshOnboardingSoon();
             const wasDone = iss.doneAt != null;
@@ -282,6 +321,8 @@ export function useIssueCrudActions(
             if (dataRef.current.currentProjectId === requestProjectId) {
               setUi((u) => ({ ...u, lastEvent: { issueId, ts: Date.now() } }));
               confirmed = true;
+              const action = undoFor(dto.undo ? [{...dto.undo,currentStatusId:dto.statusId}] : []);
+              if (action) toast("success",local("Статус изменён", "Status changed"),action);
             }
           } catch (err) {
             if (epoch !== sessionEpochRef.current || pid() !== requestProjectId) return;
@@ -296,7 +337,7 @@ export function useIssueCrudActions(
       if (known) applyMove(known);
       else void resolveIssue(issueId).then(applyMove);
     },
-    [requirePerm, toast, handleApiError, refreshIssues, resolveIssue, bumpIssues],
+    [requirePerm, toast, handleApiError, refreshIssues, resolveIssue, bumpIssues, undoFor],
   );
 
   const deleteIssue = useCallback(
@@ -348,27 +389,36 @@ export function useIssueCrudActions(
    *  «Изменено N из M») — здесь только сам вызов, перечитывание набора и общий
    *  тост-итог, единый для success/partial/fail. */
   const bulkApplyIssueAction = useCallback(
-    async (body: Parameters<typeof issuesApi.bulk>[1]): Promise<{ succeeded: string[]; failed: { issueId: string; reason: string }[] } | null> => {
+    async (body: Parameters<typeof issuesApi.bulk>[1]): Promise<Awaited<ReturnType<typeof issuesApi.bulk>> | null> => {
       const requestProjectId = pid();
+      const epoch = sessionEpochRef.current;
       try {
         const res = await issuesApi.bulk(requestProjectId, body);
+        const stale = epoch !== sessionEpochRef.current || pid() !== requestProjectId;
         if (res.succeeded.length > 0) {
           bumpIssues();
           void refreshIssues();
         }
+        // Сервер уже применил изменение — результат возвращаем всегда; после смены проекта/сессии нет только тоста и отмены.
+        if (stale) return res;
+        const undo = undoFor(res.undo?.map(change => ({...change,currentStatusId:body.action === "status" ? body.statusId : undefined})));
         if (res.failed.length === 0) {
-          toast("success", local(`Применено к ${res.succeeded.length} из ${res.succeeded.length}`, `Applied to ${res.succeeded.length} of ${res.succeeded.length}`));
-        } else if (res.succeeded.length === 0) {
-          toast("error", local("Не применено ни к одной задаче — нет прав", "Not applied to any issue — no permission"));
+          toast("success", local(`Применено к ${res.succeeded.length} из ${res.succeeded.length}`, `Applied to ${res.succeeded.length} of ${res.succeeded.length}`),undo);
         } else {
-          const total = res.succeeded.length + res.failed.length;
-          toast(
-            "info",
-            local(
-              `Изменено ${res.succeeded.length} из ${total}, ${res.failed.length} пропущено — нет прав`,
-              `Changed ${res.succeeded.length} of ${total}, ${res.failed.length} skipped — no permission`,
-            ),
-          );
+          const why = skipReason(res.failed, local);
+          if (res.succeeded.length === 0) {
+            toast("error", local(`Не применено ни к одной задаче — ${why}`, `Not applied to any issue — ${why}`));
+          } else {
+            const total = res.succeeded.length + res.failed.length;
+            toast(
+              "info",
+              local(
+                `Изменено ${res.succeeded.length} из ${total}, ${res.failed.length} пропущено — ${why}`,
+                `Changed ${res.succeeded.length} of ${total}, ${res.failed.length} skipped — ${why}`,
+              ),
+              undo,
+            );
+          }
         }
         return res;
       } catch (err) {
@@ -376,7 +426,7 @@ export function useIssueCrudActions(
         return null;
       }
     },
-    [handleApiError, refreshIssues, bumpIssues, toast],
+    [handleApiError, refreshIssues, bumpIssues, toast, undoFor],
   );
 
   return {

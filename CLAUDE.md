@@ -13,8 +13,7 @@ with a role-based permission system. Two independent npm packages:
 
 The client was originally a localStorage-only app; it now talks to the API exclusively
 (`src/api/`, `src/store.tsx`). `README.md` (root) and `ARCHITECTURE.md` track the current
-design; **`server/README.md`** is the authoritative API contract and data model. `src/seed.ts`
-is dead demo data except for `DEFAULT_WORKFLOW`, which `DocsView.tsx` still imports. The
+design; **`server/README.md`** is the authoritative API contract and data model. The
 `*_MIGRATION.md` files are historical records of completed schema/feature migrations; the list of
 migrations is generated from `server/migrations/` into [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md) and the
 permission table into [docs/PERMISSIONS.md](docs/PERMISSIONS.md) — don't maintain either by hand. Sprints (migration
@@ -50,7 +49,8 @@ npm run dev         # Vite dev server on http://localhost:3000 (strictPort — f
 npm run build       # production build to dist/
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run — permissions / validation / store helpers
-npm run bundle:check    # after build: gzip JS/CSS vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run bundle:check    # after build: gzip JS/CSS + startup JS (entry + modulepreload) vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
+npm run repo:check      # docs/ total size and per-file size limits (part of docs:check); don't commit audit screenshots or raw dumps
 npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
 ```
 
@@ -208,6 +208,13 @@ the person may see. Screens: `src/components/settings/` (`SettingsView` shell; `
 `OrgSettings`), the old `WorkflowView` (split by `part`), `PermissionsView` (the only place for project members) and
 `AdminView` (departments + project creation only). Every setting has exactly one home; env-only values are shown
 read-only with an `env` tag. `GET /api/admin/license` (read-only, `routes/license.ts`) feeds the license page.
+
+**Big screens are split by file, not by behaviour:** the board is `Board.tsx` (screen) + `BoardColumn.tsx` (column and its
+paged card list) + `BoardCard.tsx` (card, skeleton, drag ghost); the list is `Backlog.tsx` + `BacklogRow.tsx` +
+`BacklogFilters.tsx`; the issue card is `IssueModal.tsx` + `IssueModalFields.tsx` (collaborators, attachments, subtasks,
+checklist, custom fields, links, actions) + `IssueModalParts.tsx`; `MentionText.tsx` is separate so `SoloView` doesn't pull
+the card. On the server `routes/issues.ts` holds hooks, schemas and responses; the list queries are in
+`services/issueList.ts` and the PATCH logic in `services/issueUpdate.ts`.
 
 The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
 `statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
@@ -386,13 +393,17 @@ who typed them used — there is no dictionary key for someone's actual data.
   admin PATCH through the WS-closing path force-disconnected other live tabs/devices for
   users whose access hadn't changed at all.
 - `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
-- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` (Этап 3c, notification push only,
-  *not* the full real-time board `WsMessage` still declares — `issue:upsert`/`presence`
-  remain unimplemented). Auth is the connection's first message (`{type:"auth",token}`),
-  not a header or query param (the latter would land in access logs) — a 5s timer closes
-  the socket (1008) if it never arrives or fails `app.jwt.verify` + `assertFreshUser`. On
-  success the server replies `{type:"auth_ok"}` — the client (`store.tsx`) waits for exactly
-  this message, not the transport-level `onopen`, to reset its reconnect backoff; resetting
+- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` carries two things: the notification
+  push (Этап 3c) and project realtime sync ([ADR-0036](docs/adr/0036-durable-project-realtime.md),
+  `services/realtime.ts`, protocol in [docs/REALTIME.md](docs/REALTIME.md)). After `auth_ok` a client
+  sends `{type:"sync:subscribe", projectId, cursor}` (one subscription per connection, the next
+  replaces it); the server answers with `sync` batches that only say *what to re-read* — the
+  client then calls `GET /api/projects/:projectId/sync`, never applies a pushed card. `presence`
+  is still unimplemented. Auth: the browser is authenticated by the same HttpOnly session cookie
+  during the handshake; a first message `{type:"auth",token}` is kept for older and CLI clients
+  (never a query param — it would land in access logs). A 5s timer closes the socket (1008) if
+  neither arrives or it fails `app.jwt.verify` + `assertFreshUser`. On success the server replies
+  `{type:"auth_ok"}` — the client (`src/realtime.ts`) waits for exactly this message, not the transport-level `onopen`, to reset its reconnect backoff; resetting
   on `onopen` was a real bug (caught in review) that made the backoff never compound on
   repeated auth failure — a tab with a revoked token hammered `/api/ws` roughly once a second
   forever instead of backing off. `wsHub.ts` keeps a `Map<userId, Set<WebSocket>>`;
@@ -757,6 +768,10 @@ since any edit touches it. The board shows the last 14 days in its done column
   Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
   numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
   colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
+- **Motion** ([ADR-0035](docs/adr/0035-motion-library-spike.md), working doc [docs/design/MOTION.md](docs/design/MOTION.md)): the only
+  entry to `motion/mini` is `src/motion.ts` (lazy chunk, WAAPI/CSSOM only because of the CSP); every function there
+  honours `motionReduced()` (system `prefers-reduced-motion` or the personal «Reduce motion» switch); durations are `--dur-*` tokens,
+  checked by `npm run motion:check`. Add or change motion → update MOTION.md; the ADR itself is never edited.
 - **Component library** (ТЗ 5.7, [ADR-0014](docs/adr/0014-component-library-native-primitives.md),
   [docs/design/COMPONENTS.md](docs/design/COMPONENTS.md)): `src/ds/` — own components on native `<dialog>` and the
   Popover API, positioned by `@floating-ui/dom` (Radix was rejected: its scroll lock injects `<style>`, which our CSP
@@ -765,7 +780,7 @@ since any edit touches it. The board shows the last 14 days in its done column
   showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
   (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
   exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
-  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel** — the barrel's re-exports pull `Overlay` into `modulepreload`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
+  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board and what it imports statically — `WorkspaceControls`, `BoardBackgroundControl` —, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel, and take `Menu`/`Popover` from `ds/LazyOverlay`** — the barrel's re-exports and a static `ds/Overlay` import pull `Overlay` and `@floating-ui/dom` into `modulepreload`; `bundle:check`'s «старт» metric (entry + every `modulepreload`) catches that. Entry code that only shows/hides a popover imports `showPop`/`hidePop` from `ds/pop.ts`, not `ds/floating.ts`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
   are all on `src/ds` (tracks G and H, done 01.10.2026); `src/ui.tsx` keeps only app-data helpers with no `ds` pair
   (`ProjectMark`, `projectTone`, `labelTone`, `directionColor`, `catColor`, `Toasts`, board column classes) — the
   finished map is in COMPONENTS.md. A window that should animate out stays mounted through `Presence`

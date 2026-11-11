@@ -1,8 +1,9 @@
 /** Пользовательские поля проекта (custom_fields/custom_field_values, миграция 020).
  *  Определения — уровень проекта (как workflow_statuses); значения — уровень
  *  задачи, одна строка на (custom_field_id, issue_id), NULL/отсутствие = не задано. */
-import { one, q } from "../db.js";
-import { badRequest } from "../middleware.js";
+import { one, q, withTransaction } from "../db.js";
+import { badRequest, notFound } from "../middleware.js";
+import { conflict } from "./workflow.js";
 import type { CustomFieldDto, CustomFieldType, CustomFieldValueDto } from "../contract.js";
 export type { CustomFieldDto, CustomFieldValueDto };
 
@@ -96,16 +97,38 @@ export function validateValueForField(field: FieldRow, raw: string): string {
   }
 }
 
-/** value=null удаляет строку (поле «не задано»), иначе — upsert. */
-export async function setCustomFieldValue(fieldId: string, issueId: string, value: string | null): Promise<void> {
-  if (value === null) {
-    await q(`DELETE FROM custom_field_values WHERE custom_field_id = $1 AND issue_id = $2`, [fieldId, issueId]);
-    return;
-  }
-  await q(
-    `INSERT INTO custom_field_values (custom_field_id, issue_id, value)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (custom_field_id, issue_id) DO UPDATE SET value = $3, updated_at = now()`,
-    [fieldId, issueId, value],
-  );
+/** value=null удаляет строку (поле «не задано»), иначе — upsert.
+ *  Own compare-and-set (expectedValue against the stored string, never re-validated):
+ *  field values deliberately do not bump issues.updated_at / expectedVersion — see
+ *  ISSUE_VERSION_SQL in issues.ts and docs/REALTIME.md. */
+export async function setCustomFieldValue(
+  fieldId: string, issueId: string, value: string | null, expectedValue?: string | null,
+): Promise<void> {
+  await withTransaction(async client => {
+    // Compare-and-set locks the parent even when the value row is absent: two first
+    // writes must compare against the same baseline before either can insert it.
+    // A blind write needs no issue lock (the upsert is atomic; the FK key-share lock
+    // covers deletion), so it does not serialize against PATCH/transition.
+    const issue = await client.query(
+      `SELECT id FROM issues WHERE id = $1${expectedValue !== undefined ? " FOR UPDATE" : ""}`, [issueId]);
+    if (issue.rows.length === 0) throw notFound("Задача не найдена");
+    if (expectedValue !== undefined) {
+      const current = await client.query<{ value: string | null }>(
+        "SELECT value FROM custom_field_values WHERE custom_field_id = $1 AND issue_id = $2", [fieldId, issueId],
+      );
+      if ((current.rows[0]?.value ?? null) !== expectedValue) {
+        throw conflict("Поле уже изменено другим пользователем. Обновите данные и повторите изменение");
+      }
+    }
+    if (value === null) {
+      await client.query("DELETE FROM custom_field_values WHERE custom_field_id = $1 AND issue_id = $2", [fieldId, issueId]);
+    } else {
+      await client.query(
+        `INSERT INTO custom_field_values (custom_field_id, issue_id, value)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (custom_field_id, issue_id) DO UPDATE SET value = $3, updated_at = now()`,
+        [fieldId, issueId, value],
+      );
+    }
+  });
 }

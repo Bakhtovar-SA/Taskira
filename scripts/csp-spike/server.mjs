@@ -30,8 +30,9 @@ export function productionCsp() {
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css" };
 
-/** extraVendor: { "/vendor/x.mjs": "/abs/path" } — файлы, собранные драйвером (проба React). */
-export function startServer({ port = 0, floatingUiNodeModules = process.env.FLOATING_UI_NODE_MODULES, extraVendor = {} } = {}) {
+/** extraVendor: { "/vendor/x.mjs": "/abs/path" } — файлы, собранные драйвером (проба React).
+ * root — каталог статической страницы (по умолчанию page/ этого спайка; motion-спайк передаёт свой). */
+export function startServer({ port = 0, floatingUiNodeModules = process.env.FLOATING_UI_NODE_MODULES, extraVendor = {}, root = pageDir } = {}) {
   const csp = productionCsp();
   const vendor = {};
   for (const [url, file] of Object.entries(extraVendor)) vendor[url] = () => readFile(file, "utf8");
@@ -60,7 +61,7 @@ export function startServer({ port = 0, floatingUiNodeModules = process.env.FLOA
       }
       const rel = normalize(path === "/" ? "/index.html" : path).replace(/^([/\\])+/, "");
       if (rel.startsWith("..")) throw Object.assign(new Error("forbidden"), { code: "ENOENT" });
-      const body = await readFile(join(pageDir, rel));
+      const body = await readFile(join(root, rel));
       res.writeHead(200, { ...headers, "Content-Type": TYPES[extname(rel)] ?? "application/octet-stream" });
       res.end(body);
     } catch {

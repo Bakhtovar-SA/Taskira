@@ -3,13 +3,13 @@ import type { PoolClient } from "pg";
 import { badRequest, notFound } from "../middleware.js";
 import { assertTransition, conflict } from "./workflow.js";
 import { computeRank, lockRankColumn } from "./rank.js";
-import { logActivity, type IssueRow } from "./issues.js";
+import { assertIssueVersion, assertIssueWriteVersion, ISSUE_VERSION_SQL, logActivity, type IssueRow } from "./issues.js";
 
 /** Lock columns in sorted order BEFORE rows (including rows touched by rebalance).
  * Recheck the source after locking: a concurrent move must never validate an old edge. */
 export async function transitionIssue(
   projectId: string, issueId: string, toStatusId: string, beforeId: string | null,
-  actorId: string, reorder = true, existingClient?: PoolClient,
+  actorId: string, reorder = true, expectedUpdatedAt?: string, expectedVersion?: string, existingClient?: PoolClient,
 ) {
   const run = async (client: PoolClient) => {
     const observed = (await client.query<{ status_id: string }>(
@@ -23,6 +23,8 @@ export async function transitionIssue(
       `SELECT * FROM issues WHERE id = $1 AND project_id = $2 FOR UPDATE`, [issueId, projectId],
     )).rows[0];
     if (!previous) throw notFound("Задача не найдена");
+    assertIssueVersion(previous, expectedUpdatedAt);
+    assertIssueWriteVersion(previous, expectedVersion);
     if (previous.status_id !== observed.status_id) {
       throw conflict("Статус задачи изменился. Обновите задачу и повторите переход");
     }
@@ -45,7 +47,7 @@ export async function transitionIssue(
     if (!changed && !reorder) return { previous, row: previous, changed, from, to: target.name };
     const rank = await computeRank(client, projectId, toStatusId, beforeId, issueId);
     const row = (await client.query<IssueRow>(
-      `UPDATE issues SET status_id = $1, rank = $2, updated_at = now(),
+      `UPDATE issues SET status_id = $1, rank = $2, updated_at = ${ISSUE_VERSION_SQL},
           done_at = CASE WHEN $4 THEN COALESCE(done_at, now()) ELSE NULL END,
           archived_at = CASE WHEN $4 THEN archived_at ELSE NULL END
         WHERE id = $3 RETURNING *`, [toStatusId, rank, issueId, target.category === "done"],

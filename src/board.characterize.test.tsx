@@ -17,8 +17,9 @@ import {
 import { I18nProvider } from "./i18n";
 import { ISSUE_PAGE_SIZE } from "./issuePages";
 import Board from "./components/Board";
-import { flipFrom } from "./motion";
-vi.mock("./motion", () => ({ flipFrom: vi.fn() }));
+import { flipFrom, stopMotion } from "./motion";
+import { flipPending, playBoardFlip, snapshotBoard } from "./boardFlip";
+vi.mock("./motion", async importOriginal => ({ ...(await importOriginal<typeof import("./motion")>()), cssZoom: () => 1, flash: vi.fn(), stopMotion: vi.fn(), flipFrom: vi.fn(() => Promise.resolve()), enter: vi.fn(), preloadMotion: vi.fn(() => Promise.resolve(null)), preloadMotionIdle: vi.fn(() => () => undefined), motionReduced: () => false }));
 // Меню карточки грузится лениво (ds/LazyOverlay): модуль заранее в кэше, иначе холодная загрузка в тесте дольше таймаута.
 import "./ds/Overlay";
 
@@ -122,8 +123,10 @@ const dto = (id: string, over: Partial<ServerIssue> = {}): ServerIssue =>
     complexity: null,
     dueDate: null,
     rank: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    // Как у настоящего сервера: время правки задачи не меняется между запросами списка (иначе «серверная» строка
+    // каждый раз казалась бы новее копии в сторе — см. freshRows).
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
     doneAt: null,
     archivedAt: null,
     ...over,
@@ -241,10 +244,16 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const card = screen.getByRole("article", { name: /A21-a1/ });
     const [source, target] = [...h.ui.container.querySelectorAll<HTMLElement>("section.board-col")];
     const transfer = { getData: () => "a1", setData: vi.fn(), effectAllowed: "move" };
+    // jsdom has no layout: place each card by its column so the FLIP (src/boardFlip.ts) sees the cross-column move.
+    const columns = [...h.ui.container.querySelectorAll("section.board-col")];
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const left = 300 * Math.max(0, columns.indexOf(this.closest("section.board-col")!));
+      return { left, top: 100, right: left + 280, bottom: 180, width: 280, height: 80, x: left, y: 100, toJSON: () => ({}) } as DOMRect;
+    });
     fireEvent.dragStart(card, { dataTransfer: transfer, clientX: 10, clientY: 10 });
     fireEvent.drop(target, { dataTransfer: transfer, clientX: 400, clientY: 100 });
     await settle();
-    expect(transition).toHaveBeenCalledWith("p1", "a1", "s2", null);
+    expect(transition).toHaveBeenCalledWith("p1", "a1", "s2", null, undefined, expect.any(String));
     expect(source.contains(card)).toBe(true);
     refresh = true;
     act(() => finishTransition(dto("a1", { statusId: "s2", rank: 2 })));
@@ -252,7 +261,11 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     const moved = screen.getByRole("article", { name: /A21-a1/ });
     expect(target.contains(moved)).toBe(true);
     expect(within(source).queryByRole("article", { name: /A21-a1/ })).toBeNull();
-    expect(vi.mocked(flipFrom).mock.calls.filter(([el]) => el === moved)).toHaveLength(1);
+    // Spring FLIP (ADR-0035 prototype): the landed card flies in from its old place, once, and nothing in the source moves.
+    // It crosses columns, so a copy flies in a fixed layer above the board (the column body would clip the card).
+    const flights = vi.mocked(flipFrom).mock.calls.filter(([el]) => el.parentElement?.classList.contains("flip-flight"));
+    expect(flights.map(([el, ...rest]) => [el.textContent?.includes("A21-a1"), ...rest])).toEqual([[true, 0, 100, { lift: true, last: { left: 300, top: 100 } }]]);
+    expect(vi.mocked(flipFrom).mock.calls.some(([el]) => el === moved)).toBe(false);
     expect(vi.mocked(flipFrom).mock.calls.some(([el]) => source.contains(el))).toBe(false);
     // Finish the page refresh: it must not duplicate or remount the landed card.
     pendingPages.forEach(resolve => resolve({ items: [dto("x", { statusId: "s2", rank: 99 }), dto("a1", { statusId: "s2", rank: 2 }), dto("y", { statusId: "s2", rank: 1 })], hasMore: false, nextCursor: null }));
@@ -396,7 +409,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("5. карточка показывает название, ключ и исполнителя, скрывает метки; клик по карточке открывает задачу", async () => {
+  test("5. карточка показывает название, ключ и исполнителя, показывает метки; клик по карточке открывает задачу", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
         params.status === "s1"
@@ -409,10 +422,9 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     });
     const card = screen.getByRole("article", { name: /A21-k1: Починить биллинг/ });
     expect(within(card).getByText("Починить биллинг")).toBeTruthy();
-    expect(within(card).queryByText("billing")).toBeNull();
-    // исполнитель — доступное имя через title на аватаре (initials видимый текст "БП")
-    expect(within(card).getByRole("img", { name: "Борис Петров" })).toBeTruthy();
-    expect(within(card).getByText("БП")).toBeTruthy();
+    expect(within(card).getByText("billing")).toBeTruthy();
+    // Исполнитель остаётся доступен по имени, а вместо инициалов показан портрет.
+    expect(within(card).getByRole("img", { name: "Борис Петров" }).querySelector(".ds-av-portrait")).toBeTruthy();
 
     expect(h.store().ui.selectedIssueId).toBeNull();
     fireEvent.click(card);
@@ -441,7 +453,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
 
     fireEvent.click(items[0]);
     await settle();
-    expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null);
+    expect(transition).toHaveBeenCalledWith("p1", "m1", "s2", null, undefined, expect.any(String));
     expect(h.store().ui.selectedIssueId).toBeNull(); // клик по пункту не всплыл до карточки
 
     // M и с фокусом на самой кнопке меню; Enter на кнопке не открывает задачу.
@@ -479,6 +491,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
+  test("5c. метки и повторение на карточке: две метки и «+N»; повтор без срока — расписанием, со сроком — значком", async () => {
+    const weekly = { schedule: { kind: "weekly" as const, every: 1, weekdays: [1] }, timeOfDay: "09:00", paused: false };
+    const h = await setup({
+      pageImpl: async (_p, params) =>
+        params.status === "s1"
+          ? {
+              items: [
+                dto("l1", { statusId: "s1", labels: ["billing", "urgent", "infra"], repeat: weekly }),
+                dto("l2", { statusId: "s1", dueDate: "2099-01-01", repeat: { ...weekly, paused: true } }),
+                dto("l3", { statusId: "s1" }),
+              ],
+              hasMore: false,
+              nextCursor: null,
+            }
+          : { items: [], hasMore: false, nextCursor: null },
+    });
+    const first = screen.getByRole("article", { name: /A21-l1/ });
+    expect(within(first).getByText("billing")).toBeTruthy();
+    expect(within(first).getByText("urgent")).toBeTruthy();
+    expect(within(first).queryByText("infra")).toBeNull();
+    expect(within(first).getByText("+1")).toBeTruthy();
+    const solo = within(first).getByText(/Повторяется:/).parentElement!;
+    expect(solo.textContent).toMatch(/Повторяется: .+/); // расписание текстом, срока нет; префикс — для скринридера
+    const dated = within(screen.getByRole("article", { name: /A21-l2/ })).getByLabelText(/^Повторяется: .*повтор приостановлен$/);
+    expect(dated.textContent).toBe(""); // со сроком — только значок
+    const plain = screen.getByRole("article", { name: /A21-l3/ });
+    expect(within(plain).queryByLabelText(/Повторяется/)).toBeNull();
+    fireEvent.click(first);
+    await settle();
+    expect(within(screen.getByRole("article", { name: /A21-l1/ })).getByText(/Повторяется:/)).toBeTruthy();
+    expect(within(screen.getByRole("article", { name: /A21-l2/ })).getByLabelText(/^Повторяется: .*повтор приостановлен$/)).toBeTruthy();
+    h.ui.unmount();
+  });
+
   test("6. просроченная открытая задача помечена доступным сигналом (title на пилюле срока)", async () => {
     const h = await setup({
       pageImpl: async (_p, params) =>
@@ -513,20 +559,40 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     h.ui.unmount();
   });
 
-  test("8b. «Ранее закрыто» снимает окно и перечитывает колонку «Готово» без closed-фильтра", async () => {
+  test("8b. «Ранее закрыто» загружает отдельное older-окно, сохраняя недавние карточки и кнопку фокуса", async () => {
     const h = await setup({
-      pageImpl: async (_p, params) => ({ items: params.status === "s3" ? [dto("done1", { statusId: "s3" })] : [], hasMore: false, nextCursor: null }),
-      countsImpl: async (_p, params) => (params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> }),
+      pageImpl: async (_p, params) => ({
+        items:
+          params.status !== "s3"
+            ? []
+            : params.closed === "older"
+              ? Array.from({ length: 5 }, (_, i) => dto("doneOld" + i, { statusId: "s3", doneAt: "2026-09-01T12:00:00Z" }))
+              : [dto("done1", { statusId: "s3" })],
+        hasMore: false,
+        nextCursor: null,
+      }),
+      countsImpl: async (_p, params) =>
+        params.closed === "older" ? { total: 5, byStatus: { s3: 5 } as Record<string, number> } : { total: 10, byStatus: { s1: 0, s2: 0, s3: 6 } as Record<string, number> },
     });
+    const recent = screen.getByRole("article", { name: /A21-done1/ });
+    const toggle = screen.getByRole("button", { name: "Ранее закрыто: 5" });
+    toggle.focus();
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByText("Ранее закрыто: 5"));
+    fireEvent.click(toggle);
     await settle();
-    const s3Calls = h.pageCalls.filter((c) => c.status === "s3");
-    expect(s3Calls.length).toBeGreaterThan(0);
-    expect(s3Calls[s3Calls.length - 1].closed).toBeUndefined();
-    expect(s3Calls[s3Calls.length - 1].closedDays).toBeUndefined();
-    // теперь предложено свернуть обратно к окну в 14 дней
-    expect(screen.getByText("Свернуть до последних 14 дней")).toBeTruthy();
+    const calls = h.pageCalls.filter((c) => c.status === "s3");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ closed: "older", closedDays: 14 });
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(screen.getAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Свернуть до последних 14 дней" })).toBe(toggle);
+    expect(document.activeElement).toBe(toggle);
+    fireEvent.click(toggle);
+    await settle();
+    expect(screen.queryAllByRole("article", { name: /A21-doneOld/ })).toHaveLength(0);
+    expect(screen.getByRole("article", { name: /A21-done1/ })).toBe(recent);
+    expect(document.activeElement).toBe(toggle);
+    expect(h.pageCalls.filter((c) => c.status === "s3")).toHaveLength(1);
     h.ui.unmount();
   });
 
@@ -569,4 +635,27 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
     expect(screen.getByRole("article", { name: /A21-a1/ }).getAttribute("draggable")).toBe("true");
     h.ui.unmount();
   });
+});
+
+
+test("B-05: Board unmount cancels its pending flight and releases its scroll listener", async () => {
+  const h = await setup({ pageImpl: async (_p, params) => ({ items: params.status === "s1" ? [dto("unmount")] : [], hasMore: false, nextCursor: null }) });
+  const root = h.ui.container.querySelector<HTMLElement>(".board-view")!;
+  const card = root.querySelector<HTMLElement>('article[data-issue-id="unmount"]')!;
+  let top = 0;
+  vi.spyOn(card, "getBoundingClientRect").mockImplementation(() => ({ left: 0, top, width: 280, height: 80 }) as DOMRect);
+  const add = vi.spyOn(document, "addEventListener");
+  snapshotBoard(root, "unmount");
+  const scrollListener = add.mock.calls.find(call => call[0] === "scroll")![1];
+  vi.mocked(flipFrom).mockImplementationOnce(() => new Promise<void>(() => undefined));
+  top = 100;
+  playBoardFlip();
+  const clone = document.querySelector<HTMLElement>(".flip-flight > article")!;
+  expect(clone).toBeTruthy();
+  const remove = vi.spyOn(document, "removeEventListener");
+  h.ui.unmount();
+  expect(document.querySelector(".flip-flight")).toBeNull();
+  expect(stopMotion).toHaveBeenCalledWith(clone);
+  expect(remove).toHaveBeenCalledWith("scroll", scrollListener, true);
+  expect(flipPending("unmount")).toBe(false);
 });

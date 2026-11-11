@@ -53,7 +53,7 @@ rm -rf -- "$TRIVY_FIX"
 bash scripts/check-trivy-ignore.sh >/dev/null
 
 scripts/render-compose.sh source | cmp - docker-compose.yml
-scripts/render-compose.sh release 9.8.7-test | grep -F "localhost:8080/api/health" >/dev/null
+scripts/render-compose.sh release 9.8.7-test | grep -F '"http://127.0.0.1:8080/api/health"' >/dev/null
 # Podman maps localhost to ::1 first; nginx in the client image listens on IPv4 only.
 scripts/render-compose.sh release 9.8.7-test | grep -F '"http://127.0.0.1/healthz"' >/dev/null
 

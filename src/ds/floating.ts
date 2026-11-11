@@ -22,7 +22,7 @@ export function useAnchored(
       const scale = Number(getComputedStyle(document.documentElement).zoom) || 1;
       // A popover inside a zoomed subtree (`.list-view { zoom: .9 }` on desktop) inherits that zoom too: its left/top and
       // sizes are multiplied by it. `k` converts root-zoom CSS px (what floating-ui returns below) into the popover's own
-      // px. currentCSSZoom: Chrome 128 / Firefox 126 / Safari 18.2; without it k = 1 (root zoom only, as before).
+      // px. currentCSSZoom: Chrome 128 / Firefox 126 / Safari 26.4 per MDN BCD, see docs/design/BROWSERS.md; without it k = 1 (root zoom only, as before).
       const own = (f as HTMLElement & { currentCSSZoom?: number }).currentCSSZoom;
       const k = own ? own / scale : 1;
       // A loading placeholder must not permanently constrain the loaded panel to its original side.
@@ -59,21 +59,7 @@ export function useAnchored(
   }, [anchor, floating, open, placement, gap, matchWidth, fitContent, anchorElement]);
 }
 
-/** showPopover/hidePopover бросают, если состояние уже такое; в jsdom их нет вовсе. */
-export const showPop = (el: HTMLElement | null) => {
-  try {
-    if (el && !el.matches(":popover-open")) el.showPopover?.();
-  } catch {
-    /* уже открыт или API нет (jsdom) */
-  }
-};
-export const hidePop = (el: HTMLElement | null) => {
-  try {
-    if (el?.matches(":popover-open")) el.hidePopover?.();
-  } catch {
-    /* уже закрыт или API нет */
-  }
-};
+export { hidePop, showPop } from "./pop";
 
 /** Стабильный id для связок aria-* (useId в React 19 даёт «:r1:», это валидно, но в селекторах неудобно). */
 export { dsId } from "./ids";

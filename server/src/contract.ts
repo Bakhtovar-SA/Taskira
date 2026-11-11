@@ -24,6 +24,7 @@
  */
 import { z } from "zod";
 import { passwordPolicyError, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from "./passwordPolicy.js";
+import { uuid } from "./idSchema.js";
 
 /* ---------------- лимиты (зеркало клиента) ---------------- */
 export const LIMITS = {
@@ -100,7 +101,6 @@ export type PriorityId = (typeof PRIORITIES)[number];
 export type ComplexityId = (typeof COMPLEXITIES)[number];
 export const STATUS_CATEGORIES = ["todo", "inprogress", "done"] as const;
 
-const uuid = z.string().uuid("Ожидается UUID");
 /** Дата без времени, ГГГГ-ММ-ДД (для due_date и фильтров dueFrom/dueTo) */
 const isoDate = (msg = "Ожидается дата в формате ГГГГ-ММ-ДД") => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, msg);
 
@@ -361,9 +361,10 @@ export const RecurrenceSchedule = z.discriminatedUnion("kind", [
 ]);
 export type RecurrenceSchedule = z.infer<typeof RecurrenceSchedule>;
 
+const recurrenceTimeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 const recurringTiming = {
   schedule: RecurrenceSchedule,
-  timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+  timeOfDay: recurrenceTimeOfDay,
   timeZone: oneLine(100, 1),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 };
@@ -441,6 +442,9 @@ export const IssueCreateBody = z.object({
 
 export const IssuePatchBody = z
   .object({
+    expectedUpdatedAt: z.string().datetime({ offset: true }),
+    /** Normal optimistic write guard; expectedUpdatedAt remains specific to Undo. */
+    expectedVersion: z.string().datetime({ offset: true }),
     title: oneLine(LIMITS.title.max, LIMITS.title.min),
     description: multiLine(LIMITS.description.max),
     priorityId: z.enum(PRIORITIES),
@@ -455,10 +459,12 @@ export const IssuePatchBody = z
     color: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
   })
   .partial()
-  .refine((v) => Object.keys(v).length > 0, "Пустой патч");
+  .refine((v) => Object.keys(v).some(key => key !== "expectedUpdatedAt" && key !== "expectedVersion"), "Пустой патч");
 
 /** Смена статуса: сервер сверяет переход с workflow_transitions и право transition. */
 export const TransitionBody = z.object({
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
+  expectedVersion: z.string().datetime({ offset: true }).optional(),
   to: uuid,
   beforeId: uuid.nullable().optional(),
 });
@@ -483,13 +489,26 @@ export const BulkIssueAction = z.discriminatedUnion("action", [
 ]);
 export type BulkIssueAction = z.infer<typeof BulkIssueAction>;
 
+/** Отмена (трек O D-07): прежние значения, прочитанные под блокировкой строки; updatedAt — версия, созданная самой правкой. */
+export const IssueUndoDto = z.object({
+  issueId: z.string(),
+  statusId: z.string().optional(),
+  labels: z.array(z.string()).optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  updatedAt: z.string().datetime({ offset: true }),
+});
+export type IssueUndoDto = z.infer<typeof IssueUndoDto>;
+
 /** Частичный успех — «Изменено 8 из 10, 2 пропущено» (ТЗ 3.3). `reason` —
  *  человекочитаемая причина отказа по КОНКРЕТНОЙ задаче (нет прав, не найдена,
  *  недопустимый переход по workflow) — тот же принцип, что denialReason()
  *  (permissions.ts), не общий "forbidden". */
 export const BulkIssueResultDto = z.object({
+  undo: z.array(IssueUndoDto).optional(),
   succeeded: z.array(z.string()),
-  failed: z.array(z.object({ issueId: z.string(), reason: z.string() })),
+  /** `code` — машинный код причины (FORBIDDEN, NOT_FOUND, CONFLICT — переход запрещён схемой…): клиент по нему
+   *  объясняет пропуск на языке интерфейса; `reason` — русский текст сервера. */
+  failed: z.array(z.object({ issueId: z.string(), reason: z.string(), code: z.string().optional() })),
 });
 export type BulkIssueResultDto = z.infer<typeof BulkIssueResultDto>;
 
@@ -592,6 +611,7 @@ export const CustomFieldParams = z.object({ fieldId: uuid });
 /** PUT .../issues/:id/custom-fields/:fieldId — value=null очищает поле. */
 export const CustomFieldValueBody = z.object({
   value: z.string().max(500).nullable(),
+  expectedValue: z.string().max(500).nullable().optional(),
 });
 
 /* ---------------- Notifications (миграция 011) ---------------- */
@@ -843,7 +863,22 @@ export const ReportExportQuery = ReportQuery.omit({ groupBy: true }).extend({
 /* ---------------- Ошибки и WebSocket ---------------- */
 export type ApiError = { error: { code: string; reason: string } };
 
+export type RealtimeSyncMessage = {
+  type: "sync";
+  projectId: string;
+  /** Decimal Postgres bigint; never convert to a JavaScript number. */
+  cursor: string;
+  issueIds: string[];
+  /** Full project refresh required (initial connection, metadata change, or expired history). */
+  reset: boolean;
+  ts: number;
+};
+
 export type WsMessage =
+  | RealtimeSyncMessage
+  | { type: "sync:denied"; projectId: string; ts: number }
+  | { type: "sync:error"; projectId: string; ts: number }
+  | { type: "heartbeat"; ts: number }
   | { type: "issue:upsert"; actorId: string; issue: unknown; ts: number }
   | { type: "issue:delete"; actorId: string; issueId: string; ts: number }
   | { type: "workflow:changed"; actorId: string; ts: number }
@@ -858,10 +893,11 @@ export type WsMessage =
    *  говорит о том, принял ли сервер токен. */
   | { type: "auth_ok"; ts: number };
 
-/** Клиент → сервер, единственное ожидаемое сообщение (routes/ws.ts): токен
- *  первым сообщением после открытия — браузерный WebSocket не умеет слать
- *  свои заголовки, поэтому Authorization для хендшейка не годится. */
+/** Legacy token handshake; browsers authenticate using their HttpOnly cookie. */
 export type WsAuthMessage = { type: "auth"; token: string };
+/** One active project per socket; sending another subscription replaces it. */
+export type WsSyncSubscribeMessage = { type: "sync:subscribe"; projectId: string; cursor: string | null };
+export type WsClientMessage = WsAuthMessage | WsSyncSubscribeMessage;
 
 /* ---------------- Ответы API: типы выводятся из схем (ТЗ 2.1) ----------------
  * Это ЕДИНСТВЕННОЕ описание формы ответов: сервер аннотирует ими возвращаемые значения мапперов
@@ -964,14 +1000,14 @@ export const ActivityEvent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("priority"), from: z.enum(PRIORITIES), to: z.enum(PRIORITIES), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("complexity"), from: z.enum(COMPLEXITIES).nullable(), to: z.enum(COMPLEXITIES).nullable() }),
   z.object({ kind: z.literal("due"), from: z.string().nullable(), to: z.string().nullable() }),
-  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: z.string().uuid().optional() }),
-  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: z.string().uuid().optional() }),
+  z.object({ kind: z.literal("assigneeAdded"), name: z.string(), userId: uuid.optional() }),
+  z.object({ kind: z.literal("assigneeRemoved"), name: z.string(), userId: uuid.optional() }),
   /** Массовая операция: назначен один человек на всю выборку или исполнители сняты. */
-  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: z.string().uuid().nullable().optional() }),
+  z.object({ kind: z.literal("assigneeBulk"), cleared: z.boolean(), userId: uuid.nullable().optional() }),
   z.object({ kind: z.literal("direction") }),
   z.object({ kind: z.literal("parent"), set: z.boolean() }),
   z.object({ kind: z.literal("labels") }),
-  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: z.string().uuid().optional(), toId: z.string().uuid().optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
+  z.object({ kind: z.literal("status"), from: z.string(), to: z.string(), fromId: uuid.optional(), toId: uuid.optional(), fromSid: z.string().optional(), toSid: z.string().optional(), bulk: z.boolean().optional() }),
   z.object({ kind: z.literal("checklistAdded"), text: z.string() }),
   z.object({ kind: z.literal("checklistRemoved") }),
   z.object({ kind: z.literal("link"), type: z.enum(["blocks", "blocked_by", "relates"]), key: z.string() }),
@@ -989,6 +1025,9 @@ export const ActivityDto = z.object({
 });
 export type ActivityDto = z.infer<typeof ActivityDto>;
 
+/** Повторение задачи для карточки/строки списка: расписание правила и признак паузы (без остальных полей правила). */
+export const IssueRepeatDto = z.object({ schedule: RecurrenceSchedule, timeOfDay: recurrenceTimeOfDay, paused: z.boolean() });
+export type IssueRepeatDto = z.infer<typeof IssueRepeatDto>;
 export const IssueDto = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -1023,8 +1062,13 @@ export const IssueDto = z.object({
   /** Подзадачи total/done (включая архив). В списке `GET …/issues` — у каждой строки (карточка доски показывает
    *  «2/5»); в ответах на правку может отсутствовать — клиент тогда держит прежнее значение. */
   subtasksSummary: SubtasksSummaryDto.optional(),
+  /** Повторение (только в списке `GET …/issues`): правило проекта, по которому задача создана или которое она задаёт.
+   *  null/нет — не повторяется. Нужен карточке и строке списка, когда у задачи нет срока. */
+  repeat: IssueRepeatDto.nullable().optional(),
 });
 export type IssueDto = z.infer<typeof IssueDto>;
+export const IssueMutationResultDto = IssueDto.extend({ undo: IssueUndoDto.optional() });
+export type IssueMutationResultDto = z.infer<typeof IssueMutationResultDto>;
 
 /** Карточка задачи: DTO + участники/вложения/связи/чеклист — только в детальном ответе GET /:id, не в списке. */
 export const IssueDetailDto = IssueDto.extend({
@@ -1204,7 +1248,7 @@ export const NotificationDto = z.object({
   actor: ActorMini.nullable(),
   projectId: z.string().nullable(),
   issueId: z.string().nullable(),
-  payload: z.record(z.union([z.string(), z.boolean()]).optional()),
+  payload: z.record(z.string(), z.union([z.string(), z.boolean()]).optional()),
   createdAt: z.string(),
   read: z.boolean(),
 });
@@ -1230,6 +1274,11 @@ export const PickableUserDto = z.object({
 });
 export type PickableUserDto = z.infer<typeof PickableUserDto>;
 export const PickableUsersQuery = z.object({ q: z.string().optional(), includeService: z.literal("1").optional() });
+
+/** Issue-scoped mention picker; usernames are needed to insert a server-recognized @login. */
+export const MentionCandidateDto = PickableUserDto.extend({ username: z.string() });
+export type MentionCandidateDto = z.infer<typeof MentionCandidateDto>;
+export const MentionCandidatesQuery = z.object({ q: z.string().trim().max(80).optional() });
 
 /** Элемент «Моих подключений» (GET /api/issues/collaborating). */
 export const CollaboratingItemDto = z.object({
@@ -1299,7 +1348,7 @@ export const IssueResolveDto = z.object({
 export type IssueResolveDto = z.infer<typeof IssueResolveDto>;
 
 /** GET …/issues/counts: число активных задач набора и разбивка по статусам. */
-export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.number()) });
+export const IssueCountsDto = z.object({ total: z.number(), byStatus: z.record(z.string(), z.number()) });
 export type IssueCountsDto = z.infer<typeof IssueCountsDto>;
 
 /** GET …/issues/assignees: исполнители проекта (для фильтра доски), по убыванию числа задач. */

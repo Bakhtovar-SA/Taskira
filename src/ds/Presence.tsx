@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { motionReduced } from "../motion";
 
-/** Страховка Dialog: сколько ждать animationend при закрытии (уход — --dur-2, 200 мс). Живёт здесь, а не в Dialog.tsx,
+/** Страховка Dialog: сколько ждать animationend при закрытии (уход — --dur-2, 150 мс; страховка 300 мс). Живёт здесь, а не в Dialog.tsx,
  *  чтобы App.tsx во входном чанке не тянул Dialog ради одной константы. */
 export const DIALOG_EXIT_MS = 300;
 
@@ -21,7 +22,7 @@ export function Presence({ show, children }: { show: boolean; children: (open: b
   }
   useEffect(() => {
     if (show || !mounted) return;
-    const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = motionReduced(); // системный reduce и личный выключатель (нет matchMedia — тоже «уменьшено»)
     if (reduce || typeof Element.prototype.getAnimations !== "function") {
       setMounted(false);
       return;

@@ -1,10 +1,12 @@
 /** Доменные хелперы задач: DTO-маппинг, загрузка, атомарная нумерация, activity. */
+import { conflict } from "./workflow.js";
+import { ApiHttpError } from "../errors.js";
 import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, forbidden, notFound } from "../middleware.js";
 import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
-import { listAttachments, type AttachmentDto } from "./attachments.js";
+import { deleteStorageObjects, listAttachments, storageKeysForIssue, type AttachmentDto } from "./attachments.js";
 import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
 import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
 import { listValuesForIssue, type CustomFieldValueDto } from "./customFields.js";
@@ -141,6 +143,39 @@ export function assertSelfAssignment(actorId: string, before: string[], after: s
   }
 }
 
+/** Millisecond DTO tokens must change even for multiple writes in one PostgreSQL transaction.
+ *  Все записи issues.updated_at идут через этот хелпер (PATCH, transition, bulk priority, setAssignees, смена спринта).
+ *  Комментарии, связи, чек-лист и пользовательские поля issues.updated_at не трогают (у них свои таблицы).
+ *  Версию НЕ меняют: архивирование (maintenance.ts — отмену отсекает проверка archived_at в assertIssueVersion),
+ *  перебалансировка rank (rank.ts) и возврат в бэклог при завершении спринта (sprints.ts) — отмена не
+ *  восстанавливает ни rank, ни спринт, поэтому эти записи с ней не конфликтуют. */
+export const ISSUE_VERSION_SQL = "GREATEST(clock_timestamp(), date_trunc('milliseconds', updated_at) + interval '1 millisecond')";
+export function assertIssueVersion(row: Pick<IssueRow, "updated_at" | "archived_at">, expectedUpdatedAt?: string): void {
+  // Archive maintenance does not bump updated_at; conditional Undo must never revive an archived row.
+  if (expectedUpdatedAt !== undefined && row.archived_at !== null) throw conflict("Задача в архиве. Отмена недоступна");
+  if (expectedUpdatedAt !== undefined && new Date(row.updated_at).getTime() !== new Date(expectedUpdatedAt).getTime()) {
+    throw conflict("Задача уже изменена. Обновите её перед отменой");
+  }
+}
+
+/** Compare under the issue row lock: a stale editor must not overwrite another author.
+ *  Millisecond comparison is exact here: every versioned write goes through ISSUE_VERSION_SQL
+ *  under this lock, which moves the token to at least truncated(previous) + 1 ms, so two
+ *  writes never share a millisecond token. Archival is not a content edit: an unguarded PATCH
+ *  of an archived issue is allowed, so the guarded one must not turn it into an unresolvable
+ *  STALE_VERSION (only conditional Undo refuses archived rows, in assertIssueVersion). */
+export function assertIssueWriteVersion(row: Pick<IssueRow, "updated_at">, expectedVersion?: string): void {
+  if (expectedVersion !== undefined && new Date(row.updated_at).getTime() !== new Date(expectedVersion).getTime()) {
+    throw new ApiHttpError(409, "STALE_VERSION", "Задача уже изменена другим пользователем. Обновите данные и повторите изменение");
+  }
+}
+export async function loadIssueForUpdate(client: PoolClient, projectId: string, issueId: string, expectedUpdatedAt?: string): Promise<IssueRow> {
+  const row = (await client.query<IssueRow>("SELECT * FROM issues WHERE id = $1 AND project_id = $2 FOR UPDATE", [issueId, projectId])).rows[0];
+  if (!row) throw notFound("Задача не найдена или удалена");
+  assertIssueVersion(row, expectedUpdatedAt);
+  return row;
+}
+
 /** Полная замена списка исполнителей под блокировкой строки задачи. */
 export async function setAssignees(
   issueId: string,
@@ -148,16 +183,15 @@ export async function setAssignees(
   addedBy: string,
   existingClient?: PoolClient,
   selfOnly = false,
-): Promise<void> {
+): Promise<Date | undefined> {
   const replace = async (client: PoolClient) => {
     // Лок строки задачи сериализует две конкурентные полные замены списка.
     await client.query(`SELECT id FROM issues WHERE id = $1 FOR UPDATE`, [issueId]);
-    if (selfOnly) {
-      const before = (await client.query<{ user_id: string }>(`SELECT user_id FROM issue_assignees WHERE issue_id = $1`, [issueId])).rows;
-      assertSelfAssignment(addedBy, before.map(row => row.user_id), userIds);
-    }
-    await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
+    const before = (await client.query<{ user_id: string }>("SELECT user_id FROM issue_assignees WHERE issue_id = $1", [issueId])).rows.map(row => row.user_id);
     const unique = [...new Set(userIds)];
+    if (selfOnly) assertSelfAssignment(addedBy, before, unique);
+    if (before.length === unique.length && before.every(id => unique.includes(id))) return;
+    await client.query(`DELETE FROM issue_assignees WHERE issue_id = $1`, [issueId]);
     if (unique.length > 0) {
       await client.query(
         `INSERT INTO issue_assignees (issue_id, user_id, added_by)
@@ -166,9 +200,10 @@ export async function setAssignees(
         [issueId, unique, addedBy],
       );
     }
+    return (await client.query<{ updated_at: Date }>(`UPDATE issues SET updated_at = ${ISSUE_VERSION_SQL} WHERE id = $1 RETURNING updated_at`, [issueId])).rows[0].updated_at;
   };
   if (existingClient) return replace(existingClient);
-  await withTransaction(replace);
+  return withTransaction(replace);
 }
 
 /** Скрывает sprintId в ответе, если у проекта выключен модуль спринтов —
@@ -427,3 +462,25 @@ export async function listActivity(issueId: string, limit = 100): Promise<Activi
 
 /** Запись в историю задачи — теперь событием (services/activity.ts); реэкспорт для прежних импортов. */
 export { logActivity } from "./activity.js";
+
+/** Задача проекта по id: null, если её нет или она в другом проекте (чужую не раскрываем). */
+export async function findIssueInProject(projectId: string, id: string): Promise<{ id: string; key: string } | null> {
+  return one<{ id: string; key: string }>(`SELECT id, key FROM issues WHERE id = $1 AND project_id = $2`, [id, projectId]);
+}
+
+/** Удаляет задачу и её файлы в хранилище. */
+export async function deleteIssue(issueId: string): Promise<void> {
+  // Ключи вложений собираем ДО удаления — каскад FK снесёт строки, но не файлы.
+  const attachKeys = await storageKeysForIssue(issueId);
+  // Каскады: комментарии/activity/watchers/attachments; epic_id дочерних обнулится FK
+  await q(`DELETE FROM issues WHERE id = $1`, [issueId]);
+  await deleteStorageObjects(attachKeys); // best-effort уборка хранилища (FILES_MIGRATION.md §5)
+}
+
+/** Подписывает или отписывает пользователя; возвращает число подписчиков задачи. */
+export async function setWatching(issueId: string, userId: string, watching: boolean): Promise<number> {
+  if (watching) await q(`INSERT INTO issue_watchers (issue_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [issueId, userId]);
+  else await q(`DELETE FROM issue_watchers WHERE issue_id = $1 AND user_id = $2`, [issueId, userId]);
+  const n = (await one<{ n: string }>(`SELECT count(*)::text AS n FROM issue_watchers WHERE issue_id = $1`, [issueId]))!;
+  return Number(n.n);
+}

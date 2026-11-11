@@ -18,7 +18,7 @@ test("board refresh: card hierarchy, due states and closed critical priority", a
   await expect(unassigned.locator("svg > g > circle[stroke-dasharray]")).toHaveCount(1);
   await expect(card.locator(":scope > :first-child h3")).toHaveText("Единая авторизация для корпоративных сервисов");
   await expect(card.locator(".board-card-direction")).toHaveText("Корпоративная платформа");
-  await expect(page.locator(".board-card").getByText("internal-label")).toHaveCount(0);
+  await expect(page.locator(".board-card").getByText("internal-label").first()).toBeVisible();
   await expect(card.locator(".board-card-due")).toHaveAttribute("data-urgency", "late");
   for (const [id, urgency] of [["i2", "soon"], ["i3", "later"], ["i8", "done"]]) {
     await expect(page.locator(`[data-issue-id="${id}"] .board-card-due`)).toHaveAttribute("data-urgency", urgency);
@@ -104,6 +104,18 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   await page.goto("/p/CORP/board");
   const avatars = page.locator(".board-member-filter");
   await expect(avatars).toHaveCount(4);
+  await expect(avatars.first().locator(".ds-av-portrait")).toHaveCount(1);
+  const colours = await avatars.evaluateAll(buttons => buttons.map(button =>
+    getComputedStyle(button.querySelector<HTMLElement>(".ds-av-colleague")!).color));
+  expect(new Set(colours).size).toBeGreaterThan(2);
+  const accents = await avatars.evaluateAll(buttons => buttons.map(button =>
+    getComputedStyle(button.querySelector<SVGElement>(".portrait-shoulders")!).fill));
+  expect(new Set(accents).size).toBeGreaterThan(2);
+  const revealedName = avatars.first().locator(".board-member-name");
+  await expect(revealedName).toHaveText(users[0].name);
+  await expect(revealedName).toHaveCSS("opacity", "0");
+  await avatars.first().hover();
+  await expect(revealedName).toHaveCSS("opacity", "1");
   const before = await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")));
   const more = page.locator(".board-member-more");
   await expect(more).not.toHaveAttribute("data-active", "true");
@@ -115,10 +127,56 @@ test("assignee overflow preserves avatar order and marks the active filter", asy
   await expect(more).toHaveAttribute("aria-label", /Исполнитель 5/);
   expect(await avatars.evaluateAll(buttons => buttons.map(button => button.getAttribute("aria-label")))).toEqual(before);
   await more.click();
-  await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg")).toHaveCount(1);
+  await expect(page.getByRole("menuitem", { name: "Исполнитель 5" }).locator("svg.tk-ic")).toHaveCount(1);
   await page.getByRole("menuitem", { name: "Исполнитель 5" }).click();
   await expect(page).not.toHaveURL(/assignee=/);
   await expect(more).not.toHaveAttribute("data-active", "true");
+});
+
+test("assignee hover name stays inside a narrow desktop viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await boardFixture(page);
+  await page.goto("/p/CORP/board");
+  const avatars = page.locator(".board-member-filter");
+  await expect(avatars).toHaveCount(2);
+  for (const avatar of await avatars.all()) {
+    await avatar.hover();
+    const name = avatar.locator(".board-member-name");
+    await expect(name).toHaveCSS("opacity", "1");
+    const box = await name.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(-1);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(321);
+  }
+});
+
+test.describe("touch assignee filter", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test("shows names in a picker without hover", async ({ page }) => {
+    const { users } = await boardFixture(page);
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-member-list")).toHaveCount(0);
+    const picker = page.locator(".board-member-touch-trigger");
+    await expect(picker).toBeVisible();
+    await picker.click();
+    await page.getByRole("menuitem", { name: users[0].name }).click();
+    await expect(page).toHaveURL(/assignee=u1/);
+    await expect(picker).toContainText(users[0].name);
+  });
+});
+
+test.describe("hybrid assignee filter", () => {
+  test.use({ hasTouch: true, viewport: { width: 1200, height: 900 } });
+
+  test("uses one named picker on a touch laptop", async ({ page }) => {
+    await boardFixture(page);
+    await page.goto("/p/CORP/board");
+    await expect(page.locator(".board-member-list")).toHaveCount(0);
+    await expect(page.locator(".board-member-touch-trigger")).toBeVisible();
+    await expect(page.getByRole("group", { name: "Исполнитель" })).toHaveCount(1);
+  });
 });
 
 for (const width of [390, 320]) test(`board refresh: mobile targets and no overflow at ${width}`, async ({ page }) => {
@@ -127,8 +185,16 @@ for (const width of [390, 320]) test(`board refresh: mobile targets and no overf
   await page.goto("/p/CORP/board");
   await expect(page.locator(".board-card")).toHaveCount(8);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  for (const button of await page.locator(".workspace-controls button").all()) expect(Number((await button.boundingBox())!.height.toFixed(2))).toBeGreaterThanOrEqual(44);
+  for (const button of await page.locator(".workspace-controls button:visible").all()) expect(Number((await button.boundingBox())!.height.toFixed(2))).toBeGreaterThanOrEqual(44);
   await expect(page.locator(".board-col").last()).toBeVisible();
+});
+
+test("подсказка о переносе касанием скрыта на устройстве с наведением", async ({ page }) => {
+  await boardFixture(page);
+  await page.goto("/p/CORP/board");
+  await expect(page.locator(".board-card")).toHaveCount(8);
+  await expect(page.locator(".board-move-touch-hint")).toHaveCount(1);
+  await expect(page.locator(".board-move-touch-hint")).toBeHidden();
 });
 
 test.describe("touch board guidance", () => {

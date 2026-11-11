@@ -1,0 +1,30 @@
+{
+  "baseCommit": "25bbfb56037cf4d86f6cc660d4391f8055edc0e1",
+  "node": "v22.23.2",
+  "platform": "win32",
+  "baseline": {
+    "current": {
+      "js": 403280,
+      "css": 39554,
+      "entry": 101073,
+      "total": 442834
+    },
+    "initialJs": 203732
+  },
+  "feature": {
+    "current": {
+      "js": 408922,
+      "css": 39735,
+      "entry": 101179,
+      "total": 448657
+    },
+    "initialJs": 206520
+  },
+  "delta": {
+    "js": 5642,
+    "css": 181,
+    "entry": 106,
+    "total": 5823
+  },
+  "initialDelta": 2788
+}

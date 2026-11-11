@@ -72,6 +72,7 @@ const API_KEYS = [
   "setCreateOpen",
   "setCustomFieldValue",
   "setDepartmentLdapGroup",
+  "setIssueRepeat",
   "setIssueSprint",
   "setMemberRole",
   "setNotifyPrefs",

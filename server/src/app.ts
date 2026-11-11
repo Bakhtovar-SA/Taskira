@@ -1,4 +1,5 @@
 import { workspaceGlobalRoutes, workspaceRoutes } from "./routes/workspace.js";
+import { configureDocumentWebSocket } from "./services/workspaceWebSocket.js";
 import { createCollaboration } from "./services/workspaceCollaboration.js";
 /** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
@@ -40,6 +41,7 @@ import { reportRoutes } from "./routes/reports.js";
 import { auditExportRoutes } from "./routes/auditExport.js";
 import { dataExportRoutes } from "./routes/dataExport.js";
 import { wsRoutes } from "./routes/ws.js";
+import { realtimeRoutes } from "./routes/realtime.js";
 import { ZodError } from "zod";
 import { formatZod } from "./middleware.js";
 import { requestToken } from "./sessionCookie.js";
@@ -150,7 +152,8 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
     exposedHeaders: ["X-Request-Id"],
     credentials: true,
   });
-  app.register(websocket, { options: { maxPayload: 1024 * 1024 } });
+  app.register(websocket, { options: { maxPayload: 8192 } });
+  app.after(async () => configureDocumentWebSocket(app));
   // Вложения к задачам: потоковый multipart, один файл за запрос, лимит из конфига
   // (FILES_MIGRATION.md D3). throwFileSizeLimit — стрим падает ошибкой при превышении.
   app.register(multipart, {
@@ -276,6 +279,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       // Ресурсы конкретного проекта — под параметрическим префиксом.
       await api.register(
         async (proj) => {
+          await proj.register(realtimeRoutes); // durable project changes + reconnect catch-up
           const collaboration = createCollaboration();
           proj.addHook("onClose", async () => { await collaboration.destroy(); });
           await workspaceRoutes(proj, collaboration);

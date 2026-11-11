@@ -1,36 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
-import { mockApi } from "./fixtures";
-const issue = (n: number, dueDate: string | null) => ({ id: `i${n}`, key: `TEST-${n}`, title: `Calendar issue ${n}`, typeId: "task", priorityId: n % 2 ? "critical" : "low", statusId: "s1", assigneeIds: [], reporterId: "u1", dueDate,
-  epicId: null, parentId: null, sprintId: null, labels: [], complexity: null, rank: n, description: "", createdAt: "2026-10-01T12:00:00Z", updatedAt: "2026-10-01T12:00:00Z", archivedAt: null, doneAt: null });
-async function calendarApi(page: Page, count = 8) {
-  await mockApi(page);
-  let items = Array.from({ length: count }, (_, i) => issue(i + 1, i < 5 ? "2026-10-01" : "2026-10-02"));
-  items.push(issue(count + 1, null));
-  const queries: URLSearchParams[] = []; const writes: unknown[] = []; let reject = false;
-  await page.route("**/api/projects/p1/issues**", async route => {
-    const url = new URL(route.request().url());
-    const tail = url.pathname.split("/issues")[1];
-    if (tail === "" && route.request().method() === "GET") {
-      queries.push(url.searchParams);
-      let selected = items.filter(i => url.searchParams.has("dueEmpty") ? !i.dueDate : !url.searchParams.has("dueFrom") || !!i.dueDate && i.dueDate >= url.searchParams.get("dueFrom")! && i.dueDate <= url.searchParams.get("dueTo")!);
-      const cursor = Number(url.searchParams.get("cursor") ?? 0); const limit = Number(url.searchParams.get("limit") ?? 100);
-      const chunk = selected.slice(cursor, cursor + limit);
-      return route.fulfill({ json: { items: chunk, hasMore: selected.length > cursor + limit, nextCursor: selected.length > cursor + limit ? String(cursor + limit) : null } });
-    }
-    if (/^\/i\d+$/.test(tail)) {
-      const current = items.find(i => i.id === tail.slice(1))!;
-      if (route.request().method() === "PATCH") {
-        const patch = route.request().postDataJSON(); writes.push(patch);
-        if (reject) return route.fulfill({ status: 403, json: { error: { code: "FORBIDDEN", reason: "Only own issues" } } });
-        items = items.map(i => i.id === current.id ? { ...i, ...patch } : i);
-      }
-      return route.fulfill({ json: items.find(i => i.id === current.id) });
-    }
-    return route.fallback();
-  });
-  return { queries, writes, reject: () => { reject = true; } };
-}
+import { expect, test } from "@playwright/test";
+import { calendarApi } from "./calendar-fixture";
+import { settle } from "./motion-helpers";
+const expectedVersion = "2026-10-01T12:00:00.000Z";
 for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] as const) {
   test(`calendar month/week, keyboard, dates, drag and axe · ${theme} · ${lang}`, async ({ page }) => {
     test.setTimeout(60_000);
@@ -66,23 +38,23 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await card.focus(); await card.press("m");
     const text = page.getByRole("textbox", { name: lang === "en" ? "Due date" : "Срок", exact: true });
     await expect(text).toBeFocused(); await text.fill(lang === "en" ? "3 Oct 2026" : "3 окт 2026"); await text.press("Enter");
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03", expectedVersion });
     await expect(page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]')).toBeVisible();
     await page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-02"]'));
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-02" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-02", expectedVersion });
     await page.getByRole("button", { name: lang === "en" ? "No due date" : "Без срока", exact: true }).click();
     const aside = page.getByRole("complementary", { name: lang === "en" ? "No due date" : "Без срока" });
     await expect(aside.locator('[data-issue-id]')).toHaveCount(1);
     await aside.locator('[data-issue-id]').dragTo(day);
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-01" });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-01", expectedVersion });
     await page.locator('[data-issue-id="i1"]').dragTo(aside.locator('.min-h-40'));
-    await expect.poll(() => api.writes).toContainEqual({ dueDate: null });
+    await expect.poll(() => api.writes).toContainEqual({ dueDate: null, expectedVersion });
     await aside.getByRole("button", { name: lang === "en" ? "Close" : "Закрыть", exact: true }).click();
     api.reject();
     await day.locator('[data-issue-id="i3"]').dragTo(page.locator('[data-day="2026-10-02"]'));
     await expect(day.locator('[data-issue-id="i3"]')).toBeVisible();
-    await expect(page.getByText(lang === "en" ? /Only own issues|Couldn't save|Forbidden|Access denied/ : /Only own issues|Недостаточно|Не удалось|Нет прав|Запрещено/)).toBeVisible();
-    await page.locator(".anim-toast").evaluateAll(async toasts => {
+    await expect(page.locator("[data-toast-id]").filter({ hasText: lang === "en" ? /Only own issues|Couldn't save|Forbidden|Access denied/ : /Only own issues|Недостаточно|Не удалось|Нет прав|Запрещено/ })).toBeVisible();
+    await page.locator("[data-toast-id]").evaluateAll(async toasts => {
       await Promise.all(toasts.flatMap(toast => toast.getAnimations().map(animation => animation.finished)));
     });
     const violations = await new AxeBuilder({ page }).analyze(); expect(violations.violations).toEqual([]);
@@ -119,9 +91,11 @@ for (const theme of ["light", "dark"] as const) test(`calendar 300 issues month 
   const switching = Date.now() - start;
   await page.getByRole("button", { name: "Предыдущий период" }).click();
   await expect(page.locator('main [data-issue-id]')).toHaveCount(300, { timeout: 15_000 });
+  // This measures a settled drag; running-slide hit testing has its own native D04 gate.
+  await settle(page);
   const dragStart = Date.now();
   await page.locator('[data-issue-id="i1"]').dragTo(page.locator('[data-day="2026-10-03"]'));
-  await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03" });
+  await expect.poll(() => api.writes).toContainEqual({ dueDate: "2026-10-03", expectedVersion });
   await expect(page.locator('[data-day="2026-10-03"] [data-issue-id="i1"]')).toBeVisible();
   console.log(`calendar ${theme}: month switch ${switching} ms, drag + PATCH + revalidation ${Date.now() - dragStart} ms`);
 });

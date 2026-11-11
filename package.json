@@ -12,19 +12,24 @@
     "permissions:generate": "node scripts/generate-permissions.mjs",
     "permissions:check": "node scripts/generate-permissions.mjs --check",
     "docs:generate": "tsx scripts/generate-docs.ts",
-    "docs:check": "tsx scripts/generate-docs.ts --check",
+    "docs:check": "node scripts/generate-motion-tokens.mjs --check && tsx scripts/generate-docs.ts --check && node scripts/motion-map.mjs --self-test && node scripts/motion-map.mjs --check && node scripts/check-repo-weight.mjs",
     "typecheck:scripts": "tsc -p scripts/tsconfig.json --noEmit",
     "contrast:check": "node scripts/check-contrast.mjs",
     "colors:check": "node scripts/check-raw-colors.mjs",
     "motion:check": "node scripts/check-motion.mjs",
+    "motion:map": "node scripts/motion-map.mjs",
     "antilist:check": "node scripts/check-antilist.mjs",
     "bundle:check": "node scripts/check-bundle-size.mjs",
+    "repo:check": "node scripts/check-repo-weight.mjs",
     "perf:rerenders": "vitest run --config vitest.perf.config.ts",
     "csp:spike": "node scripts/csp-spike/run.mjs",
+    "motion:spike": "node scripts/motion-spike/run.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "playwright test",
-    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts"
+    "test:ui:production": "npm run build && playwright test --config playwright.production.config.ts",
+    "perf:motion": "node scripts/perf-motion/run.mjs",
+    "motion:tokens": "node scripts/generate-motion-tokens.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
@@ -40,6 +45,7 @@
     "@tiptap/extension-unique-id": "^3.33.0",
     "@tiptap/react": "^3.33.0",
     "@tiptap/starter-kit": "^3.33.0",
+    "motion": "13.4.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "wouter": "^3.11.0",
@@ -56,13 +62,14 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.3",
+    "esbuild": "^0.28.2",
     "jsdom": "^30.0.1",
     "tailwindcss": "^4.1.7",
     "tsx": "^4.23.15",
     "typescript": "^5.7.0",
-    "vite": "^8.3.0",
-    "vitest": "^5.0.0",
-    "zod": "^3.25.76"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.3",
+    "zod": "^4.6.7"
   }
 }

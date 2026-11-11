@@ -153,12 +153,22 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   // Синхронная защёлка подгрузки: state обновится только после рендера, а два
   // вызова loadMore() в одном тике (скролл + клик) прочитали бы loadingMore=false.
   const moreInFlight = useRef(false);
+  const revalidating = useRef(false);
+  // loadMore() refused while a revalidation owned pagination. Callers usually
+  // re-request from an effect keyed on items/hasMore/loadingMore; a refresh that
+  // returns the same depth changes none of those, so the hook replays it itself.
+  const moreDeferred = useRef(false);
+  const [revalidationSettled, setRevalidationSettled] = useState(0);
+  const queuedRevalidation = useRef<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     const q = queryRef.current;
     const my = ++gen.current;
     moreInFlight.current = false;
+    revalidating.current = false;
+    moreDeferred.current = false;
+    queuedRevalidation.current = null;
     if (!q) {
       setState(EMPTY);
       return;
@@ -197,6 +207,7 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   const loadMore = useCallback(() => {
     const q = queryRef.current;
     const s = stateRef.current;
+    if (revalidating.current) { moreDeferred.current = true; return; }
     if (moreInFlight.current || !q || s.loading || !s.hasMore || !s.nextCursor || s.key !== issueSetKey(q)) return;
     moreInFlight.current = true;
     const my = gen.current;
@@ -227,8 +238,20 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
   const revalidate = useCallback(() => {
     const q = queryRef.current;
     const s = stateRef.current;
-    if (!q || s.loading || s.key !== issueSetKey(q)) return;
-    const my = gen.current;
+    if (!q) return;
+    const forKey = issueSetKey(q);
+    if (s.loading || s.key !== forKey) {
+      // A revision arriving during the first page must be replayed immediately
+      // after that read, even when no further WebSocket event follows.
+      queuedRevalidation.current = forKey;
+      return;
+    }
+    const my = ++gen.current;
+    revalidating.current = true;
+    moreInFlight.current = false;
+    // Advancing the generation invalidates an old cursor page as well. The
+    // refreshed range owns pagination until its replacement cursor is known.
+    setState(prev => ({ ...prev, loadingMore: false }));
     const want = Math.max(s.items.length, 1);
     void (async () => {
       try {
@@ -256,9 +279,28 @@ export function useIssueSet(query: IssueSetQuery | null, options: IssueSetOption
         }));
       } catch {
         // Тихая ревалидация: устаревший список лучше пустого; следующее действие повторит.
+      } finally {
+        if (gen.current === my) {
+          revalidating.current = false;
+          // Same batch as the refreshed state: the replay effect sees the new cursor.
+          if (moreDeferred.current) setRevalidationSettled(n => n + 1);
+        }
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!state.loading && state.key === key && queuedRevalidation.current === key) {
+      queuedRevalidation.current = null;
+      revalidate();
+    }
+  }, [key, state.key, state.loading, revalidate]);
+
+  useEffect(() => {
+    if (revalidationSettled === 0 || !moreDeferred.current || revalidating.current) return;
+    moreDeferred.current = false;
+    loadMore();
+  }, [revalidationSettled, loadMore]);
 
   const reload = useCallback(() => setReloadTick((n) => n + 1), []);
 
@@ -317,13 +359,24 @@ export function useOnRevision(revision: string, fn: () => void): void {
 
 /**
  * Строки набора в актуальном виде: если задачу правили (в том числе из модалки), берётся
- * свежая версия из стора, иначе — та, что пришла с сервера. Порядок — серверный, не
+ * свежая версия из стора, иначе — та, что пришла с сервера (и если серверная новее — она). Порядок — серверный, не
  * пересчитывается. Задачи, которых нет в сторе, НЕ отбрасываются: стор больше не держит
  * все задачи проекта, и «нет в сторе» не значит «удалена». Удаление отражает ревизия
  * (`issuesRevision` растёт при удалении, и набор перечитывается).
  */
 export function freshRows(items: Issue[], byId: ReadonlyMap<string, Issue>): Issue[] {
-  return items.map((i) => byId.get(i.id) ?? i);
+  // Копия в сторе побеждает, пока серверная строка не новее её: после массовой операции (`POST …/issues/bulk`) стор
+  // не патчится, и его старая копия со старым статусом скрывала бы карточку в новой колонке доски.
+  return items.map((i) => {
+    const local = byId.get(i.id);
+    if (!local || i.updatedAt > local.updatedAt) return i;
+    // GET /issues/:id не содержит repeat. При открытии карточки локальная
+    // копия побеждает строку списка, но не должна стирать её метку повтора.
+    // Явный null в локальной копии означает, что правило действительно сняли.
+    return local.repeat === undefined && i.repeat != null
+      ? { ...local, repeat: i.repeat }
+      : local;
+  });
 }
 
 export interface IssueCountsState {

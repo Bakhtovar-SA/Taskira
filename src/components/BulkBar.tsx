@@ -5,12 +5,16 @@ import { useState } from "react";
 import { useStore } from "../store";
 import { useT } from "../i18n";
 import { PRIORITY_ORDER } from "../types";
+import { assignableUsers } from "../store/mappers";
 import { workflowStatusName } from "../workflowStatus";
 import { IcChevD, IcChevR, IcTrash, IcX, IcFlag, IcUsers, PriorityIcon, StatusGlyph } from "../icons";
 import { Button, Dialog, IconButton, Menu, Popover, type MenuEntry } from "../ds";
 import { UserAvatar } from "./UserAvatar";
+import { cancelBoardFlip, renewBoardFlip } from "../boardFlip";
 
-export default function BulkBar({ selectedIds, onDone, className = "", floating = false }: { selectedIds: ReadonlySet<string>; onDone: () => void; className?: string; floating?: boolean }) {
+/** `onBeforeStatus` — доска делает снимок положений карточек перед массовой сменой статуса (`snapshotBoard`): после ответа
+ *  карточки перелетают в новые колонки (ADR-0035, `boardFlip.ts`), а не просто появляются. */
+export default function BulkBar({ selectedIds, onDone, className = "", floating = false, onBeforeStatus }: { selectedIds: ReadonlySet<string>; onDone: (cardLeaves?: boolean) => void; className?: string; floating?: boolean; onBeforeStatus?: () => object | null }) {
   const { t } = useT();
   const { data, me, can, bulkApplyIssueAction } = useStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -19,12 +23,19 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
 
   const run = async (body: Parameters<typeof bulkApplyIssueAction>[0]) => {
     setBusy(true);
+    const flip = body.action === "status" && can("transition") ? (onBeforeStatus?.() ?? null) : null;
     try {
-      await bulkApplyIssueAction(body);
+      const res = await bulkApplyIssueAction(body);
+      // Ничего не изменилось (отказ или все пропущены) — снимок не нужен, иначе чужой коммит анимировался бы от него.
+      if (flip && (!res || res.succeeded.length === 0)) cancelBoardFlip(flip);
+      else renewBoardFlip(flip);
+    } catch (e) {
+      cancelBoardFlip(flip); // контракт стора — не бросать, но снимок не должен пережить исключение
+      throw e;
     } finally {
       setBusy(false);
       setConfirmDelete(false);
-      onDone();
+      onDone(body.action === "status" || body.action === "delete");
     }
   };
   const menu = (label: string, items: MenuEntry[]) => (
@@ -46,7 +57,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
         )}
         {(!floating || can("edit")) && menu(t("field.assignee"), [
           { id: "none", label: t(me.accessRole === "employee" ? "assignee.unassignSelf" : "createIssue.unassigned"), icon: <span aria-hidden="true"><UserAvatar user={null} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: "none" }) },
-          ...data.users.filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, icon: <span aria-hidden="true"><UserAvatar user={u} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
+          ...assignableUsers(data).filter(u => me.accessRole !== "employee" || u.id === me.id).map((u) => ({ id: u.id, label: u.name, text: u.name, icon: <span aria-hidden="true"><UserAvatar user={u} size={18} /></span>, onSelect: () => void run({ action: "assignee", issueIds: ids, assigneeId: u.id }) })),
         ])}
         {(!floating || can("edit")) && menu(
           t("field.priority"),
@@ -66,7 +77,7 @@ export default function BulkBar({ selectedIds, onDone, className = "", floating 
         trigger={p => <Button {...p} size="sm" disabled={busy} iconRight={<IcChevD size={12} />}>{t("common.actions")}</Button>}>
         <div className="ds-menu-label">{t("common.actions")}</div><div className="bulk-actions">{controls}</div>
       </Popover> : controls}
-      {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={onDone}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={onDone}>
+      {floating ? <IconButton label={t("common.clear")} size="sm" disabled={busy} onClick={() => onDone()}><IcX size={16} /></IconButton> : <Button size="sm" variant="ghost" className="ml-auto" onClick={() => onDone()}>
         {t("common.clear")}
       </Button>}
     </div>

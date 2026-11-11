@@ -14,6 +14,7 @@ import {
   type IssueSetQuery,
 } from "./issuePages";
 import type { Issue } from "./types";
+import { mapIssue } from "./store/mappers";
 
 /**
  * PERF-05: постраничный набор задач. Проверяем то, на чём стоит ленивая
@@ -368,6 +369,128 @@ describe("useIssueSet", () => {
     h.unmount();
   });
 
+  test("newer revalidation wins when older page and counts finish last", async () => {
+    const { page, counts } = fakeServer([dto(1)]);
+    const h = mount(baseQuery());
+    await settle();
+    let resolveOlder!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    let resolveNewer!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveOlder = resolve; }));
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveNewer = resolve; }));
+    counts.mockResolvedValueOnce({ total: 2, byStatus: {} }).mockResolvedValueOnce({ total: 3, byStatus: {} });
+    act(() => { h.set.revalidate(); h.set.revalidate(); });
+    await act(async () => {
+      resolveNewer({ items: [dto(1), dto(2), dto(3)], hasMore: false, nextCursor: null });
+      await flush();
+    });
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i2", "i3"]);
+    expect(h.set.total).toBe(3);
+    await act(async () => {
+      resolveOlder({ items: [dto(1), dto(2)], hasMore: false, nextCursor: null });
+      await flush();
+    });
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i2", "i3"]);
+    expect(h.set.total).toBe(3);
+    h.unmount();
+  });
+
+  test("revalidation discards pending pagination and resumes only from its new cursor", async () => {
+    const page = vi.spyOn(issuesApi, "page").mockResolvedValueOnce({ items: [dto(1)], hasMore: true, nextCursor: "old" });
+    vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 3, byStatus: {} });
+    const h = mount(baseQuery());
+    await settle();
+    let resolveOldPage!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    let resolveRefresh!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveOldPage = resolve; }));
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve; }));
+    act(() => h.set.loadMore());
+    expect(h.set.loadingMore).toBe(true);
+    act(() => h.set.revalidate());
+    expect(h.set.loadingMore).toBe(false);
+    // Refused while the refresh owns pagination, but not lost: replayed from its new cursor.
+    act(() => h.set.loadMore());
+    expect(page).toHaveBeenCalledTimes(3);
+    page.mockResolvedValueOnce({ items: [dto(4)], hasMore: false, nextCursor: null });
+    await act(async () => {
+      resolveRefresh({ items: [dto(1), dto(3)], hasMore: true, nextCursor: "new" });
+      await flush();
+    });
+    await settle();
+    expect(page).toHaveBeenCalledTimes(4);
+    expect(page.mock.calls[3][1].cursor).toBe("new");
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3", "i4"]);
+    await act(async () => {
+      resolveOldPage({ items: [dto(2)], hasMore: false, nextCursor: null });
+      await flush();
+    });
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3", "i4"]);
+    expect(h.set.loadingMore).toBe(false);
+    h.unmount();
+  });
+
+  test("auto-pagination resumes when a refresh returns the same depth (calendar/list autoload)", async () => {
+    // Regression: consumers re-request from an effect keyed on items.length/hasMore/loadingMore.
+    // A refresh that returns the same 100 items with hasMore changes none of them, so a loadMore
+    // refused during the refresh must be replayed by the hook, or the set stays truncated.
+    const page = vi.spyOn(issuesApi, "page").mockResolvedValueOnce({ items: [dto(1)], hasMore: true, nextCursor: "c1" });
+    vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 2, byStatus: {} });
+    const h = mount(baseQuery());
+    await settle();
+    let resolveRefresh!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveRefresh = resolve; }));
+    act(() => h.set.revalidate());
+    act(() => h.set.loadMore());
+    expect(page).toHaveBeenCalledTimes(2);
+    page.mockResolvedValueOnce({ items: [dto(2)], hasMore: false, nextCursor: null });
+    await act(async () => { resolveRefresh({ items: [dto(1)], hasMore: true, nextCursor: "c1" }); await flush(); });
+    await settle();
+    expect(page).toHaveBeenCalledTimes(3);
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i2"]);
+    expect(h.set.hasMore).toBe(false);
+    h.unmount();
+  });
+
+  test("a revision during initial loading is revalidated after the first page completes", async () => {
+    let resolveInitial!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    const page = vi.spyOn(issuesApi, "page").mockImplementationOnce(() => new Promise(resolve => { resolveInitial = resolve; }));
+    page.mockResolvedValueOnce({ items: [dto(1), dto(2)], hasMore: false, nextCursor: null });
+    vi.spyOn(issuesApi, "counts").mockResolvedValueOnce({ total: 1, byStatus: {} }).mockResolvedValueOnce({ total: 2, byStatus: {} });
+    const h = mount(baseQuery());
+    act(() => { h.set.revalidate(); h.set.revalidate(); });
+    expect(page).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveInitial({ items: [dto(1)], hasMore: false, nextCursor: null });
+      await flush();
+    });
+    await settle();
+    expect(page).toHaveBeenCalledTimes(2);
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i2"]);
+    expect(h.set.total).toBe(2);
+    expect(h.set.loading).toBe(false);
+    h.unmount();
+  });
+
+  test("failed revalidation releases pagination without accepting its cancelled older page", async () => {
+    const page = vi.spyOn(issuesApi, "page").mockResolvedValueOnce({ items: [dto(1)], hasMore: true, nextCursor: "retry" });
+    vi.spyOn(issuesApi, "counts").mockResolvedValue({ total: 2, byStatus: {} });
+    const h = mount(baseQuery());
+    await settle();
+    let resolveOldPage!: (value: Awaited<ReturnType<typeof issuesApi.page>>) => void;
+    page.mockImplementationOnce(() => new Promise(resolve => { resolveOldPage = resolve; }));
+    page.mockRejectedValueOnce(new Error("temporary refresh failure"));
+    act(() => h.set.loadMore());
+    await act(async () => { h.set.revalidate(); await flush(); });
+    await act(async () => { resolveOldPage({ items: [dto(2)], hasMore: false, nextCursor: null }); await flush(); });
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1"]);
+    expect(h.set.loadingMore).toBe(false);
+    page.mockResolvedValueOnce({ items: [dto(3)], hasMore: false, nextCursor: null });
+    await act(async () => { h.set.loadMore(); await flush(); });
+    expect(page.mock.calls[page.mock.calls.length - 1][1].cursor).toBe("retry");
+    expect(h.set.items.map(issue => issue.id)).toEqual(["i1", "i3"]);
+    expect(h.set.loadingMore).toBe(false);
+    h.unmount();
+  });
+
   test("query = null: запросов нет", async () => {
     const { page, counts } = fakeServer([]);
     const h = mount(null);
@@ -496,6 +619,16 @@ describe("freshRows", () => {
     const byId = new Map([["a", mk("a", "правка")]]);
     expect(freshRows([mk("a"), mk("b"), mk("c")], byId).map((i) => i.title)).toEqual(["правка", "b", "c"]);
     expect(freshRows([mk("x")], new Map()).map((i) => i.id)).toEqual(["x"]);
+  });
+  test("открытие карточки не скрывает повтор из списка; явное снятие правила сохраняется", () => {
+    const repeat: NonNullable<Issue["repeat"]> = { schedule: { kind: "weekly", every: 1, weekdays: [2] }, timeOfDay: "09:00", paused: false };
+    const listed = mapIssue(dto(1, { repeat }));
+    const detail = mapIssue(dto(1, { title: "Правка" }));
+    expect(detail.repeat).toBeUndefined();
+    expect(freshRows([listed], new Map([[detail.id, detail]]))[0]).toMatchObject({ title: "Правка", repeat });
+    expect(freshRows([listed], new Map([[detail.id, { ...detail, repeat: null }]]))[0].repeat).toBeNull();
+    const noRepeat = mapIssue(dto(2));
+    expect(freshRows([mapIssue(dto(2, { repeat: null }))], new Map([[noRepeat.id, noRepeat]]))[0]).toBe(noRepeat);
   });
 });
 

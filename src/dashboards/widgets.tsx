@@ -6,6 +6,7 @@ import { PersonAvatar } from "../components/settings/parts";
 /** Содержимое виджетов дашборда (ADR-0022): по одному компоненту на тип, данные — из POST /api/dashboards/data.
  *  Здесь только отрисовка; где открыть задачу или список, решает DashboardView через `WidgetNav`. */
 import { useEffect, useState, type ReactNode } from "react";
+import { CountUp } from "../CountUp";
 import { useT, type TKey } from "../i18n";
 import { roadmapApi, type WidgetDataDto } from "../api";
 import { useStore } from "../store";
@@ -89,7 +90,8 @@ function CountBody({ w, data, projectId, nav }: { w: Extract<Widget, { type: "co
   const query = COUNT_QUERY[w.metric];
   const period = w.metric === "closed" || w.metric === "created" ? t("dash.forDays", { n: w.periodDays, noun: tn(w.periodDays, "noun.day.one", "noun.day.few", "noun.day.many") }) : null;
   const tone = w.metric === "overdue" && data.value > 0 ? "text-[var(--status-danger-fg)]" : "text-ink";
-  const value = <span className={`font-disp text-[34px] font-bold leading-none tracking-[-0.03em] ${tone}`}>{data.value.toLocaleString()}</span>;
+  // COV-01: растёт по обновлению данных — «дорастает»; смена метрики/периода/проекта — новая точка отсчёта без движения.
+  const value = <CountUp value={data.value} resetKey={`${w.metric}:${w.periodDays}:${projectId}`} format={(n) => n.toLocaleString()} className={`font-disp text-[34px] font-bold leading-none tracking-[-0.03em] ${tone}`} />;
   return (
     <div className="flex h-full flex-col justify-end gap-1">
       {projectId && query && nav.openList ? (

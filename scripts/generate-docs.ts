@@ -68,8 +68,11 @@ ${rows(stamped)}
 }
 
 /* ---------------- zod → markdown ---------------- */
-type Def = { typeName: string; [k: string]: unknown };
-const defOf = (s: unknown): Def => (s as { _def: Def })._def;
+type Def = { type: string; [k: string]: unknown };
+const defOf = (s: unknown): Def => (s as { _zod: { def: Def } })._zod.def;
+type Check = { check?: string; format?: string; minimum?: number; maximum?: number; length?: number; value?: number; inclusive?: boolean };
+const checksOf = (d: Def): Check[] => ((d.checks as { _zod?: { def: Check }; def?: Check }[] | undefined) ?? [])
+  .map((c) => c._zod?.def ?? c.def ?? {});
 
 function describe(schema: unknown): { type: string; optional: boolean; nullable: boolean; note: string } {
   let s: any = schema;
@@ -78,53 +81,68 @@ function describe(schema: unknown): { type: string; optional: boolean; nullable:
   const notes: string[] = [];
   for (let i = 0; i < 12; i++) {
     const d = defOf(s);
-    if (d.typeName === "ZodOptional") { optional = true; s = d.innerType; continue; }
-    if (d.typeName === "ZodNullable") { nullable = true; s = d.innerType; continue; }
-    if (d.typeName === "ZodDefault") { optional = true; notes.push(`по умолчанию ${JSON.stringify((d.defaultValue as () => unknown)())}`); s = d.innerType; continue; }
-    if (d.typeName === "ZodEffects") { s = d.schema; continue; }
-    if (d.typeName === "ZodBranded" || d.typeName === "ZodReadonly") { s = d.type ?? d.innerType; continue; }
+    if (d.type === "optional") { optional = true; s = d.innerType; continue; }
+    if (d.type === "nullable") { nullable = true; s = d.innerType; continue; }
+    if (d.type === "default") { optional = true; notes.push(`по умолчанию ${JSON.stringify(d.defaultValue)}`); s = d.innerType; continue; }
+    if (d.type === "pipe" && defOf(d.out).type === "transform") { s = d.in; continue; }
+    if (d.type === "readonly") { s = d.innerType; continue; }
     break;
   }
   const d = defOf(s);
   let type: string;
-  switch (d.typeName) {
-    case "ZodString": {
+  switch (d.type) {
+    case "string": {
       type = "string";
-      const c = ((d.checks as { kind: string; value?: number }[]) ?? []);
-      const min = c.find((x) => x.kind === "min")?.value;
-      const max = c.find((x) => x.kind === "max")?.value;
-      const kinds = c.map((x) => x.kind).filter((k) => ["uuid", "email", "datetime", "url"].includes(k));
+      const c = checksOf(d);
+      const min = c.find((x) => x.check === "min_length")?.minimum;
+      const max = c.find((x) => x.check === "max_length")?.maximum;
+      const kinds = [d.format, ...c.map((x) => x.format)].filter((k) => ["uuid", "guid", "email", "datetime", "url"].includes(String(k)))
+        .map((k) => k === "guid" ? "uuid" : k);
       if (kinds.length) type = `string (${kinds.join(", ")})`;
       if (min !== undefined || max !== undefined) notes.push(`длина ${min ?? 0}…${max ?? "∞"}`);
       break;
     }
-    case "ZodNumber": {
+    case "number": {
       type = "number";
-      const c = ((d.checks as { kind: string; value?: number }[]) ?? []);
-      if (c.some((x) => x.kind === "int")) type = "integer";
-      const min = c.find((x) => x.kind === "min")?.value;
-      const max = c.find((x) => x.kind === "max")?.value;
+      const c = checksOf(d);
+      if (c.some((x) => x.check === "number_format" && x.format === "safeint")) type = "integer";
+      const min = c.find((x) => x.check === "greater_than" && x.inclusive)?.value;
+      const max = c.find((x) => x.check === "less_than" && x.inclusive)?.value;
       if (min !== undefined || max !== undefined) notes.push(`${min ?? "−∞"}…${max ?? "∞"}`);
       break;
     }
-    case "ZodBoolean": type = "boolean"; break;
-    case "ZodEnum": type = `enum: ${(d.values as string[]).map((v) => `\`${v}\``).join(" \\| ")}`; break;
-    case "ZodNativeEnum": type = "enum"; break;
-    case "ZodLiteral": type = `\`${JSON.stringify(d.value)}\``; break;
-    case "ZodArray": {
-      type = `array&lt;${describe(d.type).type}&gt;`;
-      const min = (d.minLength as { value: number } | null)?.value;
-      const max = (d.maxLength as { value: number } | null)?.value;
-      const exact = (d.exactLength as { value: number } | null)?.value;
+    case "boolean": type = "boolean"; break;
+    case "enum": type = `enum: ${Object.values(d.entries as Record<string, string>).map((v) => `\`${v}\``).join(" \\| ")}`; break;
+    case "literal": type = `\`${JSON.stringify((d.values as unknown[])[0])}\``; break;
+    case "array": {
+      type = `array&lt;${describe(d.element).type}&gt;`;
+      const c = checksOf(d);
+      const min = c.find((x) => x.check === "min_length")?.minimum;
+      const max = c.find((x) => x.check === "max_length")?.maximum;
+      const exact = c.find((x) => x.check === "length_equals")?.length;
       if (exact !== undefined) notes.push(`ровно ${exact} эл.`);
       else if (min !== undefined || max !== undefined) notes.push(`${min ?? 0}…${max ?? "∞"} эл.`);
       break;
     }
-    case "ZodRecord": type = `record&lt;string, ${describe(d.valueType).type}&gt;`; break;
-    case "ZodUnion": type = (d.options as unknown[]).map((o) => describe(o).type).join(" \\| "); break;
-    case "ZodObject": type = "object"; break;
-    case "ZodAny": case "ZodUnknown": type = "any"; break;
-    default: type = String(d.typeName).replace(/^Zod/, "").toLowerCase();
+    case "record": type = `record&lt;string, ${describe(d.valueType).type}&gt;`; break;
+    case "union": {
+      const options = d.options as unknown[];
+      if (d.discriminator) {
+        const field = String(d.discriminator);
+        const variants = options.map((o) => {
+          const tag = objectShape(o)?.[field];
+          return tag ? describe(tag).type : describe(o).type;
+        });
+        type = `union (${field}: ${variants.join(" \\| ")})`;
+      } else {
+        type = options.map((o) => describe(o).type).join(" \\| ");
+      }
+      break;
+    }
+    case "pipe": type = "pipeline"; break;
+    case "object": type = "object"; break;
+    case "any": case "unknown": type = "any"; break;
+    default: type = d.type;
   }
   return { type, optional, nullable, note: notes.join("; ") };
 }
@@ -133,9 +151,9 @@ function objectShape(schema: unknown): Record<string, unknown> | null {
   let s: any = schema;
   for (let i = 0; i < 12; i++) {
     const d = defOf(s);
-    if (d.typeName === "ZodObject") return (s as { shape: Record<string, unknown> }).shape;
-    if (d.typeName === "ZodEffects") { s = d.schema; continue; }
-    if (d.typeName === "ZodOptional" || d.typeName === "ZodNullable" || d.typeName === "ZodDefault") { s = d.innerType; continue; }
+    if (d.type === "object") return (s as { shape: Record<string, unknown> }).shape;
+    if (d.type === "pipe") { s = d.in; continue; }
+    if (d.type === "optional" || d.type === "nullable" || d.type === "default") { s = d.innerType; continue; }
     return null;
   }
   return null;
@@ -143,7 +161,7 @@ function objectShape(schema: unknown): Record<string, unknown> | null {
 
 async function apiSchemas(): Promise<string> {
   const mod = (await import(pathToFileURL(join(root, "server", "src", "contract.ts")).href)) as Record<string, unknown>;
-  const isZod = (v: unknown): boolean => typeof v === "object" && v !== null && "_def" in (v as object) && typeof (v as { safeParse?: unknown }).safeParse === "function";
+  const isZod = (v: unknown): boolean => typeof v === "object" && v !== null && "_zod" in (v as object) && typeof (v as { safeParse?: unknown }).safeParse === "function";
   const names = Object.keys(mod).filter((k) => isZod(mod[k])).sort();
   // Запрос — то, что клиент шлёт: суффиксы Body/Query/Params (так названы все схемы запросов в contract.ts). Всё остальное —
   // форма данных ответа (…Dto, IssueListPageMeta, SafeUser, ReportRow и т. п.): по умолчанию «ответ», а не «запрос», чтобы
@@ -151,7 +169,10 @@ async function apiSchemas(): Promise<string> {
   const kindOf = (n: string) => (/(Body|Query|Params)$/.test(n) ? "request" : "response");
   const section = (n: string): string => {
     const shape = objectShape(mod[n]);
-    if (!shape) return `### ${n}\n\n\`${describe(mod[n]).type}\`\n`;
+    if (!shape) {
+      const type = describe(mod[n]).type;
+      return `### ${n}\n\n${type.includes("`") ? type : `\`${type}\``}\n`;
+    }
     const rows = Object.entries(shape).map(([field, sch]) => {
       const d = describe(sch);
       const flags = [d.optional ? "необязательное" : "", d.nullable ? "может быть null" : ""].filter(Boolean).join(", ");

@@ -55,9 +55,9 @@ function EditableName({ value, onSave, maxLength }: { value: string; onSave: (v:
   );
 }
 
-function MiniAvatar({ user }: { user: { name?: string } | undefined }) {
+function MiniAvatar({ user }: { user: { userId?: string; name?: string } | undefined }) {
   return (
-    <Avatar person={{ name: user?.name ?? "?" }} size={24} />
+    <Avatar person={user ? { id: user.userId ?? null, name: user.name ?? "?" } : null} size={24} />
   );
 }
 

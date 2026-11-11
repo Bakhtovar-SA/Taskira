@@ -11,6 +11,7 @@ import { BG_IDS, THEMES, projectBackground, readBgId, readDensity, readTheme, se
 import { useBrand } from "../../brand";
 import { readTransparency, setTransparency } from "../../theme";
 import { systemTransparency, watchSystemTransparency, type Transparency } from "../../transparency";
+import { reducedMotion, setReducedMotion, userReducedMotion } from "../../motion";
 import { BgSwatch } from "../ProjectLookPicker";
 import { ChangePasswordForm } from "../ChangePasswordForm";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
@@ -55,7 +56,7 @@ function Profile() {
     <SettingsPage title={t("settings.personal.profile")} desc={t("settings.desc.profile")}>
       <SettingsCard>
         <div className="flex flex-wrap items-center gap-4 px-5 py-5">
-          <Avatar person={{ name: me.name, src }} size={64} />
+          <Avatar person={{ id: me.id, name: me.name, src }} size={64} />
           <div className="min-w-0 flex-1">
             <p className="truncate font-disp text-[17px] font-bold tracking-[-0.01em] text-ink">{me.name}</p>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -158,6 +159,7 @@ function Appearance() {
   const brand = useBrand();
   const system = useSyncExternalStore(watchSystemTransparency, systemTransparency);
   const [density, setDens] = useState<Density>(readDensity);
+  const [reduceMotion, setReduceMotion] = useState(userReducedMotion);
   return (
     <SettingsPage title={t("settings.personal.appearance")} desc={t("settings.desc.appearance")}>
       <SettingsCard title={t("settings.appearance.theme")}>
@@ -220,6 +222,12 @@ function Appearance() {
               { value: "compact", label: t("settings.appearance.compact"), description: t("settings.appearance.compactDesc") },
             ]}
           />
+        </div>
+      </SettingsCard>
+      <SettingsCard title={t("settings.appearance.motion")}>
+        <div className="px-5 py-4">
+          <Switch checked={reduceMotion} onChange={(v) => { setReducedMotion(v); setReduceMotion(v); }} label={t("settings.appearance.reduceMotion")} description={t("settings.appearance.reduceMotionDesc")} labelFirst />
+          {reducedMotion() && <p className="mt-2 text-[13px] text-faint">{t("settings.appearance.reduceMotionSystem")}</p>}
         </div>
       </SettingsCard>
     </SettingsPage>

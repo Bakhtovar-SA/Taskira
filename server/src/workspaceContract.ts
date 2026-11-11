@@ -158,6 +158,7 @@ export const ObjectTypeBody = ObjectTypeShape.superRefine((v, ctx) => {
 });
 export type FieldValue = string | number | boolean | null;
 const values = z.record(
+  z.string(),
   z.union([z.string().max(10000), z.number().finite(), z.boolean(), z.null()]),
 );
 export const ObjectCreateBody = z
