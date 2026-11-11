@@ -53,7 +53,7 @@ const EXPORT_MAX_DURATION_MS = 5 * 60_000;
 
 const toCamel = (s: string): string => s.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 const camelizeRow = (row: Record<string, unknown>): Record<string, unknown> =>
-  Object.fromEntries(Object.entries(row).map(([k, v]) => [toCamel(k), v]));
+  Object.fromEntries(Object.entries(row).map(([k, v]) => [k === "type" ? "eventType" : toCamel(k), v]));
 
 interface KeyedTable {
   type: string;
@@ -115,6 +115,22 @@ const KEYED_TABLES: KeyedTable[] = [
     columns: ["id", "issue_id", "uploaded_by", "filename", "content_type", "byte_size", "sha256", "storage_driver", "storage_key", "created_at"],
   },
   { type: "auditLogEntry", table: "audit_log", columns: ["id", "actor_id", "action", "entity", "entity_id", "details", "created_at", "result"] },
+  // Project materials, CRDT checkpoints and durable execution history (ADR-0035).
+  { type: "workspaceDocument", table: "workspace_documents", columns: ["id", "project_id", "title", "parent_id", "owner_id", "generation", "revision", "content_revision", "content", "content_json", "search_text", "verified_version_id", "verified_content_revision", "valid_until", "archived", "created_by", "updated_at"] },
+  { type: "workspaceDocumentVersion", table: "workspace_document_versions", columns: ["id", "document_id", "name", "content", "content_json", "content_revision", "created_by", "created_at"] },
+  { type: "workspaceDocumentComment", table: "workspace_document_comments", columns: ["id", "document_id", "body", "block_id", "parent_id", "author_id", "resolved", "created_at"] },
+  { type: "workspaceDocumentFile", table: "workspace_document_files", columns: ["id", "document_id", "filename", "content_type", "size", "storage_key", "storage_driver", "created_by", "created_at"] },
+  { type: "workspaceObjectType", table: "workspace_object_types", columns: ["id", "project_id", "name", "fields", "revision"] },
+  { type: "workspaceObject", table: "workspace_objects", columns: ["id", "project_id", "type_id", "title", "owner_id", "field_values", "archived", "revision", "updated_at"] },
+  { type: "workspaceEntityLink", table: "workspace_entity_links", columns: ["id", "project_id", "source_kind", "source_id", "target_kind", "target_id", "created_by", "created_at"] },
+  { type: "workspaceProcessTemplate", table: "workspace_process_templates", columns: ["id", "project_id", "name", "draft", "revision", "published_version_id", "archived"] },
+  { type: "workspaceProcessVersion", table: "workspace_process_versions", columns: ["id", "template_id", "version", "spec", "created_at"] },
+  { type: "workspaceProcessRun", table: "workspace_process_runs", columns: ["id", "project_id", "title", "template_version_id", "owner_id", "object_id", "parameters", "assignee_ids", "state", "error", "request_id", "created_at"] },
+  { type: "workspaceProcessStep", table: "workspace_process_steps", columns: ["position", "id", "run_id", "step_key", "spec", "state", "issue_id", "approved"] },
+  { type: "workspaceRule", table: "workspace_rules", columns: ["id", "project_id", "owner_id", "name", "spec", "enabled", "error"] },
+  { type: "workspaceHistory", table: "workspace_history", columns: ["id", "project_id", "kind", "entity_id", "action", "actor_id", "detail", "created_at"] },
+  { type: "workspaceEvent", table: "workspace_events", columns: ["id", "project_id", "type", "issue_id", "actor_id", "data", "root_id", "depth", "failed_rule_id", "attempts", "processed_at", "error", "created_at"] },
+  { type: "workspacePlan", table: "workspace_plans", columns: ["id", "project_id", "plan_id", "name", "target_date", "items", "revision", "updated_at"] },
 ];
 
 interface OffsetTable {
@@ -130,6 +146,12 @@ const OFFSET_TABLES: OffsetTable[] = [
   { type: "issueAssignee", table: "issue_assignees", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
   { type: "issueCollaborator", table: "issue_collaborators", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },
   { type: "projectDependency", table: "project_dependencies", columns: ["source_project_id", "dependent_project_id", "created_at"], orderBy: "source_project_id, dependent_project_id" },
+  { type: "workspaceModules", table: "workspace_modules", columns: ["project_id", "documents", "objects", "processes", "planning", "files"], orderBy: "project_id" },
+  { type: "workspaceRuleExecution", table: "workspace_rule_executions", columns: ["event_id", "rule_id"], orderBy: "event_id,rule_id" },
+  { type: "workspaceDueEvent", table: "workspace_due_events", columns: ["issue_id", "due_date"], orderBy: "issue_id,due_date" },
+  { type: "workspaceCompletionHistory", table: "workspace_completion_history", columns: ["issue_id", "project_id", "complexity", "completed_at", "reopens"], orderBy: "issue_id" },
+  { type: "workspaceDocumentReview", table: "workspace_document_reviews", columns: ["document_id", "version_id", "valid_until"], orderBy: "document_id,version_id,valid_until" },
+  { type: "workspaceActionExecution", table: "workspace_action_executions", columns: ["execution_key", "event_id", "rule_id", "action_index", "action_type", "result", "created_at"], orderBy: "execution_key" },
 ];
 
 // Имена таблиц/колонок здесь — фиксированный список констант в этом файле,

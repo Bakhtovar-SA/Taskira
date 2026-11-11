@@ -37,18 +37,27 @@ const gz = (file) => gzipSync(readFileSync(file)).length;
 const files = readdirSync(assets)
   .filter((f) => f.endsWith(".js") || f.endsWith(".css"))
   .sort()
-  .map((f) => ({ name: f, kind: f.endsWith(".js") ? "js" : "css", gzip: gz(join(assets, f)) }));
+  .map((f) => ({
+    name: f,
+    kind: f.endsWith(".js") ? "js" : "css",
+    gzip: gz(join(assets, f)),
+  }));
 
 const html = readFileSync(join(dist, "index.html"), "utf8");
-const entryMatch = html.match(/<script[^>]+type="module"[^>]+src="\/assets\/([^"]+\.js)"/);
+const entryMatch = html.match(
+  /<script[^>]+type="module"[^>]+src="\/assets\/([^"]+\.js)"/,
+);
 if (!entryMatch) {
   console.error("входной скрипт в dist/index.html не найден");
   process.exit(2);
 }
 const entryName = entryMatch[1];
-const preloaded = [...html.matchAll(/rel="modulepreload"[^>]+href="\/assets\/([^"]+\.js)"/g)].map((m) => m[1]);
+const preloaded = [
+  ...html.matchAll(/rel="modulepreload"[^>]+href="\/assets\/([^"]+\.js)"/g),
+].map((m) => m[1]);
 
-const sum = (kind) => files.filter((f) => f.kind === kind).reduce((a, f) => a + f.gzip, 0);
+const sum = (kind) =>
+  files.filter((f) => f.kind === kind).reduce((a, f) => a + f.gzip, 0);
 const current = {
   js: sum("js"),
   css: sum("css"),
@@ -79,26 +88,79 @@ const results = METRICS.map(([key, label]) => {
   const base = budget.base[key];
   const allowed = budget.allowedGrowth[key];
   const limit = base + allowed;
-  return { key, label, base, allowed, limit, current: current[key], growth: current[key] - base, ok: current[key] <= limit };
+  return {
+    key,
+    label,
+    base,
+    allowed,
+    limit,
+    current: current[key],
+    growth: current[key] - base,
+    ok: current[key] <= limit,
+  };
 });
+if (budget.workspaceLimits) {
+  const editor = files
+    .filter((f) => /^DocumentEditor-.*\.js$/.test(f.name))
+    .reduce((sum, f) => sum + f.gzip, 0);
+  for (const [key, label, size, limit] of [
+    [
+      "initialJs",
+      "JS до первого экрана",
+      initialJs,
+      budget.workspaceLimits.initialJs,
+    ],
+    [
+      "documentEditor",
+      "ленивый редактор документов",
+      editor,
+      budget.workspaceLimits.documentEditor,
+    ],
+  ])
+    results.push({
+      key,
+      label,
+      base: 0,
+      allowed: limit,
+      limit,
+      current: size,
+      growth: size,
+      ok: size <= limit,
+    });
+  if (preloaded.some((name) => name.startsWith("DocumentEditor-")))
+    throw new Error("Document editor must not be preloaded on the board");
+}
 const failed = results.filter((r) => !r.ok);
 
 if (process.argv.includes("--json")) {
-  console.log(JSON.stringify({ current, initialJs, files, results, ok: failed.length === 0 }, null, 2));
+  console.log(
+    JSON.stringify(
+      { current, initialJs, files, results, ok: failed.length === 0 },
+      null,
+      2,
+    ),
+  );
 } else {
-  console.log("Бюджет бандла (gzip), база и допуски — scripts/bundle-budget.json\n");
+  console.log(
+    "Бюджет бандла (gzip), база и допуски — scripts/bundle-budget.json\n",
+  );
   console.log("| метрика | база | сейчас | рост | допуск | итог |");
   console.log("|---|---|---|---|---|---|");
   for (const r of results)
     console.log(`| ${r.label} | ${fmt(r.base)} | ${fmt(r.current)} | ${signed(r.growth)} | +${fmt(r.allowed)} | ${r.ok ? "ok" : "ПРЕВЫШЕН"} |`);
   console.log(`\nСтарт = ${[entryName, ...preloaded].map((n) => basename(n)).join(" + ")}`);
   console.log("\nЧанки:");
-  for (const f of [...files].sort((a, b) => b.gzip - a.gzip)) console.log(`  ${f.name.padEnd(44)} ${fmt(f.gzip).padStart(10)}`);
+  for (const f of [...files].sort((a, b) => b.gzip - a.gzip))
+    console.log(`  ${f.name.padEnd(44)} ${fmt(f.gzip).padStart(10)}`);
 }
 
 if (failed.length) {
   for (const r of failed)
-    console.error(`\nбюджет превышен: ${r.label} = ${fmt(r.current)} > ${fmt(r.limit)} (база ${fmt(r.base)} + ${fmt(r.allowed)})`);
-  console.error("Уменьшите бандл или, если рост осознан, обсудите новый допуск/базу в docs/design/PERF-BUDGET.md.");
+    console.error(
+      `\nбюджет превышен: ${r.label} = ${fmt(r.current)} > ${fmt(r.limit)} (база ${fmt(r.base)} + ${fmt(r.allowed)})`,
+    );
+  console.error(
+    "Уменьшите бандл или, если рост осознан, обсудите новый допуск/базу в docs/design/PERF-BUDGET.md.",
+  );
   process.exit(1);
 }

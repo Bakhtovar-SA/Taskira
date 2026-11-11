@@ -1,3 +1,5 @@
+import { useProjectModules, isWorkspaceModule } from "../workspace/modules";
+import { openWorkspaceNotification } from "../workspace/notificationNavigation";
 import { ScreenPopover } from "./settings/parts";
 import { Input } from "../ds/Field";
 import { Button, IconButton } from "../ds/Button";
@@ -19,6 +21,7 @@ import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS } from "./Sidebar";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
+  files: "workspace.files", library: "workspace.library", documents: "workspace.documents", objects: "workspace.objects", processes: "workspace.processes", planning: "workspace.planning",
   board: "sidebar.nav.board",
   backlog: "sidebar.nav.backlog",
   sprints: "sidebar.nav.sprints",
@@ -273,6 +276,7 @@ export function SearchBox() {
 }
 
 export const NOTIF_VERB: Record<NotificationT["type"], TKey> = {
+  workspace: "notifVerb.workspace",
   "issue.dueSoon": "notifVerb.issueDueSoon",
   "issue.reminder": "notifVerb.issueReminder",
   "issue.assigned": "notifVerb.issueAssigned",
@@ -296,6 +300,7 @@ function BellPanel({ close }: { close: () => void }) {
   const anyUnread = unreadCount > 0 || list.some((n) => !n.read);
 
   const go = (n: NotificationT) => {
+    if (openWorkspaceNotification(n, data.projects)) { markNotificationsRead([n.id]); close(); return; }
     if (!n.read) markNotificationsRead([n.id]);
     // Тот же проект — открыть прямо сейчас; другой — switchProject(projectId, issueId)
     // (pendingOpenIssueRef, store/session.ts) откроет её сам после переключения.
@@ -531,8 +536,26 @@ function ProjectSwitcher() {
 export default function Topbar() {
   const { t } = useT();
   const { data, ui, setView, toggleFavoriteProject } = useStore();
-  const views = PROJECT_VIEWS.filter((v) => !v.sprintsOnly || data.project.sprintsEnabled);
+  const workspaceModules = useProjectModules();
+  const views = PROJECT_VIEWS.filter((v) => (!v.sprintsOnly || data.project.sprintsEnabled) && (!isWorkspaceModule(v.id) || !!workspaceModules?.[v.id]));
   const isProjectView = views.some((v) => v.id === ui.view);
+  const viewTabsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = viewTabsRef.current;
+    if (!nav || !isProjectView) return;
+    const reveal = () => {
+      const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!active) return;
+      const bounds = nav.getBoundingClientRect(), item = active.getBoundingClientRect();
+      if (item.left < bounds.left) nav.scrollLeft += item.left - bounds.left;
+      else if (item.right > bounds.right) nav.scrollLeft += item.right - bounds.right;
+    };
+    reveal();
+    if (typeof ResizeObserver !== "function") return;
+    const observer = new ResizeObserver(reveal);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [ui.view, data.currentProjectId, isProjectView, views.length]);
   const isFavorite = data.favoriteProjectIds.includes(data.currentProjectId);
 
   return (
@@ -548,7 +571,7 @@ export default function Topbar() {
             </IconButton>
           </div>
           <span className="project-topbar-divider" aria-hidden="true" />
-          <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs">
+          <nav ref={viewTabsRef} aria-label={t("topbar.viewsAria")} className="project-view-tabs">
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
               items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
           </nav>

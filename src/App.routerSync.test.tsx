@@ -110,6 +110,34 @@ afterEach(() => {
 });
 
 describe("useRouterSync — URL → состояние, полный путь (ТЗ 3.1)", () => {
+  test("an animated view change preserves a material deep link until the update commits", async () => {
+    history.replaceState(null, "", "/p/AA/files");
+    install();
+    const get = mount();
+    await settle();
+    const descriptor = Object.getOwnPropertyDescriptor(document, "startViewTransition");
+    let commit!: () => void;
+    const finished = new Promise<void>(resolve => { commit = resolve; });
+    let apply!: () => void;
+    Object.defineProperty(document, "startViewTransition", { configurable: true, value: (update: () => void) => { apply = update; return { finished }; } });
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    try {
+      const target = `/p/AA/documents?document=${I1}#block-finding`;
+      act(() => { history.pushState(null, "", target); dispatchEvent(new PopStateEvent("popstate")); });
+      await settle();
+      expect(get().ui.view).toBe("files");
+      expect(location.pathname + location.search + location.hash).toBe(target);
+      await act(async () => { apply(); commit(); });
+      await settle();
+      expect(get().ui.view).toBe("documents");
+      expect(location.pathname + location.search + location.hash).toBe(target);
+    } finally {
+      if (descriptor) Object.defineProperty(document, "startViewTransition", descriptor);
+      else Reflect.deleteProperty(document, "startViewTransition");
+    }
+  });
+
   function observeHome() {
     const original = storeModule.useStore;
     const home = vi.fn();

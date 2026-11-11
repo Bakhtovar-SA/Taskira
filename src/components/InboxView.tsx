@@ -1,3 +1,4 @@
+import { openWorkspaceNotification } from "../workspace/notificationNavigation";
 import { IconButton } from "../ds/Button";
 import { PersonAvatar } from "./settings/parts";
 /** «Входящие» (ADR-0013 §1, `/inbox`) — полная страница ленты уведомлений; колокол в шапке
@@ -93,6 +94,7 @@ export default function InboxView() {
 
   const go = (th: Thread) => {
     const n = th.head;
+    if (openWorkspaceNotification(n, data.projects)) { markNotificationsRead(ids(th)); return; }
     const unread = unreadIds(th);
     if (unread.length) markNotificationsRead(unread);
     // Тот же проект — открыть сразу; другой — switchProject откроет задачу после переключения.
@@ -204,6 +206,7 @@ export default function InboxView() {
                 <div className="surface-raised overflow-hidden rounded-xl ring-1 ring-inset ring-line/70">
                   {g.items.map((th) => {
                     const n = th.head;
+    if (openWorkspaceNotification(n, data.projects)) { markNotificationsRead(ids(th)); return; }
                     const read = !unreadIds(th).length;
                     row += 1;
                     const i = row;

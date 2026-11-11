@@ -21,6 +21,7 @@ const jobRuns = new Map<string, number>();
 const jobDurations = new Map<string, HistogramValue>();
 const jobLastSuccess = new Map<string, number>();
 const jobRunning = new Map<string, number>();
+let workspaceQueueSize=0,workspaceQueueOldest=0,workspaceFailedEvents=0,workspacePausedRuns=0;
 let maintenanceArchived = 0;
 let maintenanceAuditPurged = 0;
 let backgroundQueueSize = 0;
@@ -172,6 +173,13 @@ export async function refreshBackgroundQueueMetrics(): Promise<void> {
       ::double precision AS lag FROM recurring_rules WHERE state = 'active'`);
     recurringLagSeconds = rows[0].lag;
   } catch { collectionErrors += 1; }
+  try {
+    const [events,runs]=await Promise.all([
+      q<{size:string;oldest:number;failed:string}>(`SELECT count(*) FILTER(WHERE processed_at IS NULL AND attempts<5)::text size,COALESCE(extract(epoch FROM now()-min(created_at) FILTER(WHERE processed_at IS NULL AND attempts<5)),0)::double precision oldest,count(*) FILTER(WHERE processed_at IS NULL AND attempts>=5)::text failed FROM workspace_events`),
+      q<{n:string}>("SELECT count(*)::text n FROM workspace_process_runs WHERE state='paused' AND error IS NOT NULL")
+    ]);
+    workspaceQueueSize=Number(events[0].size);workspaceQueueOldest=events[0].oldest;workspaceFailedEvents=Number(events[0].failed);workspacePausedRuns=Number(runs[0].n);
+  } catch {collectionErrors++;}
   await Promise.all((["backup", "restore_drill"] as const).map(async kind => {
     try {
       const snapshot = await getOpsSnapshot(kind);
@@ -270,6 +278,12 @@ export function renderMetrics(activeWsConnections: number): string {
     ["taskira_webhook_queue_oldest_age_seconds", "Age of the oldest queued delivery.", webhookQueueOldest],
     ["taskira_integration_outbox_undispatched", "Integration events awaiting fan-out.", integrationOutbox],
   ] as const) lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} gauge`, `${name} ${value}`);
+  for(const [name,help,value] of [
+    ["taskira_workspace_queue_size","Pending internal workspace events.",workspaceQueueSize],
+    ["taskira_workspace_queue_oldest_age_seconds","Oldest pending internal event.",workspaceQueueOldest],
+    ["taskira_workspace_failed_events","Internal events exhausted after five attempts.",workspaceFailedEvents],
+    ["taskira_workspace_paused_runs","Process runs paused with an error.",workspacePausedRuns]
+  ] as const)lines.push(`# HELP ${name} ${help}`,`# TYPE ${name} gauge`,`${name} ${value}`);
   lines.push("# HELP taskira_webhooks Subscriptions by state.", "# TYPE taskira_webhooks gauge");
   for (const state of ["active", "paused", "disabled"]) lines.push(`taskira_webhooks${labelSet({ state })} ${webhooksByState.get(state) ?? 0}`);
   lines.push("# HELP taskira_recurring_runs_total Recurring rule outcomes committed in this process.", "# TYPE taskira_recurring_runs_total counter");
@@ -300,6 +314,7 @@ export function _resetMetrics(): void {
   jobDurations.clear();
   jobLastSuccess.clear();
   jobRunning.clear();
+  workspaceQueueSize=0;workspaceQueueOldest=0;workspaceFailedEvents=0;workspacePausedRuns=0;
   maintenanceArchived = 0;
   maintenanceAuditPurged = 0;
   backgroundQueueSize = 0;

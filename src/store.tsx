@@ -68,7 +68,7 @@ interface Api {
   removeAvatar: () => Promise<void>;
   logout: () => void;
   /** Сменить раздел; `section` — подраздел дома настроек. */
-  setView: (v: ViewId, section?: string) => void;
+  setView: (v: ViewId, section?: string) => void | Promise<void>;
   /** Открыть задачу панелью (по умолчанию) или полной страницей; null — закрыть. */
   openIssue: (id: string | null, mode?: IssueMode) => void;
   clearCollabOpenIssueId: () => void;

@@ -5,7 +5,7 @@ import { parseJiraExport } from "../import/jira";
 import { parseAsanaExport } from "../import/asana";
 import type { ImportParseResult } from "../import/types";
 import type { CreateInput } from "../store/mappers";
-import { Button, Checkbox, Dialog } from "../ds";
+import { Button, Checkbox, Dialog, Progress } from "../ds";
 import { Select } from "../ds/Select";
 import { useT } from "../i18n";
 
@@ -27,16 +27,20 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
   const cancelledRef = useRef(false);
   const mountedRef = useRef(true);
   const readerRef = useRef<FileReader | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [filename, setFilename] = useState("");
   useEffect(() => () => { mountedRef.current = false; readerRef.current?.abort(); }, []);
 
   const selectSource = (next: Source) => {
     readerRef.current?.abort();
+    setFilename("");
     setSource(next); setParsed(null); setFileError(""); setResult(null);
     setProgress(null); setIncludeClosed(false);
   };
 
   const onFile = (file: File) => {
     readerRef.current?.abort();
+    setFilename(file.name);
     setFileError(""); setParsed(null); setResult(null); setProgress(null);
     if (file.size > MAX_FILE_BYTES) { setFileError(t("import.tooLarge")); return; }
     const reader = new FileReader();
@@ -103,9 +107,13 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
       <div>
         <label htmlFor="import-file" className="mb-1.5 block text-[13px] font-medium text-faint">{t("import.file")}</label>
         <p className="mb-2 text-[12.5px] leading-relaxed text-faint">{t(source === "trello" ? "import.trelloInstructions" : source === "jira" ? "import.jiraInstructions" : "import.asanaInstructions")}</p>
-        <input key={source} id="import-file" type="file" accept={source === "trello" ? ".json,application/json" : ".csv,text/csv"} disabled={running}
+        <input ref={fileRef} key={source} id="import-file" type="file" hidden tabIndex={-1} accept={source === "trello" ? ".json,application/json" : ".csv,text/csv"} disabled={running}
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
-          className="w-full text-[13.5px] text-ink file:mr-3 file:rounded-md file:border file:border-line file:bg-panel file:px-3 file:py-1.5 file:text-[13px] file:font-semibold file:text-ink hover:file:border-accent" />
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button disabled={running} onClick={() => fileRef.current?.click()}>{t("import.chooseFile")}</Button>
+          {filename && <span className="min-w-0 break-all text-[13px] text-sub">{filename}</span>}
+        </div>
         {fileError && <p role="alert" className="mt-1.5 text-[12.5px] font-semibold text-danger">{fileError}</p>}
       </div>
       {parsed && <div className="rounded-md border border-line bg-sunken px-3 py-2.5 text-[13.5px]">
@@ -119,7 +127,7 @@ export default function ImportModal({ open = true, onClose }: { open?: boolean; 
         <p className="mt-1.5 font-semibold text-ink">{t("import.willCreate", { count: importable.length })}</p>
       </div>}
       {progress && <div className="rounded-md bg-linesoft px-3 py-2">
-        <progress value={progress.done} max={progress.total} aria-label={t("import.progress")} className="w-full accent-accent" />
+        <Progress value={progress.total ? progress.done / progress.total * 100 : 0} label={t("import.progress")} />
         <p className="mt-1.5 text-[12.5px] text-sub">{progress.done} / {progress.total}</p>
       </div>}
       {result && <p className="text-[13.5px] font-semibold text-ink">{result.cancelled

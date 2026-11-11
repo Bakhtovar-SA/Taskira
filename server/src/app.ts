@@ -1,3 +1,6 @@
+import { workspaceGlobalRoutes, workspaceRoutes } from "./routes/workspace.js";
+import { configureDocumentWebSocket } from "./services/workspaceWebSocket.js";
+import { createCollaboration } from "./services/workspaceCollaboration.js";
 /** Сборка Fastify: плагины, обработчики ошибок, маршруты. */
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from "fastify";
 import { randomUUID } from "node:crypto";
@@ -150,6 +153,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
     credentials: true,
   });
   app.register(websocket, { options: { maxPayload: 8192 } });
+  app.after(async () => configureDocumentWebSocket(app));
   // Вложения к задачам: потоковый multipart, один файл за запрос, лимит из конфига
   // (FILES_MIGRATION.md D3). throwFileSizeLimit — стрим падает ошибкой при превышении.
   app.register(multipart, {
@@ -268,6 +272,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(collaboratingRoutes); // /issues/collaborating (project-less)
       await api.register(homeRoutes); // /issues/assigned-to-me (project-less, главный экран)
       await api.register(searchRoutes); // /issues/search (project-less, кросс-проектный поиск)
+      await api.register(workspaceGlobalRoutes);
       await api.register(departmentRoutes, { prefix: "/departments" });
       await api.register(projectsRoutes); // /projects (список, CRUD, bootstrap /projects/:projectId)
 
@@ -275,6 +280,9 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
       await api.register(
         async (proj) => {
           await proj.register(realtimeRoutes); // durable project changes + reconnect catch-up
+          const collaboration = createCollaboration();
+          proj.addHook("onClose", async () => { await collaboration.destroy(); });
+          await workspaceRoutes(proj, collaboration);
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
           await proj.register(issuesRoutes, { prefix: "/issues" });
           await proj.register(issueAutomationRoutes, { prefix: "/issues" }); // CRUD + transition + watchers

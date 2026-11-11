@@ -12,6 +12,8 @@ import { acquireApiLease } from "./services/apiLease.js";
 import { closeWithDeadline } from "./services/shutdown.js";
 import { stopWebhookDispatch } from "./services/webhookDispatch.js";
 
+import { recordBackgroundJob,setBackgroundJobRunning } from "./metrics.js";
+
 async function main(): Promise<void> {
   const cfg = initConfig(); // конфиг загружается один раз и кэшируется (fix 3a)
   let shutdownOnLeaseLoss: (() => void) | undefined;
@@ -26,6 +28,14 @@ async function main(): Promise<void> {
   await runStartupSeeds(); // первый админ + проект CORP с workflow + instance (ТЗ 4.1); под блокировкой (см. seedStartup.ts)
 
   const app = buildApp();
+  let workspaceWork: Promise<unknown> | undefined;
+  const workspaceTimer = setInterval(() => {
+    if (workspaceWork) return;
+    const started=Date.now();setBackgroundJobRunning("workspace",true);
+    workspaceWork = runWorkspaceOnce().then(()=>recordBackgroundJob("workspace","success",(Date.now()-started)/1000)).catch(error => {console.error("[workspace]", error);recordBackgroundJob("workspace","error",(Date.now()-started)/1000);}).finally(() => { workspaceWork = undefined;setBackgroundJobRunning("workspace",false); });
+  }, 5000);
+  workspaceTimer.unref();
+  app.addHook("onClose", async () => { clearInterval(workspaceTimer); await workspaceWork; });
   let stopping = false;
   const shutdown = async (sig: string, exitCode = 0) => {
     if (stopping) return;
@@ -65,3 +75,4 @@ main().catch((e) => {
   console.error("[taskira] фатальная ошибка при запуске:", e);
   process.exit(1);
 });
+import { runWorkspaceOnce } from "./services/workspaceProcesses.js";

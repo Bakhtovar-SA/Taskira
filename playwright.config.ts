@@ -7,6 +7,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
   testMatch: "*.pw.ts",
+  // These scenarios use a real disposable API/database via their own config.
+  testIgnore: "workspace-modules.pw.ts",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
   fullyParallel: true,
   reporter: [["list"]],

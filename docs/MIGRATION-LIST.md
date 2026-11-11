@@ -86,3 +86,6 @@
 | `20261102T1000_realtime_sync.sql` | Realtime invalidations are durable and independent of webhook subscriptions. Pending IDs are NOT cursors: a later ID can commit before an earlier one. A serialized, post-commit dispatcher assigns the public event sequence. |
 | `20261102T1130_realtime_project_cursors.sql` | Keep dispatch fair when a project's parent row is locked. The dispatcher probes the first pending row per project before applying its batch limit. |
 | `20261102T1300_realtime_trigger_cost.sql` | Cheaper realtime capture triggers (review of 20261102T1000_realtime_sync.sql). The generic trigger serialized whole rows with to_jsonb(OLD/NEW) — including issues.description — on every write just to detect no-ops and read a few ids, and looked up parent/epic issues even when both were NULL. Bulk… |
+| `20261110T0800_workspace.sql` | Additive workspace modules. Existing projects remain disabled; task history is collected independently. |
+| `20261111T0730_project_files_module.sql` | Make the file catalogue configurable without hiding it on existing projects. Disabling hides its tab; attachments remain with their original materials. |
+| `20261111T1200_workspace_process_results.sql` | A completion cycle survives rapid reopen/close transitions between worker polls. |

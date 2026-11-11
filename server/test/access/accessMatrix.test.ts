@@ -15,6 +15,7 @@ import { invalidateUserCache } from "../../src/middleware.js";
 import { generateToken } from "../../src/services/apiTokens.js";
 import { ALLOW_ERRORS, BODIES, QUERIES, RELOGIN_AFTER, ROUTES, SCENARIOS, type Scenario } from "./routes.manifest.js";
 
+import { seedWorkspace, type WorkspaceObjects } from "./workspaceFixture.js";
 let app: FastifyInstance;
 let fx: Fixture;
 
@@ -27,7 +28,7 @@ interface Ctx {
   relogin?: () => Promise<void>;
 }
 const ctx = {} as Record<Scenario, Ctx>;
-const shared = {} as { dashboard: string; view: string; foreignToken: string };
+const shared = {} as { dashboard: string; view: string; foreignToken: string } & WorkspaceObjects;
 
 async function mkMember(username: string): Promise<string> {
   const hash = await bcrypt.hash(fx.pass, 4);
@@ -62,6 +63,8 @@ beforeAll(async () => {
   ).id;
   const created = JSON.parse((await app.inject({ method: "POST", url: "/api/me/tokens", headers: auth(mgr1), payload: { name: "mgr1", scope: "read" } })).body);
   shared.foreignToken = created.token.id;
+
+  Object.assign(shared, await seedWorkspace(app,fx.projects.p1,mgr1,fx.users.emp1));
 
   // collabOther: приглашён к p1issue, ходит на foreignIssue.
   const collab = await mkMember("collab1");
@@ -105,6 +108,7 @@ afterAll(async () => {
 });
 
 function fill(value: unknown, c: Ctx): unknown {
+  if (typeof value === "string" && value.startsWith("$workspace")) return shared[value.slice(1) as keyof WorkspaceObjects];
   if (value === "$uuid") return randomUUID();
   if (value === "$issue") return c.issue;
   if (value === "$project") return c.project;
@@ -118,7 +122,14 @@ function buildUrl(key: string, c: Ctx): { method: string; url: string } {
   const url = template.replace(/:(\w+)/g, (_m, name: string) => {
     switch (name) {
       case "projectId": return c.project;
-      case "id": return template.includes("/issues/:id") ? c.issue : key === "DELETE /api/me/tokens/:id" ? shared.foreignToken : randomUUID();
+      case "id": {
+        const match = template.match(/\/(documents|objects|object-types|process-templates|process-runs|automation-rules|plans|entity-links)\/:id/);
+        const kinds: Record<string,keyof WorkspaceObjects> = {documents:"workspaceDocument",objects:"workspaceObject","object-types":"workspaceObjectType","process-templates":"workspaceTemplate","process-runs":"workspaceRun","automation-rules":"workspaceRule",plans:"workspacePlan","entity-links":"workspaceLink"};
+        if (match) return shared[kinds[match[1]]];
+        return template.includes("/issues/:id") ? c.issue : key === "DELETE /api/me/tokens/:id" ? shared.foreignToken : randomUUID(); }
+      case "commentId": return shared.workspaceComment;
+      case "fileId": return shared.workspaceFile;
+      case "eventId": return shared.workspaceEvent;
       case "dashboardId": return shared.dashboard;
       case "viewId": return shared.view;
       case "userId": return fx.users.mgr2;
@@ -127,7 +138,7 @@ function buildUrl(key: string, c: Ctx): { method: string; url: string } {
       default: return randomUUID();
     }
   });
-  const query = QUERIES[key];
+  const query = QUERIES[key]?.replace(/\$workspace\w+/g, value => String(fill(value,c)));
   return { method, url: query ? `${url}?${query}` : url };
 }
 

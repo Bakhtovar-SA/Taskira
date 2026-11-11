@@ -150,6 +150,7 @@ function CreateSprintModal({ open, onClose }: { open: boolean; onClose: () => vo
 
 function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; issues: Issue[]; hasActiveSprint: boolean }) {
   const { t } = useT();
+  const [confirmComplete, setConfirmComplete] = useState(false);
   const { can, startSprint, completeSprint, setIssueSprint, toast } = useStore();
   const manage = can("manageSprints");
   const doneCount = issues.filter((i) => i.doneAt != null).length;
@@ -182,9 +183,7 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
           )}
           {manage && sprint.status === "active" && (
             <Button variant="primary" size="sm"
-              onClick={() => {
-                if (window.confirm(t("sprints.completeConfirm", { name: sprint.name }))) completeSprint(sprint.id);
-              }}
+              onClick={() => setConfirmComplete(true)}
               className="[&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
             >
               <IcCheck size={14} /> {t("sprints.complete")}
@@ -206,6 +205,13 @@ function SprintSection({ sprint, issues, hasActiveSprint }: { sprint: Sprint; is
           ))
         )}
       </DropZone>
+      <Dialog open={confirmComplete} onClose={() => setConfirmComplete(false)} size="sm" title={t("sprints.complete")}
+        footer={<>
+          <Button variant="ghost" data-autofocus onClick={() => setConfirmComplete(false)}>{t("common.cancel")}</Button>
+          <Button variant="primary" onClick={() => { completeSprint(sprint.id); setConfirmComplete(false); }}>{t("sprints.complete")}</Button>
+        </>}>
+        <p>{t("sprints.completeConfirm", { name: sprint.name })}</p>
+      </Dialog>
     </div>
   );
 }

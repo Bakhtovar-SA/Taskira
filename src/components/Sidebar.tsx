@@ -64,6 +64,11 @@ export const PROJECT_VIEWS: NavItem[] = [
   { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, tone: "teal", kbd: "3" },
   { id: "calendar", labelKey: "calendar.title", icon: (p) => <IcCalendar {...p} />, tone: "blue", kbd: "5" },
   { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, tone: "amber", kbd: "4", sprintsOnly: true },
+  { id: "documents", labelKey: "workspace.documents", icon: (p) => <IcBook {...p} />, tone: "orange" },
+  { id: "objects", labelKey: "workspace.objects", icon: (p) => <IcBriefcase {...p} />, tone: "teal" },
+  { id: "processes", labelKey: "workspace.processes", icon: (p) => <IcFlow {...p} />, tone: "blue" },
+  { id: "planning", labelKey: "workspace.planning", icon: (p) => <IcTimeline {...p} />, tone: "sky" },
+  { id: "files", labelKey: "workspace.files", icon: (p) => <IcLink {...p} />, tone: "teal" },
 ];
 
 /** Три дома настроек (ADR-0013 §2, ТЗ 5.9): Личные, Проект, Организация. */
@@ -77,6 +82,7 @@ export const SETTINGS_VIEWS: NavItem[] = [
 export const PERSONAL_VIEWS: NavItem[] = [
   { id: "inbox", labelKey: "sidebar.nav.inbox", icon: (p) => <IcInbox {...p} />, tone: "sky" },
   { id: "my", labelKey: "sidebar.nav.my", icon: (p) => <IcMyIssues {...p} />, tone: "violet" },
+  { id: "library", labelKey: "workspace.library", icon: (p) => <IcBook {...p} />, tone: "orange" },
 ];
 
 /** Плоский список всех разделов — для командной палитры (она ищет по нему). */

@@ -202,7 +202,7 @@ function focusViewHeading(sequence: number, outgoingFocus: Element | null): void
   cancelViewFocus = cancel;
   observer.observe(document.body, { childList: true, subtree: true });
 }
-export function viewTransition(update: () => void): void {
+export function viewTransition(update: () => void): void | Promise<void> {
   const sequence = ++viewSequence;
   const outgoingFocus = document.activeElement;
   cancelViewFocus();
@@ -225,7 +225,7 @@ export function viewTransition(update: () => void): void {
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
   }
-  transition.finished.catch(() => undefined).finally(() => {
+  return transition.finished.catch(() => undefined).finally(() => {
     if (--activeTransitions === 0) root.classList.remove("vt-nav");
     focusViewHeading(sequence, outgoingFocus);
   });

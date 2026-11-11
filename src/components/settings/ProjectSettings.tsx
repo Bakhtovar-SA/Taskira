@@ -3,7 +3,7 @@
  *  «Департаментах», описание и отдел — только через API, спринты — чекбоксом там же, архив — только по
  *  прямой ссылке, удаление — корзиной в списке отделов. Форма пишет теми же действиями стора, что и раньше
  *  (`patchProject`, `deleteProject`) — поведение настроек не меняется. */
-import { useEffect, useState } from "react";
+import { lazy,Suspense,useEffect, useState } from "react";
 import { useStore } from "../../store";
 import { useT } from "../../i18n";
 import { LIMITS } from "../../validation";
@@ -15,6 +15,8 @@ import { IcArchive, IcTrash } from "../../icons";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
 import { BackgroundPicker, ColorPicker, IconPicker } from "../ProjectLookPicker";
 import { ProjectRoadmap } from "./ProjectRoadmap";
+
+const WorkspaceModules=lazy(()=>import("../../workspace/WorkspaceModules"));
 
 export function ProjectSection({ section }: { section: string }) {
   if (section === "appearance") return <Appearance />;
@@ -135,14 +137,15 @@ function General() {
 
 function Modules() {
   const { t } = useT();
-  const { patchProject } = useStore();
+  const { patchProject,can } = useStore();
   const p = useCurrentProject();
   return (
     <SettingsPage title={t("settings.project.modules")} desc={t("settings.desc.modules")}>
       <SettingsCard>
         <div className="px-5 py-4">
-          <Switch checked={p.sprintsEnabled} onChange={(v) => patchProject(p.id, { sprintsEnabled: v })} label={t("settings.project.sprints")} description={t("settings.project.sprintsDesc")} labelFirst />
+          <Switch disabled={!can("editWorkflow")} checked={p.sprintsEnabled} onChange={(v) => patchProject(p.id, { sprintsEnabled: v })} label={t("settings.project.sprints")} description={t("settings.project.sprintsDesc")} labelFirst />
         </div>
+        <Suspense fallback={<p className="px-5 py-4 text-[13px] text-faint" role="status">{t("common.loading")}</p>}><WorkspaceModules key={p.id}/></Suspense>
       </SettingsCard>
     </SettingsPage>
   );

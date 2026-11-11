@@ -1,4 +1,5 @@
 import { withTransaction } from "../db.js";
+import type { PoolClient } from "pg";
 import { badRequest, notFound } from "../middleware.js";
 import { assertTransition, conflict } from "./workflow.js";
 import { computeRank, lockRankColumn } from "./rank.js";
@@ -8,9 +9,9 @@ import { assertIssueVersion, assertIssueWriteVersion, ISSUE_VERSION_SQL, logActi
  * Recheck the source after locking: a concurrent move must never validate an old edge. */
 export async function transitionIssue(
   projectId: string, issueId: string, toStatusId: string, beforeId: string | null,
-  actorId: string, reorder = true, expectedUpdatedAt?: string, expectedVersion?: string,
+  actorId: string, reorder = true, expectedUpdatedAt?: string, expectedVersion?: string, existingClient?: PoolClient,
 ) {
-  return withTransaction(async (client) => {
+  const run = async (client: PoolClient) => {
     const observed = (await client.query<{ status_id: string }>(
       `SELECT status_id FROM issues WHERE id = $1 AND project_id = $2`, [issueId, projectId],
     )).rows[0];
@@ -57,5 +58,6 @@ export async function transitionIssue(
       ...(!reorder ? { bulk: true } : {}),
     }, client);
     return { previous, row, changed, from, to: target.name };
-  });
+  };
+  return existingClient ? run(existingClient) : withTransaction(run);
 }

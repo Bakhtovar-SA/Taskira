@@ -22,6 +22,7 @@ export interface MailStrings {
 export const MAIL_STRINGS: Record<Lang, MailStrings> = {
   ru: {
     events: {
+      "workspace": "уведомление о работе",
       "issue.dueSoon": "напоминание о сроке задачи",
       "issue.reminder": "ваше личное напоминание о задаче",
       "issue.assigned": "вас назначили исполнителем задачи",
@@ -41,6 +42,7 @@ export const MAIL_STRINGS: Record<Lang, MailStrings> = {
   },
   en: {
     events: {
+      "workspace": "work update",
       "issue.dueSoon": "issue due-date reminder",
       "issue.reminder": "your personal issue reminder",
       "issue.assigned": "you were assigned to an issue",

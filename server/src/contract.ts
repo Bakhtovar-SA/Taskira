@@ -616,6 +616,7 @@ export const CustomFieldValueBody = z.object({
 
 /* ---------------- Notifications (миграция 011) ---------------- */
 export const NOTIFY_TYPES = [
+  "workspace",
   "issue.dueSoon",
   "issue.reminder",
   "issue.assigned",
@@ -1772,3 +1773,4 @@ export const OpsRunDto = z.object({ id: uuid, kind: OpsKind, startedAt: z.string
   appVersion: z.string().nullable(), details: z.record(z.string(), z.unknown()), error: z.string().nullable() });
 export type OpsRunDto = z.infer<typeof OpsRunDto>;
 export const OpsRunsQuery = z.object({ kind: OpsKind, limit: z.coerce.number().int().min(1).max(50).default(5) }).strict();
+export * from "./workspaceContract.js";

@@ -22,7 +22,7 @@ vi.mock("../../store", () => ({
     patchProject,
     deleteProject,
     openIssue: vi.fn(),
-    can: () => false,
+    can: (permission: string) => permission === "editWorkflow",
     toast: vi.fn(),
   }),
 }));

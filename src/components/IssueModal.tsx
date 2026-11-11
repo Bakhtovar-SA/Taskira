@@ -1,7 +1,7 @@
 import { AutomationFields, AutomationPopover, type AutomationKind } from "./IssueAutomationControls";
 import { usePendingMarks } from "../usePendingMarks";
 import { useIssueAutomation } from "../issueAutomation";
-import { useEffect, useId, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { cssVars } from "../cssVars";
 import { localToday } from "../calendarLayout";
 import { useStore } from "../store";
@@ -36,6 +36,8 @@ import { Flash } from "../Flash";
 import { MentionText } from "./MentionText";
 import { DIRECTION_COLORS, Field, selectCls, CollaboratorField, AttachmentField, SubtasksField, ChecklistField, CustomFieldsSection, IssueActions, LinksField } from "./IssueModalFields";
 import { Locked, EditableTitle, WatchButton } from "./IssueModalParts";
+
+const IssueMaterials = lazy(() => import("../workspace/IssueMaterials"));
 
 /** `open` — от Presence в App.tsx (режим панели): после закрытия панель ещё доигрывает уход. */
 export default function IssueModal({ mode = "panel", open = true }: { mode?: IssueMode; open?: boolean }) {
@@ -611,6 +613,7 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
             <CustomFieldsSection issue={issue} />
 
             <LinksField issue={issue} />
+            {can("browse") && <Suspense fallback={null}><IssueMaterials id={issue.id} editable={can("edit", issue)} /></Suspense>}
 
             <CollaboratorField issue={issue} />
 

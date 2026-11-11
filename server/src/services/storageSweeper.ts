@@ -39,7 +39,9 @@ export async function runStorageSweepOnce(storage: Storage, driver: "local" | "s
   // UNION с users.avatar_key (миграция 027) — иначе каждая аватарка выглядит
   // осиротевшей для этого сборщика, который раньше знал только про attachments.
   const known = await q<{ storage_key: string }>(
-    `SELECT storage_key FROM attachments WHERE storage_driver = $1
+    `SELECT storage_key FROM workspace_document_files WHERE storage_driver = $1
+     UNION
+     SELECT storage_key FROM attachments WHERE storage_driver = $1
      UNION
      SELECT avatar_key FROM users WHERE avatar_driver = $1 AND avatar_key IS NOT NULL
      UNION

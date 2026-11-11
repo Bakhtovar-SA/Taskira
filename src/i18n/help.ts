@@ -1,16 +1,17 @@
+import { workspaceHelp } from "./workspaceHelp";
 export type HelpSection = { id: string; label: string; paragraphs: string[]; code?: string; links?: { label: string; href: string }[]; table?: { headers: string[]; rows: string[][] } };
 export type HelpCopy = { title: string; subtitle: string; permission: string; sections: HelpSection[] };
 
-export const helpCopy: Record<"ru" | "en", HelpCopy> = {
+const baseHelp: Record<"ru" | "en", HelpCopy> = {
   "ru": {
     "title": "Документация Taskira",
-    "subtitle": "Работа с проектами, задачи, планирование и настройки",
+    "subtitle": "Задачи, документы, объекты, процессы, файлы и планирование",
     "sections": [
       {
         "id": "overview",
         "label": "Обзор системы",
         "paragraphs": [
-          "Taskira объединяет проекты и задачи. Доска, список, календарь и таймлайн показывают одну и ту же работу разными способами; изменение задачи отражается во всех видах.",
+          "Taskira объединяет проекты, задачи и связанные материалы. Доска, список, календарь и таймлайн показывают одну работу разными способами; изменение задачи отражается во всех видах. Дополнительные модули добавляют документы, объекты, процессы, прогнозы и общий каталог файлов проекта.",
           "Начните с выбора проекта и создания задачи. На доске задачи расположены по статусам; список удобен для поиска и массовых действий, календарь — для сроков, таймлайн — для направлений.",
           "Настройки организации, команды, создание проектов и рабочий процесс доступны администратору. Интерфейс объясняет недоступные действия, а окончательное решение о доступе принимает сервер."
         ]
@@ -21,7 +22,8 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Роль назначается отдельно в каждом проекте: менеджер, сотрудник или наблюдатель. Глобальный администратор имеет доступ ко всем проектам. Видимость проекта через команду или общий доступ не означает право изменять его настройки.",
           "Сотрудник редактирует и перемещает задачи, где он автор или исполнитель. Наблюдатель читает задачи. Приглашение к одной задаче открывает именно её и обсуждение, не делает человека участником всего проекта.",
-          "Таблица ниже показывает ролевые разрешения. Для действий с задачей дополнительно учитываются её автор, исполнители и приглашённые участники; доступные кнопки могут отличаться даже у двух людей с одной ролью."
+          "Таблица ниже показывает ролевые разрешения. Для действий с задачей дополнительно учитываются её автор, исполнители и приглашённые участники; доступные кнопки могут отличаться даже у двух людей с одной ролью.",
+          "Участники создают и редактируют документы и записи объектов; наблюдатели читают. Менеджер и администратор управляют структурой реестров, опубликованными процессами, подтверждениями документов, общими планами и модулями. Доступ к приглашённой задаче не открывает материалы проекта."
         ]
       },
       {
@@ -231,7 +233,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
       },
       {
         "id": "planning",
-        "label": "Планирование: что для чего",
+        "label": "Сложность и зависимости задач",
         "paragraphs": []
       },
       {
@@ -294,7 +296,8 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Бэкап PostgreSQL и вложений запускается скриптом backup.sh на хосте. Restore-drill восстанавливает архив в изолированный стенд, проверяет вход, число задач и вложение, затем удаляет стенд. Таймер репетиции по умолчанию работает в воскресенье в 03:30 по времени хоста. Пароли и ключ WEBHOOK_SECRET_KEY хранятся отдельно от архива.",
           "В «Организация → Состояние системы» администратор видит 11 проверок. Сначала идут сбои и предупреждения; unknown означает, что проверка не удалась, off — функция выключена. Обновление вручную, история последних пяти бэкапов и репетиций открывается по нажатию.",
-          "Бэкап требует внимания через 26 часов без успеха и считается сбоем после 50 часов; репетиция — через 8 и 15 суток. Последняя ошибка или запуск дольше 6 часов дают сбой. Пустая история даёт unknown. Экспорт JSONL служит для рабочих данных, полный аварийный архив содержит БД и бинарные вложения."
+          "Бэкап требует внимания через 26 часов без успеха и считается сбоем после 50 часов; репетиция — через 8 и 15 суток. Последняя ошибка или запуск дольше 6 часов дают сбой. Пустая история даёт unknown. Экспорт JSONL служит для рабочих данных, полный аварийный архив содержит БД и бинарные вложения.",
+          "Резервная копия включает состояния совместных документов, версии, комментарии, объекты, связи, процессы, очередь автоматизаций, планы и историю завершений. Бинарные вложения задач и документов сохраняются вместе с файловым хранилищем; для восстановления нужна согласованная копия БД и файлов."
         ],
         "links": [
           {
@@ -308,13 +311,13 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
   },
   "en": {
     "title": "Taskira documentation",
-    "subtitle": "Projects, issues, planning and settings",
+    "subtitle": "Tasks, documents, objects, processes, files and planning",
     "sections": [
       {
         "id": "overview",
         "label": "System overview",
         "paragraphs": [
-          "Taskira brings projects and issues together. Board, list, calendar and timeline show the same work in different ways; an issue change appears in every view.",
+          "Taskira brings together projects, tasks and related materials. Board, list, calendar and timeline show the same work in different ways; task changes appear in every view. Optional modules add documents, objects, processes, forecasts and a shared project file catalogue.",
           "Start by selecting a project and creating an issue. The board groups issues by status; the list supports searching and bulk actions, the calendar shows due dates, and the timeline shows directions.",
           "Organization settings, teams, project creation and workflow management are available to administrators. The interface explains unavailable actions; the server makes the final access decision."
         ]
@@ -325,7 +328,8 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "Roles are assigned per project: manager, employee or viewer. A global administrator can access every project. Visibility through a team or shared access does not grant permission to change project settings.",
           "Employees edit and move issues where they are the reporter or an assignee. Viewers read issues. An invitation to an issue grants access to that issue and its discussion, without making the person a member of the whole project.",
-          "The table below shows role permissions. Issue actions also consider the reporter, assignees and invited collaborators; available buttons can differ between two people with the same role."
+          "The table below shows role permissions. Issue actions also consider the reporter, assignees and invited collaborators; available buttons can differ between two people with the same role.",
+          "Members create and edit documents and object records; viewers read them. Managers and administrators manage register structure, published processes, document verification, shared plans and modules. An invitation to one task does not open project materials."
         ]
       },
       {
@@ -535,7 +539,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
       },
       {
         "id": "planning",
-        "label": "Planning: which tool to use",
+        "label": "Task complexity and dependencies",
         "paragraphs": []
       },
       {
@@ -598,7 +602,8 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "paragraphs": [
           "The host backup.sh script backs up PostgreSQL and attachments. Restore-drill restores an archive into an isolated stack, checks login, issue counts and an attachment, then removes the stack. The default drill timer runs on Sunday at 03:30 in host time. Passwords and WEBHOOK_SECRET_KEY are stored separately from the archive.",
           "Organization → System status shows administrators 11 checks. Failures and warnings come first; unknown means a check could not complete, and off means a feature is disabled. Refresh is manual; the last five backup and drill runs load when expanded.",
-          "Backup requires attention after 26 hours without success and fails after 50 hours; drill thresholds are 8 and 15 days. The latest error or a run longer than 6 hours is a failure. Empty history is unknown. JSONL exports cover working data; the full disaster-recovery archive contains the database and binary attachments."
+          "Backup requires attention after 26 hours without success and fails after 50 hours; drill thresholds are 8 and 15 days. The latest error or a run longer than 6 hours is a failure. Empty history is unknown. JSONL exports cover working data; the full disaster-recovery archive contains the database and binary attachments.",
+          "Backups include collaborative document state, versions, comments, objects, links, processes, the automation queue, plans and completion history. Binary task and document attachments are stored with file storage; recovery needs a consistent database and file backup."
         ],
         "links": [
           {
@@ -610,4 +615,9 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
     ],
     "permission": "Permission"
   }
+};
+
+export const helpCopy: Record<"ru" | "en", HelpCopy> = {
+  ru: { ...baseHelp.ru, sections: [...baseHelp.ru.sections, ...workspaceHelp("ru")] },
+  en: { ...baseHelp.en, sections: [...baseHelp.en.sections, ...workspaceHelp("en")] },
 };
