@@ -214,11 +214,12 @@ export const workspaceApi = {
     id: string,
     stepId: string,
     action: "approve" | "return",
+    reviewRevision: number,
     reason: string,
   ) =>
     api<ProcessRun>(`${root(p)}/process-runs/${id}/review`, {
       method: "POST",
-      body: { stepId, action, reason },
+      body: { stepId, action, reason, reviewRevision },
     }),
   rules: (p: string, signal?: AbortSignal) =>
     api<{ items: AutomationRule[] }>(`${root(p)}/automation-rules`, { signal }),

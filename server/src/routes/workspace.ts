@@ -13,6 +13,7 @@ import {
   zparams,
 } from "../middleware.js";
 import { loadConfig } from "../config.js";
+import { conflict as resultConflict } from "../services/workflow.js";
 import {
   WorkspaceModulesBody,
   DocumentCreateBody,
@@ -1256,18 +1257,18 @@ export async function workspaceRoutes(
     "/process-templates/:id/preview",
     { preHandler: requirePerm("browse"), preValidation: zparams(IdParams) },
     async (req) => {
-      const t = await entityTemplate(pid(req), id(req));
-      const published = (
-        await q<{ spec: z.infer<typeof ProcessTemplateBody> }>(
-          "SELECT v.spec FROM workspace_process_versions v JOIN workspace_process_templates t ON t.published_version_id=v.id WHERE t.project_id=$1 AND t.id=$2",
+      const template = (
+        await q<{ spec: z.infer<typeof ProcessTemplateBody>; version_id: string | null }>(
+          "SELECT COALESCE(v.spec,t.draft) spec,t.published_version_id version_id FROM workspace_process_templates t LEFT JOIN workspace_process_versions v ON t.published_version_id=v.id WHERE t.project_id=$1 AND t.id=$2",
           [pid(req), id(req)],
         )
       )[0];
-      const spec = published?.spec ?? t.draft;
+      if (!template) throw notFound();
+      const spec = template.spec;
       return {
         steps: spec.steps,
         errors: validateGraph(spec),
-        versionId: t.publishedVersionId,
+        versionId: template.version_id,
       };
     },
   );
@@ -1313,11 +1314,15 @@ export async function workspaceRoutes(
     },
     async (req) => {
       await writable(req, "processes");
-      const current = await getRun(pid(req), id(req));
-      if (current.state === "completed" || current.state === "cancelled")
-        throw badRequest("Процесс завершён");
       const action = (req.body as { action: string }).action;
       await withTransaction(async (client) => {
+        const current = (await client.query<{ state: string }>(
+          "SELECT state FROM workspace_process_runs WHERE project_id=$1 AND id=$2 FOR UPDATE",
+          [pid(req), id(req)],
+        )).rows[0];
+        if (!current) throw notFound();
+        if (current.state === "completed" || current.state === "cancelled")
+          throw badRequest("Процесс завершён");
         await client.query(
           "UPDATE workspace_process_runs SET state=$3,error=NULL,owner_id=$4 WHERE project_id=$1 AND id=$2",
           [
@@ -1340,7 +1345,16 @@ export async function workspaceRoutes(
           {},
           client,
         );
-        if (action === "resume") await advanceRun(client, id(req));
+        if (action === "resume") {
+          const missing = await client.query<{ step_key: string }>(
+            "UPDATE workspace_process_steps SET state='waiting',approved=false,review_revision=NULL WHERE run_id=$1 AND issue_id IS NULL AND state IN ('active','review','completed') RETURNING step_key",
+            [id(req)],
+          );
+          for (const step of missing.rows)
+            await history(pid(req), "process", id(req), req.user.sub,
+              "step.recreated", { key: step.step_key }, client);
+          await advanceRun(client, id(req));
+        }
       });
       return getRun(pid(req), id(req));
     },
@@ -1356,6 +1370,7 @@ export async function workspaceRoutes(
             .object({
               stepId: z.string().uuid(),
               action: z.enum(["approve", "return"]),
+              reviewRevision: z.number().int().nonnegative(),
               reason: z.string().max(2000).default(""),
             })
             .strict(),
@@ -1364,7 +1379,7 @@ export async function workspaceRoutes(
     },
     async (req) => {
       await writable(req, "processes");
-      const b = req.body as { stepId: string; action: string; reason: string };
+      const b = req.body as { stepId: string; action: string; reason: string; reviewRevision: number };
       await withTransaction(async (client) => {
         const run = (
           await client.query<{ state: string; owner_id: string }>(
@@ -1379,6 +1394,7 @@ export async function workspaceRoutes(
             spec: { reviewerId: string };
             issue_id: string;
             state: string;
+            review_revision: number | null;
           }>(
             "SELECT * FROM workspace_process_steps WHERE run_id=$1 AND id=$2 FOR UPDATE",
             [id(req), b.stepId],
@@ -1394,6 +1410,14 @@ export async function workspaceRoutes(
           throw forbidden("Вы не назначены проверяющим");
         if (step.state !== "review")
           throw badRequest("Этап не ожидает проверки");
+        const issue = (await client.query<{ category: string; workspace_result_revision: number }>(
+          "SELECT s.category,i.workspace_result_revision FROM issues i JOIN workflow_statuses s ON s.id=i.status_id WHERE i.project_id=$1 AND i.id=$2",
+          [pid(req), step.issue_id],
+        )).rows[0];
+        if (!issue || issue.category !== "done" ||
+          issue.workspace_result_revision !== step.review_revision ||
+          b.reviewRevision !== step.review_revision)
+          throw resultConflict("Результат этапа изменился. Обновите процесс и проверьте новый результат");
         if (b.action === "return") {
           const target = (
             await client.query<{ id: string }>(
@@ -1414,7 +1438,7 @@ export async function workspaceRoutes(
             client,
           );
           await client.query(
-            "UPDATE workspace_process_steps SET state='active',approved=false WHERE id=$1",
+            "UPDATE workspace_process_steps SET state='active',approved=false,review_revision=NULL WHERE id=$1",
             [b.stepId],
           );
         } else

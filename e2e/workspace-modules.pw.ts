@@ -3,6 +3,7 @@ import {
   expect,
   type Page,
   type APIRequestContext,
+  type WebSocketRoute,
 } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
@@ -47,6 +48,43 @@ const examples = [
     ],
   },
 ];
+
+test("unsaved document survives SPA navigation while collaboration is disconnected", async ({ page }) => {
+  let offline = false;
+  const sockets: WebSocketRoute[] = [];
+  await page.routeWebSocket(/\/documents\/[^/]+\/collaboration/, (socket) => {
+    if (offline) { void socket.close({ code: 1013 }); return; }
+    sockets.push(socket, socket.connectToServer());
+  });
+  await json(page.request, "POST", "/api/auth/login", { username: "admin", password: "password123" });
+  const projects = await json(page.request, "GET", "/api/projects");
+  const project = projects.find((p: { key: string }) => p.key === "CORP");
+  const root = `/api/projects/${project.id}`;
+  const first = await json(page.request, "POST", `${root}/documents`, { title: "Offline draft" });
+  const second = await json(page.request, "POST", `${root}/documents`, { title: "Other document" });
+  await page.goto(`/p/CORP/documents?document=${first.id}`);
+  const editor = page.locator(".tiptap[contenteditable=true]");
+  await expect(editor).toBeVisible();
+  await expect(page.getByText("Сохранено на сервере", { exact: true })).toBeVisible();
+  offline = true;
+  await Promise.all(sockets.map((socket) => socket.close({ code: 1012 })));
+  await expect(page.getByText("Связь потеряна. Правки остаются в этой вкладке.", { exact: true })).toBeVisible();
+  await editor.click(); await page.keyboard.type("Pending text retained through navigation");
+  await page.getByRole("button", { name: "Other document", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(second.id));
+  await page.getByRole("button", { name: "Offline draft", exact: true }).click();
+  await expect(editor).toContainText("Pending text retained through navigation");
+  await page.getByRole("link", { name: "Доска", exact: true }).click();
+  await page.getByRole("link", { name: "Документы", exact: true }).click();
+  await page.getByRole("button", { name: "Offline draft", exact: true }).click();
+  await expect(editor).toContainText("Pending text retained through navigation");
+  offline = false;
+  await expect(page.getByText("Сохранено на сервере", { exact: true })).toBeVisible({ timeout: 45000 });
+  await expect.poll(async () => (await json(page.request, "GET", `${root}/documents/${first.id}`)).document.text)
+    .toContain("Pending text retained through navigation");
+  await page.reload();
+  await expect(editor).toContainText("Pending text retained through navigation");
+});
 for (const example of examples)
   test(example.name, async ({ page }, testInfo) => {
     const errors: string[] = [];
@@ -271,6 +309,7 @@ for (const example of examples)
         .toBe(i === 2 ? "review" : "completed");
     }
     await json(page.request, "POST", `${p}/process-runs/${runId}/review`, {
+      reviewRevision: 0,
       stepId: run.steps[2].id,
       action: "approve",
     });

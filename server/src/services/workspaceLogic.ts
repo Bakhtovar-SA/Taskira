@@ -3,7 +3,30 @@ import type {
   ProcessTemplateBody,
   PlanItem,
   ForecastResult,
+  ProcessStep,
 } from "../workspaceContract.js";
+
+/** Unqualified task fields are usable only when a single direct dependency owns
+ * the name. Explicit step.<key>.<field> references disambiguate parallel results. */
+export function stepConditionValues(
+  step: ProcessStep,
+  base: Record<string, unknown>,
+  results: Map<string, Record<string, unknown>>,
+): Record<string, unknown> {
+  const values = { ...base };
+  const fields = new Map<string, unknown[]>();
+  for (const key of step.dependsOn) {
+    for (const [name, value] of Object.entries(results.get(key) ?? {})) {
+      values[`step.${key}.${name}`] = value;
+      fields.set(name, [...(fields.get(name) ?? []), value]);
+    }
+  }
+  for (const [name, items] of fields) {
+    if (items.length === 1) values[name] = items[0];
+    else delete values[name];
+  }
+  return values;
+}
 
 export function matches(
   when: Conditions,

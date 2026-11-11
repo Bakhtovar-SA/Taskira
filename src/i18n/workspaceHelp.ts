@@ -37,7 +37,7 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
         },
       },
       section("documents", "Documents", [
-        "Members create and edit documents; viewers read them. Several authors can edit together and see participants and cursors. Saved on server means PostgreSQL acknowledged the write. During a connection loss, edits stay in the open tab's memory and sync on reconnection; closing an unsynced tab can lose them.",
+        "Members create and edit documents; viewers read them. Several authors can edit together and see participants and cursors. Saved on server means PostgreSQL acknowledged the write. During a connection loss, edits stay in the open tab's memory even when switching documents or sections and sync on reconnection; closing an unsynced tab or signing out can lose them.",
         "Use Comments, Versions, Links and Properties. A comment can refer to a selected block and be resolved. Automatic checkpoints and named versions preserve history. Restore creates a new revision and reconnects editors. Images and attachments pass the usual file checks.",
         "A manager or administrator verifies a specific version until a chosen date. Editing shows Changed after verification; the previous verification stays with its version. The owner receives an internal reminder when review is due.",
         "Select a passage, choose Create task from selection, review the title, description, object and process, then confirm. The document receives a live task link; the task keeps a link to the source block. Task creation is always explicit.",
@@ -48,6 +48,8 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
         "Archiving keeps the record and links. If another member changed it before your save, refresh after the version-conflict message before applying your changes again. Object-to-object links are limited to one project.",
       ]),
       section("processes", "Processes and automation", [
+        "Launch confirms the previewed published version; a changed publication requires refreshing the preview. Reopening a task invalidates its approval even if it is closed again before the next refresh. Deleting a step task pauses the run; Resume recreates missing tasks and records the recovery in the log.",
+        "Choose Text, Number, Yes / No or Empty value for a condition. Task fields come from direct predecessors; use step.<key>.<field> to disambiguate parallel results. An unqualified field must belong to a single predecessor. object.<field> refers to an object property.",
         "A process template coordinates several tasks; the task workflow still defines allowed statuses and transitions. Managers and administrators prepare a draft, check the graph, preview and publish it. Published versions are immutable. Editing creates a new version; existing runs keep their template and instruction versions.",
         "Choose participants, an object and parameters before confirming a launch. Independent steps run in parallel; dependent or conditional steps wait. Tasks are created when their step opens. Future steps are visible in the run and can enter a plan.",
         "Closing a step task advances the run or requests approval. Approval releases dependent work; returning for changes keeps the step open. Pause stops new steps without moving existing task dates. Resume, cancellation, errors and retries appear in the log.",
@@ -106,7 +108,7 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
       },
     },
     section("documents", "Документы", [
-      "Участники создают и редактируют документы; наблюдатели читают. Несколько авторов работают одновременно, видят участников и курсоры. «Сохранено на сервере» означает подтверждённую запись в PostgreSQL. При потере связи правки остаются в памяти открытой вкладки и синхронизируются после подключения; закрытие несинхронизированной вкладки может их потерять.",
+      "Участники создают и редактируют документы; наблюдатели читают. Несколько авторов работают одновременно, видят участников и курсоры. «Сохранено на сервере» означает подтверждённую запись в PostgreSQL. При потере связи правки остаются в памяти открытой вкладки даже при переходе к другому документу или разделу и синхронизируются после подключения; закрытие несинхронизированной вкладки или выход из учётной записи может их потерять.",
       "Справа находятся Комментарии, Версии, Связи и Свойства. Комментарий можно привязать к выделенному блоку и закрыть после обсуждения. Автоматические и именованные версии сохраняют историю. Восстановление создаёт новую редакцию и переподключает редакторов. Изображения и вложения проходят общие проверки файлов.",
       "Менеджер или администратор подтверждает конкретную версию до выбранной даты. Изменение даёт отметку «Изменён после подтверждения»; прежнее подтверждение остаётся у своей версии. При наступлении даты пересмотра ответственный получает внутреннее уведомление.",
       "Выделите текст, нажмите «Создать задачу из текста», проверьте название, описание, объект и процесс, затем подтвердите форму. В документе появится живая ссылка со статусом задачи, в задаче — ссылка на исходный блок. Создание всегда выполняется явно пользователем.",
@@ -117,6 +119,8 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
       "Архивирование сохраняет запись и ссылки. Если другой участник успел изменить запись, обновите её после сообщения о конфликте версии перед повторным сохранением. Связи между объектами ограничены одним проектом.",
     ]),
     section("processes", "Процессы и автоматизации", [
+      "Запуск подтверждает показанную опубликованную версию. Если она изменилась, обновите предпросмотр. Переоткрытие задачи отменяет её подтверждение, даже если задачу сразу завершили повторно. Удаление задачи этапа приостанавливает процесс; возобновление восстанавливает удалённые задачи и записывает это в журнал.",
+      "Для условия выберите тип значения: Текст, Число, Да / Нет или Пустое значение. Поля задач берутся из непосредственных предшественников. step.<ключ>.<поле> различает результаты параллельных этапов; имя без ключа доступно только у единственного предшественника. object.<поле> означает свойство объекта.",
       "Шаблон процесса связывает несколько задач в последовательность; рабочий процесс задач по-прежнему задаёт разрешённые статусы и переходы. Менеджер или администратор готовит черновик, проверяет граф, смотрит предпросмотр и публикует. Опубликованная версия неизменяема. Правки создают новую; запущенная работа сохраняет свою версию шаблона и инструкций.",
       "Перед запуском выберите участников, объект и параметры и подтвердите список работы. Независимые этапы идут параллельно; зависимые и условные ждут очереди. Задачи создаются при открытии этапов. Будущие шаги видны в запуске и могут попасть в план.",
       "Завершение задачи этапа открывает следующий шаг или проверку результата. Подтверждение освобождает зависимую работу; возврат на доработку удерживает этап открытым. Пауза останавливает новые этапы без переноса сроков существующих задач. Возобновление, отмена, ошибки и повторы отражаются в журнале.",

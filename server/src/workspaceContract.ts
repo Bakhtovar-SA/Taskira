@@ -261,6 +261,7 @@ export interface ProcessTemplate {
 export const ProcessStartBody = z
   .object({
     templateId: id,
+    expectedVersionId: id,
     title,
     objectId: id.nullable().default(null),
     assigneeIds: z.array(id).max(20).default([]),
@@ -276,6 +277,7 @@ export interface ProcessStepRun {
   issueId: string | null;
   issueKey: string | null;
   approved: boolean;
+  reviewRevision: number | null;
   reviewerId: string | null;
   complexity: string | null;
   dependsOn: string[];

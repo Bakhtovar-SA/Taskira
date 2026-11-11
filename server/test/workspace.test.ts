@@ -26,6 +26,7 @@ import {
 } from "../src/services/workspaceLogic.js";
 import { ProcessTemplateBody } from "../src/workspaceContract.js";
 import { remainingPlan } from "../src/services/workspacePlanning.js";
+import type { ProcessRun } from "../src/workspaceContract.js";
 let app: FastifyInstance, f: Fixture, tokens: Record<string, string>;
 const p = () => `/api/projects/${f.projects.p1}`;
 async function call(
@@ -265,7 +266,7 @@ async function publish(steps: unknown[]) {
     `${p()}/process-templates/${t.json().id}/publish`,
   );
   expect(v.statusCode, v.body).toBe(200);
-  return { template: t.json(), version: v.json() };
+  return { template: { ...t.json(), publishedVersionId: v.json().id }, version: v.json() };
 }
 async function done(issueId: string) {
   const status = (
@@ -279,6 +280,127 @@ async function done(issueId: string) {
   });
   expect(r.statusCode, r.body).toBe(200);
 }
+
+describe("process review regressions", () => {
+  async function start(steps: unknown[]) {
+    const { template } = await publish(steps);
+    const response = await call("POST", `${p()}/process-runs`, {
+      templateId: template.id, expectedVersionId: template.publishedVersionId,
+      title: "Regression", requestId: randomUUID(),
+    });
+    expect(response.statusCode, response.body).toBe(201);
+    return response.json<ProcessRun>();
+  }
+  const runState = async (id: string) => (await call("GET", `${p()}/process-runs/${id}`)).json<ProcessRun>();
+  async function reopen(issueId: string) {
+    const response = await call("POST", `${p()}/issues/${issueId}/transition`, { to: f.p1status.inprogress });
+    expect(response.statusCode, response.body).toBe(200);
+  }
+  test("reopened work cannot be approved and a rapid reopen/close requires a new review", async () => {
+    const run = await start([
+      { key: "a", title: "Review", reviewerId: f.users.emp1 },
+      { key: "b", title: "After", dependsOn: ["a"] },
+    ]);
+    await done(run.steps[0].issueId!); await runWorkspaceOnce();
+    const approve = (revision: number) => call("POST", `${p()}/process-runs/${run.id}/review`, {
+      stepId: run.steps[0].id, action: "approve", reviewRevision: revision,
+    }, "emp1");
+    await reopen(run.steps[0].issueId!);
+    expect((await approve(0)).statusCode).toBe(409);
+    await runWorkspaceOnce();
+    expect((await runState(run.id)).steps[0]).toMatchObject({ state: "active", approved: false });
+    await done(run.steps[0].issueId!); await runWorkspaceOnce();
+    const review = (await runState(run.id)).steps[0];
+    expect(review).toMatchObject({ state: "review", reviewRevision: 1 });
+    await reopen(run.steps[0].issueId!); await done(run.steps[0].issueId!);
+    // No worker poll between the two transitions.
+    expect((await approve(1)).statusCode).toBe(409);
+    await runWorkspaceOnce();
+    expect((await runState(run.id)).steps[1].issueId).toBeNull();
+    expect((await approve(1)).statusCode).toBe(409);
+    expect((await approve(2)).statusCode).toBe(200);
+    expect((await runState(run.id)).steps[1].issueId).toBeTruthy();
+  });
+  test("a previously approved completion cannot approve the next completion cycle", async () => {
+    const run = await start([
+      { key: "a", title: "Review", reviewerId: f.users.emp1 },
+      { key: "b", title: "After", dependsOn: ["a"] },
+    ]);
+    await done(run.steps[0].issueId!); await runWorkspaceOnce();
+    expect((await call("POST", `${p()}/process-runs/${run.id}/review`, {
+      stepId: run.steps[0].id, action: "approve", reviewRevision: 0,
+    }, "emp1")).statusCode).toBe(200);
+    await reopen(run.steps[0].issueId!); await done(run.steps[0].issueId!);
+    await runWorkspaceOnce();
+    expect((await runState(run.id)).state).toBe("paused");
+    await call("POST", `${p()}/process-runs/${run.id}/control`, { action: "resume" });
+    expect((await runState(run.id)).steps[0]).toMatchObject({ state: "review", approved: false, reviewRevision: 1 });
+  });
+  test("deleting a stage task pauses with a recovery path and resume recreates it once", async () => {
+    const run = await start([{ key: "a", title: "A" }, { key: "b", title: "B", dependsOn: ["a"] }]);
+    const oldId = run.steps[0].issueId!;
+    const deleted = await call("DELETE", `${p()}/issues/${oldId}`);
+    expect(deleted.statusCode, deleted.body).toBe(204);
+    await runWorkspaceOnce(); await runWorkspaceOnce();
+    const paused = await runState(run.id);
+    expect(paused).toMatchObject({ state: "paused", error: expect.stringContaining("удалена") });
+    expect(paused.steps[1].issueId).toBeNull();
+    const resumed = (await call("POST", `${p()}/process-runs/${run.id}/control`, { action: "resume" })).json<ProcessRun>();
+    expect(resumed.state).toBe("running");
+    expect(resumed.steps[0].issueId).toBeTruthy();
+    expect(resumed.steps[0].issueId).not.toBe(oldId);
+    await runWorkspaceOnce();
+    expect((await runState(run.id)).steps[0].issueId).toBe(resumed.steps[0].issueId);
+    expect(resumed.log.some((entry) => entry.action === "step.recreated")).toBe(true);
+    await done(resumed.steps[0].issueId!); await runWorkspaceOnce();
+    expect((await runState(run.id)).steps[1].state).toBe("active");
+  });
+  test("unrelated parallel task fields cannot override a predecessor result", async () => {
+    const run = await start([
+      { key: "a", title: "A" }, { key: "b", title: "B" },
+      { key: "c", title: "C", dependsOn: ["a"], when: { mode: "all", items: [{ field: "Result", op: "eq", value: "ok" }] } },
+      { key: "d", title: "D", dependsOn: ["a", "b"], when: { mode: "all", items: [{ field: "step.a.Result", op: "eq", value: "ok" }] } },
+      { key: "e", title: "E", dependsOn: ["a", "b"], when: { mode: "all", items: [{ field: "Result", op: "isSet" }] } },
+    ]);
+    const field = (await call("POST", `${p()}/custom-fields`, { name: "Result", fieldType: "text" }, "admin")).json();
+    for (const [index, value] of [[0, "ok"], [1, "fail"]] as const)
+      expect((await call("PUT", `${p()}/issues/${run.steps[index].issueId}/custom-fields/${field.id}`, { value })).statusCode).toBe(200);
+    await done(run.steps[0].issueId!); await runWorkspaceOnce();
+    expect((await runState(run.id)).steps[2].state).toBe("active");
+    await done(run.steps[1].issueId!); await runWorkspaceOnce();
+    const current = await runState(run.id);
+    expect(current.steps[3].state).toBe("active");
+    expect(current.steps[4].state).toBe("skipped");
+  });
+  test("deletion is detected even after the process completed", async () => {
+    const run = await start([{ key: "a", title: "A" }]);
+    await done(run.steps[0].issueId!); await runWorkspaceOnce();
+    expect((await runState(run.id)).state).toBe("completed");
+    expect((await call("DELETE", `${p()}/issues/${run.steps[0].issueId}`)).statusCode).toBe(204);
+    await runWorkspaceOnce();
+    expect((await runState(run.id)).state).toBe("paused");
+    const response = await call("POST", `${p()}/process-runs/${run.id}/control`, { action: "resume" });
+    expect(response.statusCode, response.body).toBe(200);
+    expect(response.json().steps[0].state).toBe("active");
+  });
+  test("start rejects a changed publication and preserves retries of an already started request", async () => {
+    const { template, version } = await publish([{ key: "a", title: "Previewed work" }]);
+    const input = { templateId: template.id, expectedVersionId: version.id, title: "Pinned", requestId: randomUUID() };
+    const started = await call("POST", `${p()}/process-runs`, input);
+    expect(started.statusCode, started.body).toBe(201);
+    const updated = await call("PATCH", `${p()}/process-templates/${template.id}`, {
+      revision: template.revision + 1, spec: { name: "Changed", steps: [{ key: "b", title: "Unexpected work" }] },
+    });
+    expect(updated.statusCode, updated.body).toBe(200);
+    const publication = await call("POST", `${p()}/process-templates/${template.id}/publish`);
+    expect(publication.statusCode, publication.body).toBe(200);
+    expect((await call("POST", `${p()}/process-runs`, { ...input, requestId: randomUUID() })).statusCode).toBe(409);
+    expect((await call("POST", `${p()}/process-runs`, input)).json().id).toBe(started.json().id);
+    const fresh = await call("POST", `${p()}/process-runs`, { ...input, expectedVersionId: publication.json().id, requestId: randomUUID() });
+    expect(fresh.statusCode, fresh.body).toBe(201);
+    expect(fresh.json().steps[0].title).toBe("Unexpected work");
+  });
+});
 describe("versioned process execution", () => {
   test("creates parallel roots once, waits for review, then creates dependent work", async () => {
     const { template, version } = await publish([
@@ -288,6 +410,7 @@ describe("versioned process execution", () => {
     ]);
     const input = {
       templateId: template.id,
+      expectedVersionId: template.publishedVersionId,
       title: "Портал",
       requestId: randomUUID(),
     };
@@ -316,7 +439,7 @@ describe("versioned process execution", () => {
     const approved = await call(
       "POST",
       `${p()}/process-runs/${run.id}/review`,
-      { stepId: a.id, action: "approve" },
+      { stepId: a.id, reviewRevision: 0, action: "approve" },
       "emp1",
     );
     expect(approved.statusCode, approved.body).toBe(200);
@@ -355,6 +478,7 @@ describe("versioned process execution", () => {
     const run = (
       await call("POST", `${p()}/process-runs`, {
         templateId: template.id,
+      expectedVersionId: template.publishedVersionId,
         title: "Запуск",
         requestId: randomUUID(),
       })
@@ -511,6 +635,7 @@ test("conditional branches rejoin and reopens pause a completed run", async () =
   ]);
   const started = await call("POST", `${p()}/process-runs`, {
     templateId: template.id,
+      expectedVersionId: template.publishedVersionId,
     title: "Branches",
     parameters: { route: "a" },
     requestId: randomUUID(),
@@ -556,6 +681,7 @@ test("saved future steps materialise once and completed dependencies disappear f
   const run = (
     await call("POST", `${p()}/process-runs`, {
       templateId: template.id,
+      expectedVersionId: template.publishedVersionId,
       title: "Plan",
       requestId: randomUUID(),
     })

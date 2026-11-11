@@ -12,6 +12,7 @@ export type WorkspaceObjects = Record<
   | "workspaceObjectType"
   | "workspaceObject"
   | "workspaceTemplate"
+  | "workspaceTemplateVersion"
   | "workspaceRun"
   | "workspaceStep"
   | "workspaceRule"
@@ -86,9 +87,10 @@ export async function seedWorkspace(
     name: "Review",
     steps: [{ key: "check", title: "Check", reviewerId: reviewer }],
   });
-  await send("POST", `/process-templates/${template.id}/publish`, {});
+  const published = await send("POST", `/process-templates/${template.id}/publish`, {});
   const run = await send("POST", "/process-runs", {
     templateId: template.id,
+    expectedVersionId: published.id,
     title: "Access review",
     requestId: randomUUID(),
   });
@@ -118,6 +120,7 @@ export async function seedWorkspace(
     workspaceObjectType: type.id,
     workspaceObject: object.id,
     workspaceTemplate: template.id,
+    workspaceTemplateVersion: published.id,
     workspaceRun: run.id,
     workspaceStep: run.steps[0].id,
     workspaceRule: rule.id,

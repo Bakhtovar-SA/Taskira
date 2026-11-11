@@ -231,6 +231,7 @@ function ProcessDesigner({
     [selected, setSelected] = useState(0),
     [preview, setPreview] = useState(false);
   const a = useAction();
+  const [conditionsValid, setConditionsValid] = useState(true);
   const step = spec.steps[selected];
   const update = (patch: Partial<ProcessStep>) =>
     setSpec((s) => ({
@@ -257,12 +258,13 @@ function ProcessDesigner({
       footer={
         <>
           <Button onClick={() => setPreview(!preview)}>{c.preview}</Button>
-          <Button loading={a.busy} onClick={() => void a.run(save)}>
+          <Button loading={a.busy} disabled={!conditionsValid} onClick={() => void a.run(save)}>
             {c.save}
           </Button>
           <Button
             variant="primary"
             loading={a.busy}
+            disabled={!conditionsValid}
             onClick={() =>
               void a.run(
                 async () => {
@@ -421,6 +423,8 @@ function ProcessDesigner({
                 onChange={(v) => update({ documentVersionId: v })}
               />
               <ConditionsEditor
+                key={step.key}
+                onValidityChange={setConditionsValid}
                 value={step.when}
                 onChange={(when) => update({ when })}
               />
@@ -509,7 +513,7 @@ function StartProcess({
           variant="primary"
           loading={a.busy}
           disabled={
-            !published.data ||
+            !published.data?.versionId ||
             !!published.error ||
             !!published.data.errors.length
           }
@@ -518,6 +522,7 @@ function StartProcess({
               () =>
                 workspaceApi.startRun(projectId, {
                   templateId: template.id,
+                  expectedVersionId: published.data!.versionId,
                   title,
                   objectId: objectId || null,
                   assigneeIds: assignees,
@@ -537,6 +542,7 @@ function StartProcess({
       }
     >
       <ErrorNotice message={published.error} />
+      <Button onClick={published.reload}>{c.refresh}</Button>
       <div className="workspace-form">
         <Input
           label={c.title}
@@ -639,6 +645,7 @@ function RunDetail({
   const a = useAction();
   const [review, setReview] = useState<{
       stepId: string;
+      reviewRevision: number;
       action: "approve" | "return";
     } | null>(null),
     [reason, setReason] = useState("");
@@ -682,7 +689,10 @@ function RunDetail({
                   )
                 }
               >
-                {run.state === "paused" ? c.resume : c.pause}
+                {run.state === "paused"
+                  ? run.steps.some((s) => !s.issueId && ["active", "review", "completed"].includes(s.state))
+                    ? c.recreateAndResume : c.resume
+                  : c.pause}
               </Button>
               <Button
                 variant="danger"
@@ -725,14 +735,14 @@ function RunDetail({
                   <div className="workspace-actions">
                     <Button
                       onClick={() =>
-                        setReview({ stepId: s.id, action: "approve" })
+                        setReview({ stepId: s.id, reviewRevision: s.reviewRevision!, action: "approve" })
                       }
                     >
                       {c.approve}
                     </Button>
                     <Button
                       onClick={() =>
-                        setReview({ stepId: s.id, action: "return" })
+                        setReview({ stepId: s.id, reviewRevision: s.reviewRevision!, action: "return" })
                       }
                     >
                       {c.returnWork}
@@ -777,6 +787,7 @@ function RunDetail({
                       id,
                       review.stepId,
                       review.action,
+                      review.reviewRevision,
                       reason,
                     ),
                   () => {
@@ -882,6 +893,7 @@ function RuleForm({
     [projectId],
   );
   const a = useAction();
+  const [conditionsValid, setConditionsValid] = useState(true);
   const body: AutomationRuleBody = { name, event, when, actions, enabled };
   const eventLabels = {
     "issue.created": c.issueCreated,
@@ -899,6 +911,7 @@ function RuleForm({
       footer={
         <Button
           loading={a.busy}
+          disabled={!conditionsValid}
           onClick={() =>
             void a.run(
               () => workspaceApi.saveRule(projectId, initial?.id ?? null, body),
@@ -925,7 +938,7 @@ function RuleForm({
             label,
           }))}
         />
-        <ConditionsEditor value={when} onChange={setWhen} />
+        <ConditionsEditor value={when} onChange={setWhen} onValidityChange={setConditionsValid} />
         {actions.map((action, index) => (
           <fieldset className="workspace-section workspace-form" key={index}>
             <Select

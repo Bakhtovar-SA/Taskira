@@ -104,6 +104,7 @@ export function setToken(token: string): void {
 
 export function clearToken(): void {
   legacyBearerToken = null;
+  window.dispatchEvent(new Event("taskira:session-cleared"));
 }
 
 type ApiOptions = {

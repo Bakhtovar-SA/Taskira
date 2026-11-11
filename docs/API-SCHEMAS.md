@@ -573,6 +573,7 @@
 | Поле | Тип | Замечания |
 |---|---|---|
 | `templateId` | string (uuid) |  |
+| `expectedVersionId` | string (uuid) |  |
 | `title` | string | длина 1…240 |
 | `objectId` | string (uuid) | необязательное, может быть null; по умолчанию null |
 | `assigneeIds` | array&lt;string (uuid)&gt; | необязательное; по умолчанию []; 0…20 эл. |

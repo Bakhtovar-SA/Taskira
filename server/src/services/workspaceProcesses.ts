@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { q, withTransaction, withAdvisoryLock } from "../db.js";
 import { badRequest, notFound } from "../middleware.js";
+import { conflict } from "./workflow.js";
 import { loadConfig } from "../config.js";
 import { projectById } from "./project.js";
 import { createIssueInTx } from "./issueCreate.js";
 import { setAssignees, validateAssigneesInProject } from "./issues.js";
-import { matches, validateGraph } from "./workspaceLogic.js";
+import { matches, validateGraph, stepConditionValues } from "./workspaceLogic.js";
 import {
   entity,
   history,
@@ -49,6 +50,7 @@ type StepRow = {
   state: "waiting" | "active" | "review" | "completed" | "skipped";
   issue_id: string | null;
   approved: boolean;
+  review_revision: number | null;
   issue_key?: string | null;
 };
 export async function validateProcess(
@@ -143,6 +145,8 @@ export async function startProcess(
     )
   ).rows[0];
   if (!t) throw notFound("Нет опубликованной версии процесса");
+  if (input.expectedVersionId !== t.published_version_id)
+    throw conflict("Опубликованная версия изменилась. Обновите предпросмотр и подтвердите запуск");
   await validateProcess(projectId, t.spec, client);
   await validateAssigneesInProject(projectId, input.assigneeIds, client);
   for (const uid of input.assigneeIds)
@@ -231,7 +235,17 @@ export async function advanceRun(client: PoolClient, id: string) {
     for (const [key, value] of Object.entries(object?.field_values ?? {}))
       values[`object.${key}`] = value;
   }
-  for (const s of steps)
+  const results = new Map<string, Record<string, unknown>>();
+  for (const s of steps) {
+    if (!s.issue_id && !["waiting", "skipped"].includes(s.state)) {
+      await client.query(
+        "UPDATE workspace_process_runs SET state='paused',error=$2 WHERE id=$1",
+        [id, `Задача этапа «${s.spec.title}» удалена. Возобновление восстановит удалённые задачи`],
+      );
+      await history(run.project_id, "process", id, run.owner_id,
+        "process.paused", { reason: "step_issue_deleted", key: s.step_key }, client);
+      return;
+    }
     if (s.issue_id) {
       const i = (
         await client.query<{
@@ -239,8 +253,9 @@ export async function advanceRun(client: PoolClient, id: string) {
           title: string;
           priority_id: string;
           complexity: string | null;
+          workspace_result_revision: number;
         }>(
-          "SELECT ws.category,i.title,i.priority_id,i.complexity FROM issues i JOIN workflow_statuses ws ON ws.id=i.status_id WHERE i.id=$1",
+          "SELECT ws.category,i.title,i.priority_id,i.complexity,i.workspace_result_revision FROM issues i JOIN workflow_statuses ws ON ws.id=i.status_id WHERE i.id=$1",
           [s.issue_id],
         )
       ).rows[0];
@@ -252,7 +267,27 @@ export async function advanceRun(client: PoolClient, id: string) {
           [s.issue_id],
         )
       ).rows;
-      for (const f of fields) values[f.name] = f.value;
+      results.set(s.step_key, Object.fromEntries(fields.map((f) => [f.name, f.value])));
+      const staleResult = s.review_revision !== null &&
+        s.review_revision !== i.workspace_result_revision;
+      if (s.state === "completed" && (i.category !== "done" || staleResult)) {
+        await client.query(
+          "UPDATE workspace_process_steps SET state='active',approved=false,review_revision=NULL WHERE id=$1",
+          [s.id],
+        );
+        await client.query(
+          "UPDATE workspace_process_runs SET state='paused',error='Завершённая задача переоткрыта. Проверьте следующие этапы' WHERE id=$1", [id],
+        );
+        return;
+      }
+      if (s.state === "review" && (i.category !== "done" || staleResult)) {
+        s.state = "active";
+        s.approved = false;
+        s.review_revision = null;
+        await client.query(
+          "UPDATE workspace_process_steps SET state='active',approved=false,review_revision=NULL WHERE id=$1", [s.id],
+        );
+      }
       if (
         (s.state === "active" || s.state === "review") &&
         i.category === "done"
@@ -290,21 +325,12 @@ export async function advanceRun(client: PoolClient, id: string) {
           );
         }
         await client.query(
-          "UPDATE workspace_process_steps SET state=$2 WHERE id=$1",
-          [s.id, s.state],
+          "UPDATE workspace_process_steps SET state=$2,review_revision=$3 WHERE id=$1",
+          [s.id, s.state, i.workspace_result_revision],
         );
-      } else if (s.state === "completed" && i.category !== "done") {
-        await client.query(
-          "UPDATE workspace_process_steps SET state='active',approved=false WHERE id=$1",
-          [s.id],
-        );
-        await client.query(
-          "UPDATE workspace_process_runs SET state='paused',error='Завершённая задача переоткрыта. Проверьте следующие этапы' WHERE id=$1",
-          [id],
-        );
-        return;
       }
     }
+  }
   if (run.state === "completed") return;
   const project = await projectById(run.project_id, client);
   if (!project) throw notFound();
@@ -325,7 +351,7 @@ export async function advanceRun(client: PoolClient, id: string) {
           s.spec.dependsOn.every(
             (k) => steps.find((v) => v.step_key === k)?.state === "skipped",
           )) ||
-        !matches(s.spec.when, values)
+        !matches(s.spec.when, stepConditionValues(s.spec, values, results))
       ) {
         s.state = "skipped";
         await client.query(
@@ -455,6 +481,7 @@ export async function getRun(
       issueId: s.issue_id,
       issueKey: s.issue_key ?? null,
       approved: s.approved,
+      reviewRevision: s.review_revision,
       reviewerId: s.spec.reviewerId,
       complexity: s.spec.complexity,
       dependsOn: s.spec.dependsOn,
@@ -603,12 +630,18 @@ async function processEvents() {
                   ? { kind: "issue", id: event.issue_id }
                   : { kind: "process", id: String(event.data.runId ?? "") },
               );
-            if (action.type === "startProcess")
+            if (action.type === "startProcess") {
+              const template = (await client.query<{ published_version_id: string }>(
+                "SELECT published_version_id FROM workspace_process_templates WHERE project_id=$1 AND id=$2 AND NOT archived FOR SHARE",
+                [event.project_id, action.templateId],
+              )).rows[0];
+              if (!template?.published_version_id) throw badRequest("Нет опубликованной версии процесса");
               result = await startProcess(
                 event.project_id,
                 rule.owner_id,
                 {
                   templateId: action.templateId,
+                  expectedVersionId: template.published_version_id,
                   title: action.title,
                   objectId: null,
                   assigneeIds: [],
@@ -617,6 +650,7 @@ async function processEvents() {
                 },
                 client,
               );
+            }
             await client.query(
               "INSERT INTO workspace_action_executions(execution_key,event_id,rule_id,action_index,action_type,result) VALUES($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT DO NOTHING",
               [
@@ -720,7 +754,7 @@ export async function runWorkspaceOnce() {
         }
       });
       const runs = await q<{ id: string }>(
-        "SELECT r.id FROM workspace_process_runs r JOIN workspace_modules m ON m.project_id=r.project_id AND m.processes WHERE r.state='running' ORDER BY r.created_at LIMIT 100",
+        "SELECT r.id FROM workspace_process_runs r JOIN workspace_modules m ON m.project_id=r.project_id AND m.processes WHERE r.state='running' OR (r.state='completed' AND EXISTS (SELECT 1 FROM workspace_process_steps s WHERE s.run_id=r.id AND s.issue_id IS NULL AND s.state='completed')) ORDER BY r.created_at LIMIT 100",
       );
       for (const r of runs)
         try {

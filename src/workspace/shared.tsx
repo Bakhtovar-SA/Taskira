@@ -1,5 +1,5 @@
 export { DateField, Disclosure, FileUpload } from "./controls";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useT } from "../i18n";
 import { useStore } from "../store";
@@ -264,14 +264,14 @@ export function MaterialLinks({
     [search, open],
   );
   const a = useAction();
-  if (hideWhenEmpty && !editable && !r.data?.items.length && !r.error)
+  if (hideWhenEmpty && !editable && !r.data?.items?.length && !r.error)
     return null;
   return (
     <section className="workspace-section">
       <h2>{title ?? c.links}</h2>
       <ErrorNotice message={r.error ?? a.error} />
       {r.data?.items
-        .filter((l) => !kind || l.target.kind === kind)
+        ?.filter((l) => !kind || l.target.kind === kind)
         .map((l) => (
           <div className="workspace-row" key={l.id}>
             <button
@@ -327,7 +327,7 @@ export function MaterialLinks({
         <ErrorNotice message={candidates.error ?? a.error} />
         <div className="workspace-picker">
           {candidates.data?.items
-            .filter(
+            ?.filter(
               (i) =>
                 (!kind || i.ref.kind === kind) &&
                 i.projectId === projectId &&
@@ -359,14 +359,19 @@ export function MaterialLinks({
 export function ConditionsEditor({
   value,
   onChange,
+  onValidityChange,
 }: {
   value: Conditions;
   onChange: (v: Conditions) => void;
+  onValidityChange: (valid: boolean) => void;
 }) {
   const { c } = useWorkspace();
+  const [invalid, setInvalid] = useState<Set<number>>(() => new Set());
+  useEffect(() => { onValidityChange(invalid.size === 0); }, [invalid, onValidityChange]);
   return (
     <fieldset className="workspace-form">
       <legend>{c.conditions}</legend>
+      <p className="workspace-muted">{c.conditionHint}</p>
       <Select
         aria-label={c.conditions}
         value={value.mode}
@@ -406,18 +411,16 @@ export function ConditionsEditor({
               label: c[v],
             }))}
           />
-          <Input
-            label={c.value}
-            value={String(item.value ?? "")}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                items: value.items.map((v, i) =>
-                  i === index ? { ...v, value: e.target.value } : v,
-                ),
-              })
-            }
-          />
+          {item.op !== "isSet" && <ConditionValue
+            value={item.value}
+            onChange={(next) => onChange({ ...value, items: value.items.map((v, i) => i === index ? { ...v, value: next } : v) })}
+            onValidityChange={(valid) => setInvalid((old) => {
+              if (old.has(index) === !valid) return old;
+              const next = new Set(old);
+              if (valid) next.delete(index); else next.add(index);
+              return next;
+            })}
+          />}
           <Button
             variant="ghost"
             onClick={() =>
@@ -447,6 +450,41 @@ export function ConditionsEditor({
       </Button>
     </fieldset>
   );
+}
+function ConditionValue({ value, onChange, onValidityChange }: {
+  value: Conditions["items"][number]["value"];
+  onChange: (value: Conditions["items"][number]["value"]) => void;
+  onValidityChange: (valid: boolean) => void;
+}) {
+  const { c } = useWorkspace();
+  const type = value === null ? "null" : typeof value;
+  return <>
+    <Select aria-label={c.valueType} value={type} options={[
+      { value: "string", label: c.textValue }, { value: "number", label: c.numberValue },
+      { value: "boolean", label: c.booleanValue }, { value: "null", label: c.nullValue },
+    ]} onChange={(type) => onChange(type === "number" ? 0 : type === "boolean" ? true : type === "null" ? null : "")} />
+    {typeof value === "boolean" ? <Select aria-label={c.value} value={String(value)}
+      options={[{ value: "true", label: c.trueValue }, { value: "false", label: c.falseValue }]}
+      onChange={(next) => onChange(next === "true")} />
+      : typeof value === "number" ? <ConditionNumber value={value} onChange={onChange} onValidityChange={onValidityChange} />
+      : typeof value === "string" ? <Input label={c.value} value={value} onChange={(e) => onChange(e.target.value)} /> : null}
+  </>;
+}
+function ConditionNumber({ value, onChange, onValidityChange }: {
+  value: number; onChange: (value: number) => void; onValidityChange: (valid: boolean) => void;
+}) {
+  const { c } = useWorkspace();
+  const [raw, setRaw] = useState(String(value));
+  useEffect(() => { setRaw(String(value)); }, [value]);
+  const valid = raw.trim() !== "" && Number.isFinite(Number(raw));
+  const notify = useRef(onValidityChange);
+  notify.current = onValidityChange;
+  useEffect(() => { notify.current(valid); return () => notify.current(true); }, [valid]);
+  return <Input label={c.value} inputMode="decimal" value={raw} error={valid ? undefined : c.finiteNumber}
+    onChange={(e) => {
+      setRaw(e.target.value);
+      if (e.target.value.trim() && Number.isFinite(Number(e.target.value))) onChange(Number(e.target.value));
+    }} />;
 }
 export { Button, Input, Textarea, Select, Dialog, Checkbox };
 

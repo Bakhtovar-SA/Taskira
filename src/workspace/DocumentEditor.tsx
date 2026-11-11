@@ -13,7 +13,7 @@ import Image from "@tiptap/extension-image";
 import UniqueID from "@tiptap/extension-unique-id";
 import { HocuspocusProvider } from "@hocuspocus/provider";
 import * as Y from "yjs";
-import { API_BASE } from "../api";
+import { documentSession } from "./documentSessions";
 import { useWorkspace, Button, Dialog, Input, ErrorNotice } from "./shared";
 import type {
   Document,
@@ -32,123 +32,20 @@ type Props = {
 export default function DocumentEditor(props: Props) {
   const { document, editable } = props;
   const { projectId, data, c } = useWorkspace();
-  const [session, setSession] = useState<{
-      provider: HocuspocusProvider;
-      ydoc: Y.Doc;
-    } | null>(null),
-    [connected, setConnected] = useState(false),
-    [sessionReadOnly, setSessionReadOnly] = useState(false),
-    [synced, setSynced] = useState(false),
-    [saved, setSaved] = useState(false),
-    [failure, setFailure] = useState(false),
-    [peers, setPeers] = useState(0);
+  const [session, setSession] = useState<ReturnType<typeof documentSession> | null>(null);
+  const [, refresh] = useState(0);
   const callbacks = useRef(props);
   callbacks.current = props;
-  const editSequence = useRef(0);
-  const persistRequest = useRef<() => void>(() => {});
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dirty = useRef(false);
-  const [dirtyState, setDirtyState] = useState(false);
   useEffect(() => {
-    let alive = true;
-    const ydoc = new Y.Doc();
-    const requests = new Map<string, number>();
-    editSequence.current = 0;
-    dirty.current = false;
-    setDirtyState(false);
-    setSynced(false);
-    setFailure(false);
-    setSaved(false);
-    const wsUrl = new URL(
-      `/api/projects/${projectId}/documents/${document.id}/collaboration`,
-      API_BASE || window.location.origin,
-    );
-    wsUrl.protocol = wsUrl.protocol === "https:" ? "wss:" : "ws:";
-    wsUrl.searchParams.set("generation", String(document.generation));
-    const provider = new HocuspocusProvider({
-      url: wsUrl.toString(),
-      name: `${projectId}:${document.id}:${document.generation}`,
-      document: ydoc,
-      token: "cookie",
-      onStatus: ({ status }) => {
-        if (alive) setConnected(status === "connected");
-      },
-      onAuthenticated: ({ scope }) => {
-        if (alive) setSessionReadOnly(scope === "readonly");
-      },
-      onSynced: () => {
-        if (!alive) return;
-        setSynced(true);
-        if (!callbacks.current.editable) setSaved(true);
-        else persistRequest.current();
-      },
-      onAuthenticationFailed: () => {
-        if (alive) {
-          setFailure(true);
-          setConnected(false);
-          callbacks.current.onPersist();
-        }
-      },
-      onStateless: ({ payload }) => {
-        try {
-          const ack = JSON.parse(payload) as {
-            type: string;
-            requestId?: string;
-          };
-          if (ack.type === "readonly") {
-            setSessionReadOnly(true);
-            setFailure(true);
-            return;
-          }
-          if (
-            ack.type !== "persisted" ||
-            !ack.requestId ||
-            !requests.has(ack.requestId)
-          )
-            return;
-          const sequence = requests.get(ack.requestId)!;
-          requests.delete(ack.requestId);
-          if (alive && sequence === editSequence.current) {
-            dirty.current = false;
-            setDirtyState(false);
-            setSaved(true);
-            callbacks.current.onPersist();
-          }
-        } catch {
-          /* Ignore unrelated stateless messages. */
-        }
-      },
+    const current = documentSession(data.currentUserId, projectId, document.id, document.generation);
+    setSession(current);
+    const unsubscribe = current.subscribe((persisted) => {
+      refresh((revision) => revision + 1);
+      if (persisted || current.state.failure) callbacks.current.onPersist();
     });
-    persistRequest.current = () => {
-      if (!alive || !callbacks.current.editable) return;
-      const requestId = crypto.randomUUID();
-      requests.clear();
-      requests.set(requestId, editSequence.current);
-      provider.flushPendingUpdates();
-      provider.sendStateless(JSON.stringify({ type: "persist", requestId }));
-    };
-    const peerChange = () => {
-      if (alive) setPeers(provider.awareness?.getStates().size ?? 0);
-    };
-    provider.awareness?.on("change", peerChange);
-    setSession({ provider, ydoc });
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (dirty.current) {
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", beforeUnload);
-    return () => {
-      alive = false;
-      if (persistTimer.current) clearTimeout(persistTimer.current);
-      persistRequest.current = () => {};
-      provider.awareness?.off("change", peerChange);
-      provider.destroy();
-      ydoc.destroy();
-      window.removeEventListener("beforeunload", beforeUnload);
-    };
+    return unsubscribe;
   }, [projectId, document.id, document.generation, data.currentUserId]);
+  const { connected, readOnly: sessionReadOnly, synced, saved, failure, peers, dirty: dirtyState } = session?.state ?? {};
   return (
     <div className="workspace-editor-shell">
       <div className="workspace-save-status" role="status" aria-live="polite">
@@ -161,7 +58,7 @@ export default function DocumentEditor(props: Props) {
               : saved
                 ? c.saved
                 : c.connecting}
-        {peers > 1 ? ` · ${peers}` : ""}
+        {(peers ?? 0) > 1 ? ` · ${peers}` : ""}
       </div>
       {dirtyState && (!connected || sessionReadOnly) && (
         <p role="alert" className="workspace-muted">
@@ -176,17 +73,6 @@ export default function DocumentEditor(props: Props) {
           {...props}
           session={session}
           editable={editable && !failure && !sessionReadOnly}
-          onChange={() => {
-            editSequence.current++;
-            dirty.current = true;
-            setDirtyState(true);
-            setSaved(false);
-            if (persistTimer.current) clearTimeout(persistTimer.current);
-            persistTimer.current = setTimeout(
-              () => persistRequest.current(),
-              500,
-            );
-          }}
         />
       )}
       {!synced && !failure && (
@@ -204,10 +90,8 @@ function RichEditor({
   session,
   onSelection,
   onEditor,
-  onChange,
 }: Props & {
   session: { provider: HocuspocusProvider; ydoc: Y.Doc };
-  onChange: () => void;
 }) {
   const { data, c, projectId } = useWorkspace();
   const [linkOpen, setLinkOpen] = useState(false),
@@ -215,8 +99,6 @@ function RichEditor({
     [linkError, setLinkError] = useState<string | null>(null);
   const selection = useRef(onSelection);
   selection.current = onSelection;
-  const changed = useRef(onChange);
-  changed.current = onChange;
   const editor = useEditor(
     {
       immediatelyRender: false,
@@ -291,7 +173,6 @@ function RichEditor({
           selectionRender: () => ({ class: "workspace-selection" }),
         }),
       ],
-      onUpdate: () => changed.current(),
       onSelectionUpdate: ({ editor: ed }) => {
         const { from, to, $from } = ed.state.selection;
         let blockId: string | null = null;
