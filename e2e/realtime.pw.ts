@@ -123,8 +123,13 @@ async function collaborationFixture(browser: Browser, baseURL: string) {
     await expect.poll(() => peer.reads.length).toBeGreaterThan(0);
     // Observe a follow-up read from the applied cursor before disconnecting.
     // Seeing the first request alone does not mean its refresh was acknowledged.
-    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-    await expect.poll(() => peer.reads.includes("0")).toBe(true);
+    // The first refresh can be superseded by a store write that lands while it is reading (the project is still
+    // settling right after boot); the client then retries from the same cursor after its backoff and acknowledges
+    // without a further read. So ask for a catch-up until one is made from the applied cursor, not just once.
+    await expect.poll(async () => {
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      return peer.reads.includes("0");
+    }, { timeout: 15_000 }).toBe(true);
     return peer;
   };
   const author = await addPeer(0), observer = await addPeer(1);

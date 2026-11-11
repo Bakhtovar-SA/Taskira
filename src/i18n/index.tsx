@@ -31,7 +31,9 @@ export function loadRuLazy(): Promise<void> {
   ruLazyLoading ??= import("./ruLazy")
     .then((m) => registerRuLazy(m.default))
     .catch((err: unknown) => {
-      ruLazyLoading = null; // network blip: the next screen opening retries
+      // A later loadRuLazy() call may try again. A screen already opened through lazyView() does not recover:
+      // React.lazy keeps the rejected promise, exactly as it does when the screen's own chunk fails to load.
+      ruLazyLoading = null;
       throw err;
     });
   return ruLazyLoading;
@@ -111,19 +113,22 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
 
   const dict = DICTS[lang] ?? (ruCore as PartialDict);
-  const lazyReady = lang === "ru" ? ruLazyNow : null;
+  // `t` must keep its identity when the lazy part arrives: effects across the app list `t` / `errText` (and callbacks built
+  // on them) as dependencies, and a new `t` re-ran them all once per session — the realtime subscription restarted and
+  // e2e/realtime.pw.ts caught it. So `t` reads the module-level `ruLazyDict` at call time instead of closing over it.
   const t = useMemo<TFn>(() => {
     return (key, params) => {
-      const text = dict[key] ?? ruCore[key as keyof typeof ruCore] ?? lazyReady?.[key];
+      const text = dict[key] ?? ruCore[key as keyof typeof ruCore] ?? (lang === "ru" ? ruLazyDict?.[key] : undefined);
       if (text === undefined) {
         // A lazy-screen key was asked for before its chunk arrived (should not happen through lazyView):
         // load it and re-render instead of crashing.
+        if (import.meta.env.DEV) console.warn(`[i18n] "${key}" was read before the lazy dictionary loaded; open this screen through lazyView()/withRuLazy()`);
         if (lang === "ru") void loadRuLazy().catch(() => undefined);
         return "";
       }
       return interpolate(text, params);
     };
-  }, [dict, lazyReady, lang]);
+  }, [dict, lang]);
 
   const tn = useMemo<TnFn>(() => {
     return (n, one, few, many) => t(pluralForm(lang, n, [one, few, many]) as TKey);
@@ -131,7 +136,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const errText = useMemo(() => (e: unknown, fallback: string) => apiErrorText(e, lang, t, fallback), [lang, t]);
 
-  const value = useMemo<I18nCtx>(() => ({ lang, setLang, t, tn, errText }), [lang, t, tn, errText]);
+  // `ruLazyNow` is a dependency only to hand consumers a new context value (a re-render) when the lazy part arrives, so a
+  // label that fell back to "" fills in; `t`, `tn` and `errText` themselves stay the same functions.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- setLang closes over nothing that changes; ruLazyNow: see above.
+  const value = useMemo<I18nCtx>(() => ({ lang, setLang, t, tn, errText }), [lang, t, tn, errText, ruLazyNow]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
