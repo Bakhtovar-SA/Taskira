@@ -9,6 +9,9 @@ export default defineConfig({
   testMatch: "*.pw.ts",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
   fullyParallel: true,
+  // CI: Playwright defaults to half the cores (1 worker on a 2-vCPU runner), so tests ran strictly one by one.
+  // Tests use isolated pages and per-page mocked routes; 2 workers keep snapshots deterministic. Override: PLAYWRIGHT_WORKERS.
+  workers: process.env.PLAYWRIGHT_WORKERS ? Number(process.env.PLAYWRIGHT_WORKERS) : process.env.CI ? 2 : undefined,
   reporter: [["list"]],
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.002, animations: "disabled", caret: "hide" },
