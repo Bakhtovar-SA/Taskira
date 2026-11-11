@@ -2,7 +2,7 @@
  *  Модель минимальна: 'relates' (симметрична) + 'blocks' (направлена).
  *  См. ticket-features-polish-round4.md §3.2. */
 import { one, q } from "../db.js";
-import type { IssueLinkDir, IssueLinkDto } from "../contract.js";
+import type { IssueLinkDto } from "../contract.js";
 export type { IssueLinkDto };
 
 interface Row {

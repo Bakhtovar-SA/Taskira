@@ -21,7 +21,7 @@ import { pathForIssue } from "../router";
 import { COLUMNS, LEFT, type ColumnId, type SortKey } from "../listColumns";
 
 export function HeadCell({ id, sortKey, sortDir, onSort, compact }: { id: ColumnId | "key"; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (k: SortKey) => void; compact?: boolean }) {
-  const { t, lang } = useT();
+  const { t } = useT();
   const def = id === "key" ? { label: "backlog.sort.key" as const, sort: "key" as SortKey } : COLUMNS.find((c) => c.id === id)!;
   const label = t(def.label);
   const on = def.sort && def.sort === sortKey;

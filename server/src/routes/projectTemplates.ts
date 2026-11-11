@@ -46,7 +46,6 @@ export async function projectTemplateRoutes(app: FastifyInstance): Promise<void>
     "/project-templates/:templateId",
     { preHandler: requireGlobalAdmin, preValidation: zparams(ProjectTemplateParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { templateId } = req.params as z.infer<typeof ProjectTemplateParams>;
       const rows = await q<{ id: string }>(`DELETE FROM project_templates WHERE id = $1 RETURNING id`, [templateId]);
       if (!rows.length) throw notFound("Шаблон не найден");

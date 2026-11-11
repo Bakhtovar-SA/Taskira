@@ -39,7 +39,6 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
   const edit = requirePerm("editRoadmap");
 
   app.patch("/projects/:projectId/roadmap", { preHandler: edit, preValidation: [zparams(ProjectParams), zbody(ProjectRoadmapBody)] }, async (req, reply) => {
-    const actor: JwtPayload = req.user;
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
     const body = req.body as z.infer<typeof ProjectRoadmapBody>;
     await patchRoadmapDates(projectId, body);
@@ -48,7 +47,6 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post("/projects/:projectId/milestones", { preHandler: edit, preValidation: [zparams(ProjectParams), zbody(MilestoneCreateBody)] }, async (req, reply) => {
-    const actor: JwtPayload = req.user;
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
     const m = await addMilestone(projectId, req.body as z.infer<typeof MilestoneCreateBody>);
     await auditFromRequest(req, "project.milestone.create", "project", projectId, m);
@@ -59,7 +57,6 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/milestones/:milestoneId",
     { preHandler: edit, preValidation: [zparams(MilestoneParams), zbody(MilestonePatchBody)] },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { projectId, milestoneId } = req.params as z.infer<typeof MilestoneParams>;
       const m = await patchMilestone(projectId, milestoneId, req.body as z.infer<typeof MilestonePatchBody>);
       await auditFromRequest(req, "project.milestone.update", "project", projectId, m);
@@ -68,7 +65,6 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.delete("/projects/:projectId/milestones/:milestoneId", { preHandler: edit, preValidation: zparams(MilestoneParams) }, async (req, reply) => {
-    const actor: JwtPayload = req.user;
     const { projectId, milestoneId } = req.params as z.infer<typeof MilestoneParams>;
     await removeMilestone(projectId, milestoneId);
     await auditFromRequest(req, "project.milestone.delete", "project", projectId, { milestoneId });
@@ -90,7 +86,6 @@ export async function roadmapRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/dependencies/:sourceProjectId",
     { preHandler: edit, preValidation: zparams(DependencyParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { projectId, sourceProjectId } = req.params as z.infer<typeof DependencyParams>;
       await removeDependency(projectId, sourceProjectId);
       await auditFromRequest(req, "project.dependency.remove", "project", projectId, { sourceProjectId });

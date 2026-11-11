@@ -5,7 +5,7 @@ import { TimeCanvas, TIME_PAD } from "./TimeCanvas";
 import { cssVars } from "../cssVars";
 import { Tabs } from "../ds/Tabs";
 import { useStore } from "../store";
-import { ISSUE_PAGE_SIZE, freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
+import { freshRows, useEpics, useIssueSet, useIssuesRevision, useLoadMoreSentinel, useOnRevision, type IssueSetQuery } from "../issuePages";
 import { IcChevR, IcTimeline } from "../icons";
 import { directionColor } from "../ui";
 import { Button } from "../ds/Button";

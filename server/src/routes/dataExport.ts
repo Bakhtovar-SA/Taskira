@@ -40,7 +40,7 @@ import type { FastifyInstance } from "fastify";
 import { Readable } from "node:stream";
 import type { PoolClient } from "pg";
 import { acquireClient } from "../db.js";
-import { requireGlobalAdmin, type JwtPayload } from "../middleware.js";
+import { requireGlobalAdmin } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
 import { routeLimit } from "../routeLimits.js";
 
@@ -179,7 +179,6 @@ async function* generateExport(client: PoolClient): AsyncGenerator<string> {
 
 export async function dataExportRoutes(app: FastifyInstance): Promise<void> {
   app.get("/admin/export", { ...routeLimit("export"), preHandler: requireGlobalAdmin }, async (req, reply) => {
-    const user: JwtPayload = req.user;
     // Аудит ДО начала передачи (не после) — экспорт всей инсталляции стоит
     // записать как намерение, даже если скачивание потом прервётся на середине.
     await auditFromRequest(req, "admin.export", "installation", null, {});

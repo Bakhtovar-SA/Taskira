@@ -84,7 +84,6 @@ export async function memberRoutes(app: FastifyInstance): Promise<void> {
     "/:userId",
     { preHandler: requirePerm("manageAccess"), preValidation: zparams(MemberParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { userId } = req.params as z.infer<typeof MemberParams>;
       const project = req.project!;
 

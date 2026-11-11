@@ -402,7 +402,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
     async (req) => {
       const project = req.project!;
       const { id, linkId } = req.params as { id: string; linkId: string };
-      const user = me(req);
       const iss = await loadIssue(project.id, id);
       // Удалять можно с любого конца связи, но только если этот конец — наша задача.
       const del = await deleteIssueLink(linkId, iss.id);
@@ -506,7 +505,6 @@ export async function issuesRoutes(app: FastifyInstance): Promise<void> {
       const project = req.project!;
       const { id } = req.params as { id: string };
       const body = req.body as z.infer<typeof MoveToSprintBody>;
-      const user = me(req);
 
       const iss = await loadIssue(project.id, id);
       let row: IssueRow;
