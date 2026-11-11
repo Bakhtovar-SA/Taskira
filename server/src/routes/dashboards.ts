@@ -175,7 +175,6 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
   );
 
   app.delete("/projects/:projectId/overview", { preHandler: manage, preValidation: zparams(ProjectParams) }, async (req, reply) => {
-    const u: JwtPayload = req.user;
     const { projectId } = req.params as z.infer<typeof ProjectParams>;
     if (await resetProjectOverview(projectId)) await auditFromRequest(req, "project.overview.reset", "project", projectId, {});
     return reply.code(204).send();

@@ -2,7 +2,7 @@
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
 import { one, q, withTransaction } from "../db.js";
-import { badRequest, notFound, requirePerm, zbody, type JwtPayload } from "../middleware.js";
+import { badRequest, notFound, requirePerm, zbody } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
 import { conflict, DEFAULT_STATUSES, DEFAULT_TRANSITIONS, getWorkflow, mapTransition, statusName } from "../services/workflow.js";
 import { TransitionCreateBody } from "../contract.js";
@@ -25,7 +25,6 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
     { preHandler: requirePerm("editWorkflow"), preValidation: zbody(TransitionCreateBody) },
     async (req, reply) => {
       const project = req.project!;
-      const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof TransitionCreateBody>;
 
       if (body.from === body.to) throw badRequest("Статусы «из» и «в» совпадают");
@@ -56,7 +55,6 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
 
   app.delete("/transitions/:id", { preHandler: requirePerm("editWorkflow") }, async (req, reply) => {
     const project = req.project!;
-    const user: JwtPayload = req.user;
     const { id } = req.params as { id: string };
 
     const row = await one<{ id: string; from_status_id: string; to_status_id: string }>(
@@ -75,7 +73,6 @@ export async function workflowRoutes(app: FastifyInstance): Promise<void> {
       на них могут ссылаться существующие задачи; сбрасываются только рёбра. */
   app.post("/reset", { preHandler: requirePerm("editWorkflow") }, async (req) => {
     const project = req.project!;
-    const user: JwtPayload = req.user;
 
     const statuses = await q<{ id: string; sid: string }>(
       `SELECT id, sid FROM workflow_statuses WHERE project_id = $1`,

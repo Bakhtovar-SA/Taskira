@@ -3,7 +3,7 @@
  *  подключён — по ТЗ 5.14 это «может в будущем стать платной функцией», не сейчас. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { badRequest, notFound, requireGlobalAdmin, zbody, type JwtPayload } from "../middleware.js";
+import { badRequest, notFound, requireGlobalAdmin, zbody } from "../middleware.js";
 import { ApiHttpError } from "../errors.js";
 import { auditFromRequest } from "../audit.js";
 import { BrandPatchBody } from "../contract.js";
@@ -24,7 +24,6 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.patch("/admin/brand", { preHandler: requireGlobalAdmin, preValidation: zbody(BrandPatchBody) }, async (req) => {
-    const actor: JwtPayload = req.user;
     const body = req.body as z.infer<typeof BrandPatchBody>;
     const out = await patchBrand(body);
     await auditFromRequest(req, "instance.brand", "instance", null, body);
@@ -32,7 +31,6 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.post("/admin/brand/logo", { preHandler: requireGlobalAdmin }, async (req) => {
-    const actor: JwtPayload = req.user;
     let buf: Buffer;
     try {
       const part = await req.file();
@@ -50,7 +48,6 @@ export async function brandRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.delete("/admin/brand/logo", { preHandler: requireGlobalAdmin }, async (req) => {
-    const actor: JwtPayload = req.user;
     const out = await removeBrandLogo();
     await auditFromRequest(req, "instance.brand", "instance", null, { logo: "removed" });
     return out;

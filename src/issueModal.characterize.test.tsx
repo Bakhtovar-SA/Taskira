@@ -12,7 +12,7 @@
  * рендерим фиктивный `<main>` рядом с карточкой).
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { within, act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { StoreProvider, useStore, useToasts } from "./store";
 import {
   authApi,

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { IntegrationsConfigDto, WebhookCreatedDto, WebhookDto, WebhookEventType } from "../../../server/src/contract";
 import { ApiError, integrationsApi, webhooksApi } from "../../api";
 import { Button, IconButton } from "../../ds/Button";

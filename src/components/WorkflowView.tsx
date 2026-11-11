@@ -68,7 +68,6 @@ export default function WorkflowView({ part = "workflow" }: { part?: "workflow" 
     addCustomField,
     renameCustomField,
     removeCustomField,
-    toast,
     can,
     setView,
   } = useStore();

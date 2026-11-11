@@ -5,11 +5,11 @@ import { activityEventOf } from "./activity.js";
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
 import { badRequest, forbidden, notFound } from "../middleware.js";
-import { listCollaborators, type CollaboratorDto } from "./collaborators.js";
-import { deleteStorageObjects, listAttachments, storageKeysForIssue, type AttachmentDto } from "./attachments.js";
-import { listIssueLinks, type IssueLinkDto } from "./issueLinks.js";
-import { listChecklistItems, type ChecklistItemDto } from "./checklist.js";
-import { listValuesForIssue, type CustomFieldValueDto } from "./customFields.js";
+import { listCollaborators } from "./collaborators.js";
+import { deleteStorageObjects, listAttachments, storageKeysForIssue } from "./attachments.js";
+import { listIssueLinks } from "./issueLinks.js";
+import { listChecklistItems } from "./checklist.js";
+import { listValuesForIssue } from "./customFields.js";
 import type { ActivityDto, IssueDetailDto, IssueDto, ParticipantDto, SubtasksSummaryDto } from "../contract.js";
 export type { ActivityDto, IssueDetailDto, IssueDto, ParticipantDto, SubtasksSummaryDto };
 

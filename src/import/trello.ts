@@ -35,11 +35,6 @@ export interface TrelloParseResult {
   skipped: number;
 }
 
-interface TrelloList {
-  id: string;
-  name: string;
-}
-
 interface TrelloLabel {
   name?: string;
   color?: string;

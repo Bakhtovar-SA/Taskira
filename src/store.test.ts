@@ -1,7 +1,7 @@
 import { describe, expect, test, vi, afterEach } from "vitest";
 import type { NotificationsState } from "./store/slices";
 import { applyNotificationAction, assignableUsers, canTransition, fmtDate, relTime, statusById } from "./store/mappers";
-import type { Data, NotificationT, ProjectRole, User, Workflow } from "./types";
+import type { NotificationT, ProjectRole, User, Workflow } from "./types";
 
 /**
  * Чистые хелперы стора. Здесь самая плотная логика на строку во всём клиенте

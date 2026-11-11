@@ -1,18 +1,17 @@
-import { Switch, Input } from "../ds/Field";
+import { Input } from "../ds/Field";
 import { Avatar } from "../ds/Display";
 import { Button, IconButton } from "../ds/Button";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { openProjectWizard } from "../palette/events";
-import { API_BASE, departmentsApi, projectsApi, usersApi, type DepartmentMember, type SafeUser } from "../api";
-import type { ProjectRole, ProjectSummary } from "../types";
+import { departmentsApi, usersApi, type DepartmentMember } from "../api";
+import type { ProjectSummary } from "../types";
 import { LIMITS } from "../validation";
 import { IcChevD, IcChevR, IcInbox, IcLock, IcPlus, IcTrash, IcUsers } from "../icons";
 import { ProjectMark } from "../ui";
 import { Combobox, type ComboOption } from "../ds/Combobox";
 import { useT } from "../i18n";
 
-const PROJECT_ROLES: ProjectRole[] = ["manager", "employee", "viewer"];
 
 function DepartmentUserPicker({ exclude, busy, onPick }: { exclude: Set<string>; busy: boolean; onPick: (id: string) => void }) {
   const { t } = useT();
@@ -158,8 +157,6 @@ export default function AdminView() {
     switchProject,
     setView,
     authMode,
-    setDepartmentLdapGroup,
-    resyncLdap,
   } = useStore();
   const canManage = can("manageAccess");
   const ldap = authMode === "ldap";

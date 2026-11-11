@@ -1,7 +1,7 @@
 /** Workflow: схема переходов, её проверка и DTO. Переход вне схемы — 409 CONFLICT. */
 import type { PoolClient } from "pg";
 import { one, q, withTransaction } from "../db.js";
-import { badRequest, notFound } from "../middleware.js";
+import { badRequest } from "../middleware.js";
 import { ApiHttpError } from "../middleware.js";
 import type { StatusDto, TransitionDto, WorkflowDto } from "../contract.js";
 export type { TransitionDto, WorkflowDto };

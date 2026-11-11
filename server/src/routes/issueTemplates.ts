@@ -3,7 +3,7 @@
  *  Применение шаблона — client-side prefill формы создания, не роут. */
 import type { FastifyInstance } from "fastify";
 import type { z } from "zod";
-import { badRequest, notFound, requirePerm, zbody, zparams, type JwtPayload } from "../middleware.js";
+import { badRequest, notFound, requirePerm, zbody, zparams } from "../middleware.js";
 import { auditFromRequest } from "../audit.js";
 import { conflict } from "../services/workflow.js";
 import {
@@ -44,7 +44,6 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
     { preHandler: requirePerm("editWorkflow"), preValidation: zbody(IssueTemplateBody) },
     async (req, reply) => {
       const project = req.project!;
-      const user: JwtPayload = req.user;
       const body = req.body as z.infer<typeof IssueTemplateBody>;
 
       // Один SELECT вместо двух (count + list) — existing.length уже даёт
@@ -101,7 +100,6 @@ export async function issueTemplatesRoutes(app: FastifyInstance): Promise<void> 
     { preHandler: requirePerm("editWorkflow"), preValidation: zparams(IssueTemplateParams) },
     async (req, reply) => {
       const project = req.project!;
-      const user: JwtPayload = req.user;
       const { templateId } = req.params as z.infer<typeof IssueTemplateParams>;
 
       const existing = await getIssueTemplateInProject(project.id, templateId);

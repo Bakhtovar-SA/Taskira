@@ -17,7 +17,6 @@ import {
   requirePerm,
   zbody,
   zparams,
-  type JwtPayload,
 } from "../middleware.js";
 import { conflict, getWorkflow, seedProjectWorkflow } from "../services/workflow.js";
 import { listIssueTemplates } from "../services/issueTemplates.js";
@@ -59,7 +58,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects",
     { preHandler: requireGlobalAdmin, preValidation: zbody(ProjectCreateBody) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const body = req.body as z.infer<typeof ProjectCreateBody>;
 
       const dep = await one<{ id: string }>(`SELECT id FROM departments WHERE id = $1`, [body.departmentId]);
@@ -146,7 +144,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId",
     { preHandler: requireGlobalAdmin, preValidation: [zparams(ProjectParams), zbody(ProjectPatchBody)] },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const body = req.body as z.infer<typeof ProjectPatchBody>;
 
@@ -187,7 +184,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/appearance",
     { preHandler: requirePerm("editAppearance"), preValidation: [zparams(ProjectParams), zbody(ProjectAppearanceBody)] },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const body = req.body as z.infer<typeof ProjectAppearanceBody>;
       const sets: string[] = [];
@@ -212,7 +208,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/background-photo",
     { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const files: Partial<Record<"full" | "small", Buffer>> = {};
       let luma = NaN;
@@ -241,7 +236,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId/background-photo",
     { preHandler: requirePerm("editAppearance"), preValidation: zparams(ProjectParams) },
     async (req) => {
-      const actor: JwtPayload = req.user;
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       await removeProjectPhoto(projectId);
       invalidateProjectCache(projectId);
@@ -273,7 +267,6 @@ export async function projectsRoutes(app: FastifyInstance): Promise<void> {
     "/projects/:projectId",
     { preHandler: requireGlobalAdmin, preValidation: zparams(ProjectParams) },
     async (req, reply) => {
-      const actor: JwtPayload = req.user;
       const { projectId } = req.params as z.infer<typeof ProjectParams>;
       const proj = await one<{ key: string }>(`SELECT key FROM projects WHERE id = $1`, [projectId]);
       if (!proj) throw notFound("Проект не найден");

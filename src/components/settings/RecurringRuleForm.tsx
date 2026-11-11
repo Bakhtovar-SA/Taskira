@@ -5,7 +5,7 @@ import { Button } from "../../ds/Button";
 import { Dialog } from "../../ds/Dialog";
 import { Checkbox, Input } from "../../ds/Field";
 import { Select } from "../../ds/Select";
-import { Combobox, type ComboOption } from "../../ds/Combobox";
+import { Combobox } from "../../ds/Combobox";
 import { DatePicker } from "../../ds/DatePicker";
 import { Tabs } from "../../ds/Tabs";
 import { useT, type TKey } from "../../i18n";
