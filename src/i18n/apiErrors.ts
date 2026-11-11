@@ -8,7 +8,8 @@
  * `fallback` («Couldn't save the issue. You don't have permission for this action»); у конкретных кодов
  * (ATTACHMENT_TOO_LARGE…) текст самодостаточен.
  */
-import ru, { type TKey } from "./ru";
+import ruCore from "./ruCore";
+import type { TKey } from "./ru";
 import type { Lang } from "./index";
 
 type TFn = (key: TKey, params?: Record<string, string | number>) => string;
@@ -28,7 +29,7 @@ export function apiErrorText(e: unknown, lang: Lang, t: TFn, fallback: string): 
   if (!err) return fallback;
   if (lang === "ru") return err.message || fallback;
   const key = `apiError.${err.code}`;
-  if (!(key in ru)) return fallback;
+  if (!(key in ruCore)) return fallback; // every apiError.* key is a startup (core) key
   const text = t(key as TKey);
   if (!GENERIC.has(err.code) || !fallback) return text;
   return `${fallback.replace(/[.!…]+$/, "")}. ${text}`;

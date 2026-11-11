@@ -1,7 +1,7 @@
 import { createEnterTracker, type EnterTracker } from "../listEnter";
 import { createRowMotion, type RowMotion } from "../listExit";
 import { useSkeletonReveal } from "../useSkeletonReveal";
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import QuickCreate from "./QuickCreateIssue";
 import { GROUP_MODES, groupListRows, readListGroup, type GroupMode } from "../listGroups";
 import { useLocation } from "wouter";
@@ -22,14 +22,14 @@ import { IssueFilterSummary } from "./IssueFilterSummary";
 import { WorkspaceControls, WorkspaceSearch, WorkspaceQuickFilters, WorkspaceFilterRow, WorkspaceSelect } from "./WorkspaceControls";
 import { BoardAssigneeFilter } from "./ProjectMembers";
 import { DeleteIssueDialog } from "./DeleteIssueDialog";
-import { useT, type TKey } from "../i18n";
+import { useT, type TKey, lazyView } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { EMPTY_FILTERS, customFieldCondition, filtersFromSearch, searchFromFilters, projectIssueSearch, type FilterState, pathForView } from "../router";
 import { COLUMNS, LEFT, gridTemplate, tableMinWidth, readColumns, writeColumns, type ColumnId, type SortKey } from "../listColumns";
 import { HeadCell, Row } from "./BacklogRow";
 import { DueRangeFilter, ListSkeletonRow, MenuButton, CustomFieldFilter } from "./BacklogFilters";
 
-const ImportModal = lazy(() => import("./ImportModal"));
+const ImportModal = lazyView(() => import("./ImportModal"));
 
 
 /** Поиск уходит на сервер не на каждую букву. */

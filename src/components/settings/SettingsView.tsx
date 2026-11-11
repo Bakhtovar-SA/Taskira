@@ -1,10 +1,10 @@
 import { Button } from "../../ds/Button";
 /** Настройки — три дома (ADR-0013 §2, IA §3, ТЗ 5.9): Личные, Проект, Организация. Слева — все доступные
  *  разделы, сгруппированные по дому; справа — страница раздела. Каждая настройка живёт ровно в одном месте. */
-import { lazy, Suspense, type ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { lookOf } from "../../projectLook";
 import { useStore } from "../../store";
-import { useT, type TKey } from "../../i18n";
+import { useT, type TKey, lazyView } from "../../i18n";
 import { allowedSections } from "../../settings/access";
 import { DEFAULT_SECTION, type SettingsHome } from "../../settings/sections";
 import {
@@ -38,13 +38,13 @@ import { PersonalSection } from "./PersonalSettings";
 import { ProjectSection } from "./ProjectSettings";
 import { OrgSection } from "./OrgSettings";
 
-const WorkflowView = lazy(() => import("../WorkflowView"));
-const PermissionsView = lazy(() => import("../PermissionsView"));
-const AdminView = lazy(() => import("../AdminView"));
-const ProjectIntegrations = lazy(() => import("./ProjectIntegrations"));
-const ProjectRecurring = lazy(() => import("./ProjectRecurring"));
-const PersonalTokens = lazy(() => import("./PersonalTokens"));
-const ServiceAccounts = lazy(() => import("./ServiceAccounts"));
+const WorkflowView = lazyView(() => import("../WorkflowView"));
+const PermissionsView = lazyView(() => import("../PermissionsView"));
+const AdminView = lazyView(() => import("../AdminView"));
+const ProjectIntegrations = lazyView(() => import("./ProjectIntegrations"));
+const ProjectRecurring = lazyView(() => import("./ProjectRecurring"));
+const PersonalTokens = lazyView(() => import("./PersonalTokens"));
+const ServiceAccounts = lazyView(() => import("./ServiceAccounts"));
 
 type Meta = { icon: (p: { size?: number; tone?: IconTone }) => ReactNode; tone: IconTone };
 const META: Record<string, Meta> = {

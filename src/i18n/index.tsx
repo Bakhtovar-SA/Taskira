@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import ru, { type TKey } from "./ru";
+import { createContext, lazy, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import ruCore from "./ruCore";
+import type { TKey } from "./ru";
 import { apiErrorText } from "./apiErrors";
 
 export type { TKey };
@@ -8,9 +9,45 @@ export type Lang = "ru" | "en";
 /* Английский словарь — отдельным чанком: его грузят только те, кто выбрал English (ТЗ 5.2, бюджет бандла).
  * main.tsx ждёт его до первой отрисовки, если язык уже сохранён, — вспышки русского текста нет. */
 type Dict = Record<TKey, string>;
-const DICTS: Partial<Record<Lang, Dict>> = { ru };
+/* Русский словарь разделён: `ruCore` (ключи стартового графа) лежит в бандле, `ruLazy` (ключи ленивых экранов) —
+ * отдельный чанк. Ленивые экраны открываются через `lazyView()` / `withRuLazy()`, которые дожидаются `ruLazy`
+ * раньше самого экрана, так что `t()` в них не видит пропусков. Английский словарь полный. */
+const DICTS: Partial<Record<Lang, Dict>> = {};
+type PartialDict = Partial<Record<TKey, string>>;
+let ruLazyDict: PartialDict | null = null;
+let ruLazyLoading: Promise<void> | null = null;
+const ruLazyListeners = new Set<() => void>();
+/** Положить ленивую часть русского словаря в память (чанк загружен или тестовое окружение). */
+export function registerRuLazy(d: PartialDict): void {
+  ruLazyDict = d;
+  ruLazyListeners.forEach((fn) => fn());
+}
+function subscribeRuLazy(fn: () => void): () => void {
+  ruLazyListeners.add(fn);
+  return () => void ruLazyListeners.delete(fn);
+}
+export function loadRuLazy(): Promise<void> {
+  if (ruLazyDict) return Promise.resolve();
+  ruLazyLoading ??= import("./ruLazy")
+    .then((m) => registerRuLazy(m.default))
+    .catch((err: unknown) => {
+      ruLazyLoading = null; // network blip: the next screen opening retries
+      throw err;
+    });
+  return ruLazyLoading;
+}
+/** Обернуть динамический импорт экрана: модуль вернётся только когда русские строки ленивых экранов уже есть. */
+export function withRuLazy<M>(factory: () => Promise<M>): () => Promise<M> {
+  return () => Promise.all([factory(), readStoredLang() === "ru" ? loadRuLazy() : undefined]).then(([m]) => m);
+}
+/** `lazy()` для экрана вне стартового графа: см. `withRuLazy`. */
+export function lazyView<C extends ComponentType<any>>(factory: () => Promise<{ default: C }>) {
+  return lazy(withRuLazy(factory));
+}
+
 let enLoading: Promise<void> | null = null;
 export function loadLang(l: Lang): Promise<void> {
+  if (l === "ru") return loadRuLazy();
   if (DICTS[l]) return Promise.resolve();
   enLoading ??= import("./en").then((m) => {
     DICTS.en = m.default;
@@ -54,8 +91,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>(readStoredLang);
   // Словарь выбранного языка ещё не пришёл (редкий случай: язык сменили только что) — пока русский, потом перерисуем.
   const [, setLoaded] = useState(0);
+  const ruLazyNow = useSyncExternalStore(subscribeRuLazy, () => ruLazyDict);
   useEffect(() => {
-    if (!DICTS[lang]) void loadLang(lang).then(() => setLoaded((n) => n + 1));
+    if (lang !== "ru" && !DICTS[lang]) void loadLang(lang).then(() => setLoaded((n) => n + 1));
   }, [lang]);
 
   useEffect(() => {
@@ -72,10 +110,20 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const dict = DICTS[lang] ?? ru;
+  const dict = DICTS[lang] ?? (ruCore as PartialDict);
+  const lazyReady = lang === "ru" ? ruLazyNow : null;
   const t = useMemo<TFn>(() => {
-    return (key, params) => interpolate(dict[key] ?? ru[key], params);
-  }, [dict]);
+    return (key, params) => {
+      const text = dict[key] ?? ruCore[key as keyof typeof ruCore] ?? lazyReady?.[key];
+      if (text === undefined) {
+        // A lazy-screen key was asked for before its chunk arrived (should not happen through lazyView):
+        // load it and re-render instead of crashing.
+        if (lang === "ru") void loadRuLazy().catch(() => undefined);
+        return "";
+      }
+      return interpolate(text, params);
+    };
+  }, [dict, lazyReady, lang]);
 
   const tn = useMemo<TnFn>(() => {
     return (n, one, few, many) => t(pluralForm(lang, n, [one, few, many]) as TKey);

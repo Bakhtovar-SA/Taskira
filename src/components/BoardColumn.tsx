@@ -1,6 +1,6 @@
 /** Колонка доски и её постраничный список карточек. Вынесено из Board.tsx без изменения поведения. */
 import QuickCreate from "./QuickCreateIssue";
-import { lazy, memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef } from "react";
 import { BoardDoneTail } from "./BoardDoneTail";
 import { BoardSkeletonCard, Card, noteLanding } from "./BoardCard";
 import { useSkeletonReveal } from "../useSkeletonReveal";
@@ -11,7 +11,7 @@ import type { PermId } from "../permissions";
 import type { Issue, Status, User } from "../types";
 import { IcArchive, IcPlus, StatusGlyph } from "../icons";
 import { BOARD_COLUMN_BODY, BOARD_COLUMN_SHELL } from "../ui";
-import { useT } from "../i18n";
+import { useT, lazyView } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { boardMoveRows } from "../boardMoves";
 import { usePulse } from "../usePulse";
@@ -115,7 +115,7 @@ export const NO_TARGETS: Status[] = [];
 export const NO_SELECTION: ReadonlySet<string> = new Set();
 export const NO_MOVES: ReadonlyMap<string, string> = new Map();
 /** Панель массовых действий — отдельный чанк: нужна только в режиме выделения, первый экран доски без неё. */
-export const BulkBar = lazy(() => import("./BulkBar"));
+export const BulkBar = lazyView(() => import("./BulkBar"));
 
 /**
  * Колонка доски — отдельный memo-компонент (ADR-0011): подписка на hoverStore обновляет

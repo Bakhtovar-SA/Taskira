@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { loadOnboarding, markThemeStep, resetOnboarding } from "./onboarding";
 import { setupApi } from "./api";
 import { onThemeChosen, setProjectBackground } from "./theme";
@@ -13,7 +13,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { BootErrorScreen, NotFoundPage, OfflineBanner } from "./components/StatusScreens";
 import { Toasts } from "./ui";
 import type { ViewId } from "./types";
-import { useT } from "./i18n";
+import { useT, lazyView } from "./i18n";
 import { CreateIssueModal, IssueModal, preloadModalsWhenIdle } from "./lazyModals";
 import { Presence } from "./ds/Presence";
 import { OPEN_PALETTE_EVT, OPEN_PROJECT_WIZARD_EVT, OPEN_SHORTCUTS_EVT, openHomeCreate } from "./palette/events";
@@ -24,28 +24,28 @@ import { pushRecent } from "./palette/recent";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
 // больше не тянет отчёты, документацию и админку одним монолитным бандлом.
-const Backlog = lazy(() => import("./components/Backlog"));
-const SprintsView = lazy(() => import("./components/SprintsView"));
-const TimelineView = lazy(() => import("./components/TimelineView"));
-const CalendarView = lazy(() => import("./components/CalendarView"));
-const ReportsView = lazy(() => import("./components/ReportsView"));
-const RoadmapView = lazy(() => import("./components/RoadmapView"));
-const DashboardView = lazy(() => import("./components/DashboardView"));
+const Backlog = lazyView(() => import("./components/Backlog"));
+const SprintsView = lazyView(() => import("./components/SprintsView"));
+const TimelineView = lazyView(() => import("./components/TimelineView"));
+const CalendarView = lazyView(() => import("./components/CalendarView"));
+const ReportsView = lazyView(() => import("./components/ReportsView"));
+const RoadmapView = lazyView(() => import("./components/RoadmapView"));
+const DashboardView = lazyView(() => import("./components/DashboardView"));
 // Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
-const SettingsView = lazy(() => import("./components/settings/SettingsView"));
+const SettingsView = lazyView(() => import("./components/settings/SettingsView"));
 // Мастер создания проекта (ТЗ 5.10) — свой чанк, только для администраторов.
-const ProjectWizard = lazy(() => import("./components/ProjectWizard"));
-const DocsView = lazy(() => import("./components/DocsView"));
-const CollaboratingView = lazy(() => import("./components/CollaboratingView"));
-const InboxView = lazy(() => import("./components/InboxView"));
-const MyIssuesView = lazy(() => import("./components/MyIssuesView"));
+const ProjectWizard = lazyView(() => import("./components/ProjectWizard"));
+const DocsView = lazyView(() => import("./components/DocsView"));
+const CollaboratingView = lazyView(() => import("./components/CollaboratingView"));
+const InboxView = lazyView(() => import("./components/InboxView"));
+const MyIssuesView = lazyView(() => import("./components/MyIssuesView"));
 // IssueModal / CreateIssueModal — тоже ленивые, но с предзагрузкой в простое и при наведении на карточку
 // (src/lazyModals.ts): первое открытие задачи не ждёт чанк.
-const SoloView = lazy(() => import("./components/SoloView"));
-const HomeView = lazy(() => import("./components/HomeView"));
+const SoloView = lazyView(() => import("./components/SoloView"));
+const HomeView = lazyView(() => import("./components/HomeView"));
 // Командная палитра и справка «?» — один чанк, грузится при первом открытии (ТЗ 5.8 п.4–5).
-const CommandPalette = lazy(() => import("./components/CommandPalette"));
-const ShortcutsDialog = lazy(() => import("./components/CommandPalette").then((m) => ({ default: m.ShortcutsDialog })));
+const CommandPalette = lazyView(() => import("./components/CommandPalette"));
+const ShortcutsDialog = lazyView(() => import("./components/CommandPalette").then((m) => ({ default: m.ShortcutsDialog })));
 
 /** Скелет оболочки на время bootstrap — форма боковой панели и шапки, а не
  *  доски (ТЗ 5.8 п.7): до загрузки неизвестно, какой раздел откроется. */

@@ -36,7 +36,8 @@ if (import.meta.env.DEV && location.pathname.replace(/\/$/, "") === "/dev/ui") {
   // Бренд инсталляции (ТЗ 5.14 п.5): публичный запрос параллельно со стартом — нужен уже экрану входа.
   loadBrand();
   // Выбран английский — дождаться его словаря (отдельный чанк), чтобы первый кадр был уже на нём.
-  void loadLang(storedLang()).finally(() => {
+  // Russian needs nothing here: its core strings are in the bundle and the rest arrives with the lazy screens.
+  void (storedLang() === "en" ? loadLang("en") : Promise.resolve()).finally(() => {
     root.render(
       <I18nProvider>
         <App />

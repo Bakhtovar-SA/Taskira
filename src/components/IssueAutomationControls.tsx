@@ -1,12 +1,12 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import {Popover} from '../ds/LazyOverlay';
 import {IcBell,IcChevD} from '../icons';
-import {useT} from '../i18n';
+import {useT, lazyView } from '../i18n';
 import {recurrenceText} from '../recurrenceText';
 import type {AutomationValue,IssueRecurrenceBody} from '../issueAutomation';
 import '../styles/issue-automation.css';
 export const RepeatIcon=({size=16}:{size?:number})=><svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/></svg>;
-const Panel=lazy(()=>import('./IssueAutomationPanel'));
+const Panel=lazyView(()=>import('./IssueAutomationPanel'));
 export type AutomationKind='repeat'|'reminder';
 export function AutomationFields({value,canRepeat,compact=false,onOpen}:{value:AutomationValue;canRepeat:boolean;compact?:boolean;onOpen:(kind:AutomationKind,anchor:HTMLElement)=>void}){
  const {t,tn,lang}=useT();
