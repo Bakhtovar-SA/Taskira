@@ -139,6 +139,11 @@ is typed `Record<keyof Dict, string>` so TypeScript refuses a missing or extra k
   `services/webhookPayload.ts` (unknown history is not forwarded).
 - Email is rendered in the recipient's language from `MAIL_STRINGS` (`server/src/services/emailTemplates.ts`; `users.lang` is set
   by `PUT /api/me/lang`; shape checked by `mailLang.test.ts`). The in-app help has matching RU and EN sections (`DocsView.test.tsx`).
+- **The Russian dictionary is split to keep startup small:** `ruCore.ts` holds the keys read by modules reachable statically from
+  `main.tsx` and ships with startup; `ruLazy.ts` holds the rest and is a separate chunk (`ru.ts` only composes the two for types
+  and tests; never import `ru.ts` or `ruLazy.ts` from startup code). Put a new key where its reader lives. Load lazy screens and
+  dialogs with `lazyView()` / `withRuLazy()` from `src/i18n`, not bare React `lazy()`: they wait for `ruLazy` so a screen never
+  renders with blank labels. `src/i18n/ruSplit.test.ts` enforces all of this; `e2e/ru-lazy-dictionary.pw.ts` checks it in a browser.
 - The English dictionary is a lazy chunk (`loadLang()`); the UI language is in `localStorage` (`taskira.lang`).
 - UI says «команда» / "team" for what code, API, DB and env call `department`.
 
