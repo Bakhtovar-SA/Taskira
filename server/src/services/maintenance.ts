@@ -76,7 +76,8 @@ export interface MaintenanceOptions {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 /** Условия «пора» — одни и те же для пачек и для dry-run, чтобы они не разошлись. */
-const ARCHIVE_WHERE = `done_at IS NOT NULL AND archived_at IS NULL AND done_at < now() - make_interval(days => $1::int)`;
+const ARCHIVE_WHERE = `done_at IS NOT NULL AND archived_at IS NULL AND done_at < now() - make_interval(days => $1::int)
+  AND EXISTS(SELECT 1 FROM application_settings WHERE singleton AND work)`;
 const PURGE_WHERE = `created_at < now() - make_interval(days => $1::int)`;
 const OPS_HISTORY = `SELECT id, row_number() OVER (PARTITION BY kind ORDER BY started_at DESC, id DESC) AS position FROM ops_runs`;
 const OPS_RUNS_KEEP = 200;

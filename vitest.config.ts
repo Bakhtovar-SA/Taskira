@@ -16,6 +16,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     globals: false,
+    setupFiles: ["./src/test/applicationFixture.ts"],
     restoreMocks: true,
   },
 });

@@ -1,3 +1,6 @@
+import { applicationRoutes } from "./applications/routes.js";
+import { installApplicationBoundaries } from "./applications/registry.js";
+import { workProjectRoutes } from "./applications/workRoutes.js";
 import { workspaceGlobalRoutes, workspaceRoutes } from "./routes/workspace.js";
 import { configureDocumentWebSocket } from "./services/workspaceWebSocket.js";
 import { createCollaboration } from "./services/workspaceCollaboration.js";
@@ -16,19 +19,9 @@ import { authRoutes } from "./routes/auth.js";
 import { departmentRoutes } from "./routes/departments.js";
 import { projectsRoutes } from "./routes/projects.js";
 import { memberRoutes } from "./routes/members.js";
-import { issuesRoutes } from "./routes/issues.js";
-import { issuesBulkRoutes } from "./routes/issuesBulk.js";
-import { commentRoutes } from "./routes/comments.js";
-import { attachmentRoutes } from "./routes/attachments.js";
-import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
 import { homeRoutes } from "./routes/home.js";
 import { searchRoutes } from "./routes/search.js";
-import { workflowRoutes } from "./routes/workflow.js";
-import { issueTemplatesRoutes } from "./routes/issueTemplates.js";
-import { customFieldsRoutes } from "./routes/customFields.js";
-import { sprintsRoutes } from "./routes/sprints.js";
-import { savedViewsRoutes } from "./routes/savedViews.js";
 import { userRoutes } from "./routes/users.js";
 import { avatarRoutes } from "./routes/avatar.js";
 import { meRoutes } from "./routes/me.js";
@@ -51,8 +44,7 @@ import { activeSocketCount } from "./services/wsHub.js";
 import { licenseRoutes } from "./routes/license.js";
 import { projectTemplateRoutes } from "./routes/projectTemplates.js";
 import { webhookRoutes } from "./routes/webhooks.js";
-import { issueAutomationRoutes } from "./routes/issueAutomation.js";
-import { recurringConfigRoutes, recurringRoutes } from "./routes/recurring.js";
+import { recurringConfigRoutes } from "./routes/recurring.js";
 import { apiTokenRoutes } from "./routes/apiTokens.js";
 import { serviceAccountRoutes } from "./routes/serviceAccounts.js";
 import { onboardingRoutes } from "./routes/onboarding.js";
@@ -75,6 +67,8 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
     // по IP и IP в audit-логе. Значение из TRUST_PROXY (см. .env.example).
     trustProxy: cfg.trustProxy,
   });
+
+  installApplicationBoundaries(app);
 
   const requestStarted = new WeakMap<object, bigint>();
   app.addHook("onRequest", async (req, reply) => {
@@ -248,6 +242,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
   app.register(
     async (api) => {
       await api.register(authRoutes, { prefix: "/auth" });
+      await api.register(applicationRoutes);
       await api.register(userRoutes); // /users, /admin/users (global admin) + /users/pickable
       await api.register(avatarRoutes); // /me/avatar (самообслуживание) + /users/:id/avatar (отдача)
       await api.register(meRoutes); // /me/lang — язык писем (трек E)
@@ -284,18 +279,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
           proj.addHook("onClose", async () => { await collaboration.destroy(); });
           await workspaceRoutes(proj, collaboration);
           await proj.register(memberRoutes, { prefix: "/members" }); // /:userId
-          await proj.register(issuesRoutes, { prefix: "/issues" });
-          await proj.register(issueAutomationRoutes, { prefix: "/issues" }); // CRUD + transition + watchers
-          await proj.register(issuesBulkRoutes, { prefix: "/issues" }); // PATCH /bulk — ТЗ 3.3
-          await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
-          await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]
-          await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
-          await proj.register(workflowRoutes, { prefix: "/workflow" });
-          await proj.register(issueTemplatesRoutes, { prefix: "/issue-templates" });
-          await proj.register(recurringRoutes, { prefix: "/recurring" });
-          await proj.register(customFieldsRoutes, { prefix: "/custom-fields" });
-          await proj.register(sprintsRoutes, { prefix: "/sprints" }); // опциональный модуль, см. SPRINTS_MIGRATION.md
-          await proj.register(savedViewsRoutes, { prefix: "/saved-views" }); // личные, ТЗ 3.2
+          await proj.register(workProjectRoutes);
         },
         { prefix: "/projects/:projectId" },
       );

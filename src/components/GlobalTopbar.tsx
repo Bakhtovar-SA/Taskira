@@ -6,15 +6,17 @@ import { useT } from "../i18n";
 import { openHomeCreate, openPalette, paletteShortcut } from "../palette/events";
 import { useOpenSettings } from "../settings/useOpenSettings";
 import { useStore } from "../store";
-import { openSidebarDrawer, SETTINGS_VIEWS } from "./Sidebar";
+import { openSidebarDrawer, SETTINGS_VIEWS } from "../applications/viewCatalog";
 import { Bell } from "./Topbar";
 import { UserMenu } from "./UserMenu";
+import "../styles/navigation.css";
 
 export default function GlobalTopbar() {
   const { t } = useT();
-  const { bootStatus, data, can, setCreateOpen, logout, me } = useStore();
+  const { bootStatus, data, can, setCreateOpen, logout, me, application = "work", applications } = useStore();
   const openSettings = useOpenSettings();
-  const canCreate = bootStatus === "home" || (bootStatus === "ready" && !!data.currentProjectId && can("create"));
+  const workEnabled = application === "work" && applications?.applications.find((item) => item.id === "work")?.enabled !== false;
+  const canCreate = workEnabled && (bootStatus === "home" || (bootStatus === "ready" && !!data.currentProjectId && can("create")));
   return <header className="global-topbar shrink-0 border-b border-linesoft">
     <div className="global-topbar-row">
       <IconButton variant="ghost" size="sm" label={t("sidebar.menu")} onClick={openSidebarDrawer} className="global-menu-button lg:hidden">
@@ -25,11 +27,11 @@ export default function GlobalTopbar() {
           iconLeft={<IcSearch size={16} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
           {t("sidebar.search")}
         </Button>
-        <Button variant={canCreate ? "primary" : "ghost"} size="sm" disabled={canCreate ? false : t("topbar.createDeniedTip")}
+        {application === "work" && <Button variant={canCreate ? "primary" : "ghost"} size="sm" disabled={canCreate ? false : t("topbar.createDeniedTip")}
           onClick={() => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true)} className="project-create"
           aria-label={t("topbar.createAria")} iconLeft={canCreate ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
           <span className="hidden sm:inline">{t("topbar.task")}</span>
-        </Button>
+        </Button>}
       </div>
       <div className="global-topbar-right">
         <Bell />

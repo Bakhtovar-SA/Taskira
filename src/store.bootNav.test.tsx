@@ -843,7 +843,9 @@ describe("гонки с logout", () => {
     const { get } = await readyInP1();
     act(() => get().logout());
     await act(async () => { await get().bootstrap(); });
-    expect(get().bootStatus).toBe("home");
+    // The new session resumes this account's last Work project.
+    expect(get().bootStatus).toBe("ready");
+    expect(get().data.currentProjectId).toBe(P1);
     expect(get().data.currentUserId).toBe("u1");
   });
 });

@@ -1,7 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "e2e",
-  testMatch: "workspace-modules.pw.ts",
+  testMatch: ["workspace-modules.pw.ts", "application-shell.pw.ts"],
   fullyParallel: false,
   workers: 1,
   timeout: 60000,

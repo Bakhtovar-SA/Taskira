@@ -18,10 +18,11 @@ import { ProjectMark } from "../ui";
 import { useT, type TKey } from "../i18n";
 import { workflowStatusName } from "../workflowStatus";
 import { useIssueSearch } from "../issueSearch";
-import { PROJECT_VIEWS } from "./Sidebar";
+import { PROJECT_VIEWS } from "../applications/viewCatalog";
+import { projectAvailable, projectViewsForApplication } from "../applications/navigation";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
-  files: "workspace.files", library: "workspace.library", documents: "workspace.documents", objects: "workspace.objects", processes: "workspace.processes", planning: "workspace.planning",
+  applicationHome: "sidebar.nav.home", files: "workspace.files", library: "workspace.library", documents: "workspace.documents", objects: "workspace.objects", processes: "workspace.processes", planning: "workspace.planning",
   board: "sidebar.nav.board",
   backlog: "sidebar.nav.backlog",
   sprints: "sidebar.nav.sprints",
@@ -449,21 +450,22 @@ function ProjectRow({ p, active, onOpen }: { p: ProjectSummary; active: boolean;
 
 function ProjectSwitcher() {
   const { t } = useT();
-  const { data, switchProject } = useStore();
+  const { data, switchProject, application = "work", applications } = useStore();
+  const projects = data.projects.filter((p) => projectAvailable(application, p.id, applications));
   const [filter, setFilter] = useState("");
   const projectLabel = <>
     <ProjectMark projectKey={data.project.key} {...lookOf(data.projects, data.currentProjectId)} size={22} />
     <span className="project-switcher-name truncate">{data.project.name}</span>
   </>;
-  if (data.projects.length <= 1) return <span className="project-switcher-label">{projectLabel}</span>;
+  if (projects.length <= 1) return <span className="project-switcher-label">{projectLabel}</span>;
 
   const q = filter.trim().toLowerCase();
   const matches = (p: ProjectSummary) => !q || p.name.toLowerCase().includes(q) || p.key.toLowerCase().includes(q);
   const byKey = (a: ProjectSummary, b: ProjectSummary) => a.key.localeCompare(b.key);
-  const favorites = data.projects.filter((p) => data.favoriteProjectIds.includes(p.id) && matches(p)).sort(byKey);
+  const favorites = projects.filter((p) => data.favoriteProjectIds.includes(p.id) && matches(p)).sort(byKey);
 
   const byDept = new Map<string, ProjectSummary[]>();
-  for (const p of data.projects) {
+  for (const p of projects) {
     if (!matches(p)) continue;
     const bucket = byDept.get(p.departmentId);
     if (bucket) bucket.push(p);
@@ -535,9 +537,11 @@ function ProjectSwitcher() {
 
 export default function Topbar() {
   const { t } = useT();
-  const { data, ui, setView, toggleFavoriteProject } = useStore();
+  const { data, ui, setView, toggleFavoriteProject, application = "work", applications } = useStore();
   const workspaceModules = useProjectModules();
-  const views = PROJECT_VIEWS.filter((v) => (!v.sprintsOnly || data.project.sprintsEnabled) && (!isWorkspaceModule(v.id) || !!workspaceModules?.[v.id]));
+  const allowed = projectViewsForApplication(application);
+  const enabled = applications?.applications.find((item) => item.id === application)?.enabled !== false;
+  const views = PROJECT_VIEWS.filter((v) => allowed.includes(v.id) && (v.id === ui.view || ((enabled || v.id === "files") && (!v.sprintsOnly || data.project.sprintsEnabled) && (!isWorkspaceModule(v.id) || !!workspaceModules?.[v.id]))));
   const isProjectView = views.some((v) => v.id === ui.view);
   const viewTabsRef = useRef<HTMLElement>(null);
   useEffect(() => {

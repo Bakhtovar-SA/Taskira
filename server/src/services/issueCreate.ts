@@ -1,3 +1,4 @@
+import { assertApplicationWritable } from "../applications/registry.js";
 /** Создание задачи в транзакции вызывающего; аудит HTTP-запроса остаётся в маршруте. */
 import type { PoolClient } from "pg";
 import type { ActivityEvent, ComplexityId, IssueDto, PriorityId } from "../contract.js";
@@ -63,6 +64,7 @@ export async function createIssueInTx(
   // Только маршрут: прежние проверки и номер уже выполнены вне транзакции.
   reserved?: { num: number; prepared: PreparedIssueCreate; parentId?: string | null },
 ): Promise<IssueRow> {
+  await assertApplicationWritable("work", client);
   const prepared = reserved?.prepared ?? await prepareIssueCreate(project, input, client);
   if (prepared.projectId !== project.id) throw new Error("Подготовка задачи относится к другому проекту");
   // Счётчик держит лок до COMMIT: фоновый запуск — одна задача/правило на транзакцию.

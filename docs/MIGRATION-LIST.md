@@ -89,3 +89,4 @@
 | `20261110T0800_workspace.sql` | Additive workspace modules. Existing projects remain disabled; task history is collected independently. |
 | `20261111T0730_project_files_module.sql` | Make the file catalogue configurable without hiding it on existing projects. Disabling hides its tab; attachments remain with their original materials. |
 | `20261111T1200_workspace_process_results.sql` | A completion cycle survives rapid reopen/close transitions between worker polls. |
+| `20261111T1400_application_boundaries.sql` | Product availability is independent of project module settings and permissions. Existing installations retain all functionality until an administrator disables an app. |

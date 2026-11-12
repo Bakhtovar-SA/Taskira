@@ -6,7 +6,15 @@ import { IcCompose, IcPlus, IcGlobe, IcHome, IcKeyboard, IcMoon, IcSearch, IcSun
 import { ProjectMark } from "../ui";
 import { Dialog, Kbd, PaletteDialog } from "../ds";
 import { setThemeMode } from "../theme";
-import { NAV_GROUPS } from "./Sidebar";
+import { NAV_GROUPS } from "../applications/viewCatalog";
+import { applicationForView, projectAvailable } from "../applications/navigation";
+import { applicationsCopy } from "../i18n/applications";
+import { ApplicationIcon } from "../applications/ApplicationSwitcher";
+import { workspaceApi } from "../workspace/api";
+import { materialPath } from "../workspace/shared";
+import { useLocation } from "wouter";
+import type { LibraryItem } from "../../server/src/workspaceContract";
+import { useProjectModules, isWorkspaceModule } from "../workspace/modules";
 import { matchScore, fuzzyScore, swapLayout } from "../palette/fuzzy";
 import { readRecent, type RecentIssue } from "../palette/recent";
 import { openProjectWizard, paletteShortcut, openHomeCreate } from "../palette/events";
@@ -27,7 +35,7 @@ import { useOpenSettings } from "../settings/useOpenSettings";
 
 type Row = {
   id: string;
-  group: "recent" | "nav" | "projects" | "actions" | "issues";
+  group: "recent" | "nav" | "projects" | "actions" | "issues" | "materials";
   label: string;
   /** Дополнительные слова для поиска (английское имя раздела, ключ проекта). */
   keywords?: string[];
@@ -42,8 +50,9 @@ const GROUP_LABEL: Record<Row["group"], TKey> = {
   projects: "palette.group.projects",
   actions: "palette.group.actions",
   issues: "palette.group.issues",
+  materials: "workspace.library",
 };
-const GROUP_ORDER: Row["group"][] = ["recent", "nav", "actions", "projects", "issues"];
+const GROUP_ORDER: Row["group"][] = ["recent", "nav", "actions", "projects", "materials", "issues"];
 
 /** Английские имена разделов: палитру ищут и так, особенно в чужой раскладке. */
 const VIEW_ALIASES: Record<string, string[]> = {
@@ -66,8 +75,13 @@ const VIEW_ALIASES: Record<string, string[]> = {
 /** `open` — для плавного ухода: App держит палитру в `Presence`, и на время ухода она получает open=false. */
 export default function CommandPalette({ onClose, onShortcuts, open = true }: { onClose: () => void; onShortcuts: () => void; open?: boolean }) {
   const { t, lang, setLang } = useT();
-  const { data, idx, me, ui, bootStatus, enterProject, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout } = useStore();
+  const { data, idx, me, ui, bootStatus, enterProject, setView, setCreateOpen, can, openIssue, switchProject, goHome, searchAllProjects, logout, application = "work", applications, selectApplication } = useStore();
   const openSettings = useOpenSettings();
+  const [, navigate] = useLocation();
+  const applicationCopy = applicationsCopy(lang);
+  const projectModules = useProjectModules();
+  const projects = useMemo(() => data.projects.filter((p) => projectAvailable(application, p.id, applications)), [data.projects, application, applications]);
+  const [materials, setMaterials] = useState<LibraryItem[]>([]);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const [remote, setRemote] = useState<SearchResultItem[] | null>(null);
@@ -91,7 +105,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
   // Задачи — серверным поиском по всем проектам, с паузой 200 мс, от двух символов.
   const term = q.trim();
   useEffect(() => {
-    if (term.length < 2) {
+    if (application !== "work" || term.length < 2) {
       setRemote(null);
       setSearching(false);
       return;
@@ -112,19 +126,34 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       live = false;
       window.clearTimeout(timer);
     };
-  }, [term, searchAllProjects]);
+  }, [term, searchAllProjects, application]);
 
   // В текущем проекте — поиск по подстроке («интегр» находит «Интеграция»):
   // серверный кросс-проектный поиск полнотекстовый и ищет только целые слова.
-  const local = useIssueSearch(term.length >= 2 ? data.currentProjectId || null : null, term, { limit: 6, emptyMode: "none" });
+  useEffect(() => {
+    setMaterials([]);
+    if (application === "work" || term.length < 2) return;
+    const ctl = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearching(true);
+      void workspaceApi.library(term, ctl.signal, { kind: application === "knowledge" ? "document" : "object" })
+        .then((result) => { if (!ctl.signal.aborted) setMaterials(result.items); }, () => undefined)
+        .finally(() => { if (!ctl.signal.aborted) setSearching(false); });
+    }, 200);
+    return () => { window.clearTimeout(timer); ctl.abort(); };
+  }, [application, term]);
+  const local = useIssueSearch(application === "work" && term.length >= 2 ? data.currentProjectId || null : null, application === "work" ? term : "", { limit: 6, emptyMode: "none" });
   const busy = searching || (term.length >= 2 && local.status === "loading");
 
   const commands = useMemo<Row[]>(() => {
     const rows: Row[] = [];
-    if (data.projects.length > 0)
+    if (projects.length > 0)
       rows.push({ id: "home", group: "nav", label: t("sidebar.nav.home"), keywords: ["home"], icon: <IcHome size={18} tone="violet" />, run: goHome });
     for (const g of NAV_GROUPS)
       for (const item of g.items) {
+        const owner = applicationForView(item.id);
+        if (owner && owner !== application) continue;
+        if (isWorkspaceModule(item.id) && !projectModules?.[item.id]) continue;
         if (item.adminOnly && me.globalRole !== "admin") continue;
         if (item.collabOnly && data.collaborations.length === 0) continue;
         if (item.sprintsOnly && !data.project.sprintsEnabled) continue;
@@ -136,7 +165,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
           icon: item.icon({ size: 16, tone: item.tone }),
           hint: item.kbd ? <Kbd>{item.kbd}</Kbd> : undefined,
           run: () => {
-            if (bootStatus === "home") enterProject(data.currentProjectId || data.projects[0]?.id);
+            if (bootStatus === "home") { const target = projects.find((p) => p.id === data.currentProjectId) ?? projects[0]; if (target) enterProject(target.id); }
             if (isSettingsHome(item.id)) openSettings(item.id);
             else setView(item.id);
           },
@@ -144,7 +173,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       }
     if (me.globalRole === "admin")
       rows.push({ id: "newProject", group: "actions", label: t("wizard.title"), keywords: ["new project", "создать проект", "шаблон"], icon: <IcPlus size={18} tone="violet" />, run: () => openProjectWizard() });
-    if (bootStatus === "home" || can("create"))
+    if (application === "work" && applications?.applications.find((app) => app.id === "work")?.enabled !== false && (bootStatus === "home" || can("create")))
       rows.push({ id: "create", group: "actions", label: t("palette.newIssue"), keywords: ["new issue", "create"], icon: <IcCompose size={18} tone="violet" />, hint: <Kbd>C</Kbd>, run: () => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true) });
     rows.push(
       { id: "theme:light", group: "actions", label: t("palette.themeLight"), keywords: ["light theme"], icon: <IcSun size={18} tone="amber" />, run: () => setThemeMode("light") },
@@ -154,7 +183,11 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       { id: "shortcuts", group: "actions", label: t("palette.shortcuts"), keywords: ["shortcuts", "keys"], icon: <IcKeyboard size={18} tone="gray" />, hint: <Kbd>?</Kbd>, run: onShortcuts },
       { id: "logout", group: "actions", label: t("palette.logout"), keywords: ["logout", "sign out"], icon: <IcX size={18} tone="red" />, run: logout },
     );
-    for (const p of data.projects) {
+    for (const app of applications?.applications ?? []) {
+      if (!app.enabled || !app.projectIds.length || app.id === application) continue;
+      rows.push({ id: `app:${app.id}`, group: "nav", label: applicationCopy.apps[app.id].name, keywords: [app.id], icon: <ApplicationIcon application={app.id} />, run: () => { void selectApplication(app.id); } });
+    }
+    for (const p of projects) {
       if (p.id === data.currentProjectId && bootStatus !== "home") continue;
       rows.push({
         id: `project:${p.id}`,
@@ -167,9 +200,9 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       });
     }
     return rows;
-  }, [data.projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, bootStatus, enterProject, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, openSettings]);
+  }, [projects, data.collaborations.length, data.project.sprintsEnabled, data.currentProjectId, me.globalRole, bootStatus, enterProject, t, lang, can, goHome, setView, setCreateOpen, setLang, onShortcuts, logout, openSettings, application, applications, selectApplication, applicationCopy, projectModules]);
 
-  const recent = useMemo(() => readRecent().filter((r) => r.id !== ui.selectedIssueId), [ui.selectedIssueId]);
+  const recent = useMemo(() => application === "work" ? readRecent().filter((r) => r.id !== ui.selectedIssueId) : [], [ui.selectedIssueId, application]);
 
   const issueRow = (i: { id: string; projectId: string; key: string; title: string; category: StatusCategory; projectKey?: string }, group: Row["group"]): Row => ({
     id: `${group}:${i.id}`,
@@ -195,7 +228,13 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
       .sort((a, b) => b.s - a.s)
       .map((x) => x.r);
     const seen = new Set<string>();
-    const found = [
+    const materialRows: Row[] = materials.filter((item) => projects.some((p) => p.id === item.projectId)).map((item) => ({
+      id: `material:${item.ref.kind}:${item.ref.id}`, group: "materials", label: item.title,
+      icon: <ApplicationIcon application={application} size={17} />,
+      hint: <span className="text-[12px] text-faint">{item.projectName}</span>,
+      run: () => navigate(materialPath(item)),
+    }));
+    const found = [...materialRows,
       ...local.results.map((i) =>
         issueRow({ id: i.id, projectId: data.currentProjectId, key: i.key, title: i.title, category: idx.statuses.get(i.statusId)?.category ?? "todo" }, "issues"),
       ),
@@ -204,7 +243,7 @@ export default function CommandPalette({ onClose, onShortcuts, open = true }: { 
     const out: Row[] = [];
     for (const g of GROUP_ORDER) out.push(...scored.filter((r) => r.group === g), ...found.filter((r) => r.group === g));
     return out;
-  }, [term, commands, remote, recent, local.results, idx.statuses, data.currentProjectId]);
+  }, [term, commands, remote, recent, local.results, idx.statuses, data.currentProjectId, materials, projects, application, navigate]);
 
   useEffect(() => setActive(0), [term]);
   const safeActive = Math.min(active, Math.max(0, rows.length - 1));

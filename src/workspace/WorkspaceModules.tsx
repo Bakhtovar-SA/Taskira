@@ -6,9 +6,10 @@ import { Button } from "../ds/Button";
 import { Switch } from "../ds/Field";
 import { workspaceApi } from "./api";
 import { useAction, useResource } from "./hooks";
+import { applicationsCopy } from "../i18n/applications";
 
 export default function WorkspaceModules() {
-  const { data, can } = useStore(),
+  const { data, can, applications } = useStore(),
     { lang } = useT(),
     copy = projectModulesCopy(lang);
   const projectId = data.currentProjectId;
@@ -40,6 +41,9 @@ export default function WorkspaceModules() {
     <>
       {MODULE_IDS.map((key) => {
         const description = copy.modules[key];
+        const owner = key === "documents" ? "knowledge" : key === "objects" ? "objects" : key === "files" ? null : "work";
+        const appCopy = applicationsCopy(lang);
+        const appDisabled = owner && applications?.applications.find((app) => app.id === owner)?.enabled === false;
         return (
           <div key={key} className="border-t border-linesoft px-5 py-4">
             <Switch
@@ -49,6 +53,7 @@ export default function WorkspaceModules() {
                 <>
                   {description.purpose}
                   <span className="mt-1 block">{description.example}</span>
+                  {owner && <span className="mt-1 block text-sub">{appCopy.apps[owner].name}{appDisabled ? ` · ${appCopy.unavailable}` : ""}</span>}
                 </>
               }
               checked={resource.data![key]}

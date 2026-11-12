@@ -8,6 +8,9 @@ import { StoreProvider, useStore } from "./store";
  * PERF-06), поэтому набор ключей зафиксирован явно. Добавили/убрали поле в `Api` — обновите список здесь осознанно.
  */
 const API_KEYS = [
+  "application",
+  "applications",
+  "applicationsError",
   "addChecklistItem",
   "addCollaborator",
   "addComment",
@@ -51,6 +54,7 @@ const API_KEYS = [
   "patchProject",
   "patchProjectAppearance",
   "refreshAssignedToMe",
+  "refreshApplications",
   "refreshCollaborations",
   "refreshNotifications",
   "refreshOrg",
@@ -69,6 +73,7 @@ const API_KEYS = [
   "resetWorkflow",
   "resyncLdap",
   "searchAllProjects",
+  "selectApplication",
   "setCreateOpen",
   "setCustomFieldValue",
   "setDepartmentLdapGroup",

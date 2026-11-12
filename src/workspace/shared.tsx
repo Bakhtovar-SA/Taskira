@@ -226,9 +226,12 @@ export function ModuleBanner({ module }: { module: keyof WorkspaceModules }) {
 }
 export function useModuleEnabled(module: keyof WorkspaceModules) {
   const { projectId } = useWorkspace();
+  const { applications } = useStore();
   const r = useResource((s) => workspaceApi.modules(projectId, s), [projectId]);
   useModuleEvents(r.reload);
-  return r.data?.[module] ?? false;
+  const owner = module === "documents" ? "knowledge" : module === "objects" ? "objects" : module === "files" ? null : "work";
+  const available = !owner || !applications || applications.applications.some((app) => app.id === owner && app.enabled);
+  return available && (r.data?.[module] ?? false);
 }
 export function useModuleEvents(reload: () => void) {
   useEffect(() => {

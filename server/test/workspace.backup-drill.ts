@@ -67,13 +67,14 @@ if (mode === "seed") {
     payload: { versionId: version.id, validUntil: "2027-02-10" },
   });
   if (verified.statusCode !== 200) throw new Error(verified.body);
+  await q("UPDATE application_settings SET revision=2,work=false,knowledge=false,objects=true WHERE singleton");
 }
 const tables = await q<{ name: string }>(
-  "SELECT tablename name FROM pg_tables WHERE schemaname='public' AND tablename LIKE 'workspace_%' ORDER BY tablename",
+  "SELECT tablename name FROM pg_tables WHERE schemaname='public' AND (tablename LIKE 'workspace_%' OR tablename='application_settings') ORDER BY tablename",
 );
 const records = [];
 for (const { name } of tables) {
-  if (!/^workspace_[a-z_]+$/.test(name)) throw new Error("Unexpected table");
+  if (!/^workspace_[a-z_]+$/.test(name) && name !== "application_settings") throw new Error("Unexpected table");
   records.push({
     table: name,
     ...(
@@ -105,5 +106,5 @@ if (!files.length) throw new Error("Document attachment missing");
 await writeFile(output, JSON.stringify({ records, files }, null, 2));
 await stopApp();
 console.log(
-  `Backup rehearsal ${mode}: ${records.length} workspace tables and ${files.length} files verified`,
+  `Backup rehearsal ${mode}: ${records.length} workspace/application tables and ${files.length} files verified`,
 );

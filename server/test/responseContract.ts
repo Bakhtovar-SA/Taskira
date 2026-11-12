@@ -15,10 +15,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import * as C from "../src/contract.js";
+import { ApplicationsDto } from "../src/applicationContract.js";
 
 const page = (item: z.ZodType) => C.IssueListPageMeta.extend({ items: z.array(item) });
 
 export const RESPONSES: Record<string, z.ZodType> = {
+  "GET /api/applications": ApplicationsDto,
   "GET /api/auth/me": C.MeDto,
   "GET /api/dashboards": z.array(C.DashboardDto),
   "GET /api/dashboards/:dashboardId": C.DashboardDto,
@@ -51,6 +53,7 @@ export const RESPONSES: Record<string, z.ZodType> = {
   "GET /api/reports/summary": C.ReportSummaryDto,
   "GET /api/roadmap": C.RoadmapDto,
   "GET /api/users/pickable": z.array(C.PickableUserDto),
+  "PATCH /api/applications": ApplicationsDto,
   "PATCH /api/projects/:projectId/issues/:id": C.IssueMutationResultDto,
   "POST /api/dashboards/data": C.DashboardDataDto,
   "POST /api/projects/:projectId/issues": C.IssueDto,
