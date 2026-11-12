@@ -36,6 +36,8 @@ import { useIssueCrudActions } from "./store/issueCrud";
 import { useIssueLookup } from "./store/issueLookup";
 import { useSessionActions } from "./store/session";
 import { useFavoritesAndSearch } from "./store/favoritesSearch";
+import { applicationAllows, useApplicationState } from "./store/applications";
+import type { ApplicationId, ApplicationsDto } from "../server/src/applicationContract";
 
 /** After a denied realtime subscription, wait this long before subscribing to the same project again. */
 const REALTIME_DENIED_RETRY_MS = 5 * 60_000;
@@ -45,6 +47,11 @@ interface Api {
   idx: StoreIndexes;
   me: User;
   ui: UIState;
+  application: ApplicationId;
+  applications: ApplicationsDto | null;
+  applicationsError: string | null;
+  refreshApplications: () => Promise<void>;
+  selectApplication: (id: ApplicationId) => Promise<void>;
   // Тосты и уведомления — не здесь (ADR-0011, шаги 1–2): `useToasts()`, `useNotifications()`, `useUnreadCount()`.
   bootStatus: BootStatus;
   /** Заполнено только при bootStatus === "solo" (одиночный просмотр приглашённого). */
@@ -178,6 +185,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   langRef.current = lang;
   const local = useCallback((ru: string, en: string) => (langRef.current === "ru" ? ru : en), []);
   const [data, commitData] = useState<Data>(emptyData);
+  const applicationCatalogRef = useRef<ApplicationsDto | null>(null);
   const dataWriteRevisionRef = useRef(0);
   const setData = useCallback<typeof commitData>(update => {
     dataWriteRevisionRef.current++;
@@ -278,7 +286,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return { ...base, accessRole: effective };
   }, [data.users, data.currentUserId, data.members]);
 
-  const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue), [me]);
+  const canFn = useCallback((perm: PermId, issue?: Issue) => canDo(me, perm, issue) && applicationAllows(perm, applicationCatalogRef.current), [me]);
 
   /**
    * Задача по id для проверки прав и мутаций. Сначала — из известных стору
@@ -290,6 +298,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
    */
   const requirePerm = useCallback(
     (perm: PermId, issue?: Issue): boolean => {
+      if (canDo(me, perm, issue) && !applicationAllows(perm, applicationCatalogRef.current)) {
+        toast("error", local("Приложение отключено администратором. Материалы доступны для чтения", "An administrator disabled this application. Existing materials remain readable"));
+        return false;
+      }
       if (canDo(me, perm, issue)) return true;
       toast("error", i18n ? denialText(me, perm, issue, i18n.t) : denialReason(me, perm, issue));
       return false;
@@ -309,6 +321,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     openIssue, pendingOpenIssueRef } = useSessionActions(storeCtx, {
     setBootStatus, setSolo, setAuthMode, setUi, bumpIssues, refreshNotifications, sessionEpochRef,
   });
+  const applicationActions = useApplicationState({ data, ui, bootStatus, setUi, setBootStatus,
+    sessionEpochRef, switchProject, enterProject, goHome, openIssue });
+  applicationCatalogRef.current = applicationActions.applications;
 
   // Завершение кросс-проектного "открыть задачу из другого проекта" (см.
   // pendingOpenIssueRef выше): срабатывает, когда data.currentProjectId догоняет
@@ -441,13 +456,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     idx,
     me,
     ui,
-    bootStatus,
+    bootStatus: applicationActions.applicationsLoading ? "loading" : bootStatus,
+    application: applicationActions.application,
+    applications: applicationActions.applications,
+    applicationsError: applicationActions.applicationsError,
+    refreshApplications: applicationActions.refreshApplications,
+    selectApplication: applicationActions.selectApplication,
     solo,
     can: canFn,
     bootstrap,
-    switchProject,
-    goHome,
-    enterProject,
+    switchProject: applicationActions.switchProject,
+    goHome: applicationActions.goHome,
+    enterProject: applicationActions.enterProject,
     refreshCollaborations,
     refreshAssignedToMe,
     refreshNotifications,
@@ -459,12 +479,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     logout,
     // Переход к представлению закрывает полную страницу задачи (панель остаётся — это слой поверх).
     // Смена представления — короткое перекрёстное затухание (ТЗ 5.13, motion.ts); без View Transitions — мгновенно.
-    setView: (v, section = "") =>
-      viewTransition(() =>
-        setUi((u) => (u.selectedIssueId && u.issueMode === "page" ? { ...u, view: v, section, selectedIssueId: null, issueMode: "panel", missing: null } : { ...u, view: v, section, missing: null })),
-      ),
+    setView: applicationActions.setView,
     showMissing: (path: string) => setUi((u) => ({ ...u, missing: path, selectedIssueId: null, issueMode: "panel" })),
-    openIssue,
+    openIssue: applicationActions.openIssue,
     // ТЗ 3.1: прямая ссылка на приглашённую задачу выставляет collabOpenIssueId
     // (bootstrap()/useRouterSync); CollaboratingView подхватывает его один раз на
     // маунте и сбрасывает — переключение между карточками в самом разделе после

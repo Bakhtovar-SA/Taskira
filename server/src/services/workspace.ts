@@ -1,3 +1,4 @@
+import { APPLICATIONS, applicationSettings, assertApplicationWritable } from "../applications/registry.js";
 import type { PoolClient } from "pg";
 import type { FastifyRequest } from "fastify";
 import { q, one } from "../db.js";
@@ -34,7 +35,7 @@ export function conflict(): never {
     "Данные изменились. Обновите страницу и повторите действие",
   );
 }
-export async function modules(
+export async function storedModules(
   projectId: string,
   client?: PoolClient,
 ): Promise<WorkspaceModules> {
@@ -47,6 +48,13 @@ export async function modules(
       )
     )[0] ?? { ...DEFAULT_MODULES }
   );
+}
+/** Effective write switches; the settings endpoint always returns storedModules instead. */
+export async function modules(projectId: string, client?: PoolClient): Promise<WorkspaceModules> {
+  const [stored, applications] = await Promise.all([storedModules(projectId, client), applicationSettings(client)]);
+  for (const application of APPLICATIONS)
+    if (!applications[application.id]) for (const module of application.modules) stored[module] = false;
+  return stored;
 }
 export async function writable(
   req: FastifyRequest,
@@ -222,6 +230,7 @@ export async function assertLinkWrite(req: FastifyRequest, ref: EntityRef) {
     );
     if (!r) throw forbidden("Можно изменять связи только своих задач");
   }
+  await assertApplicationWritable(ref.kind === "document" ? "knowledge" : ref.kind === "object" ? "objects" : "work");
 }
 export async function validateValues(
   projectId: string,

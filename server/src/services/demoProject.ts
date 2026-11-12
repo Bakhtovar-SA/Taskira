@@ -1,3 +1,4 @@
+import { assertApplicationWritable } from "../applications/registry.js";
 /** Демо-проект первичной настройки (ТЗ 5.11): правдоподобная служба поддержки из встроенного шаблона
  *  «Заявки и поддержка» с задачами, исполнителем, сроками, метками, чек-листом и комментариями.
  *
@@ -67,6 +68,7 @@ export async function demoProjectId(): Promise<string | null> {
 
 /** Создать демо-проект от имени администратора. 409 — демо уже есть или нет ни одного отдела. */
 export async function createDemoProject(adminId: string): Promise<string> {
+  await assertApplicationWritable("work");
   if (await demoProjectId()) throw new ApiHttpError(409, "CONFLICT", "Демо-проект уже создан");
   const dept = await one<{ id: string }>(`SELECT id FROM departments ORDER BY created_at, name LIMIT 1`);
   if (!dept) throw new ApiHttpError(409, "CONFLICT", "Сначала создайте хотя бы одну команду");

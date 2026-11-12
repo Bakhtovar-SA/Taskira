@@ -47,6 +47,50 @@ test("notification transport retains its 8 KiB limit alongside document collabor
     socket.terminate();
   }
 });
+test("global Knowledge disable makes existing and new collaboration connections read-only", async () => {
+  await resetDb();
+  const f = await seedFixture();
+  const admin = await login(app, "admin");
+  const loginResponse = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: "mgr1", password: f.pass } });
+  const raw = loginResponse.headers["set-cookie"];
+  const cookie = (Array.isArray(raw) ? raw[0] : (raw ?? "")).split(";", 1)[0];
+  const manager = loginResponse.json().token;
+  await app.inject({ method: "PATCH", url: `/api/projects/${f.projects.p1}/workspace/modules`, headers: auth(admin), payload: { documents: true, objects: true, processes: true, planning: true } });
+  const created = await app.inject({ method: "POST", url: `/api/projects/${f.projects.p1}/documents`, headers: auth(manager), payload: { title: "Application readonly" } });
+  expect(created.statusCode, created.body).toBe(201);
+  const d = created.json();
+  class CookieSocket extends WebSocket {
+    constructor(url: string, protocols?: string | string[]) { super(url, protocols, { headers: { cookie } }); }
+  }
+  const connect = async () => {
+    const document = new Y.Doc();
+    let synced = false;
+    const provider = new HocuspocusProvider({
+      url: `${base}/api/projects/${f.projects.p1}/documents/${d.id}/collaboration?generation=${d.generation}`,
+      WebSocketPolyfill: CookieSocket, name: `${f.projects.p1}:${d.id}:${d.generation}`, document,
+      token: "cookie", onSynced: () => { synced = true; },
+    } as ConstructorParameters<typeof HocuspocusProvider>[0]);
+    providers.push(provider);
+    await until(() => synced);
+    return { provider, document };
+  };
+  const existing = await connect();
+  const disable = await app.inject({ method: "PATCH", url: "/api/applications", headers: auth(admin), payload: { revision: 1, enabled: { work: true, knowledge: false, objects: true } } });
+  expect(disable.statusCode, disable.body).toBe(200);
+  const reopened = await connect();
+  for (const connection of [existing, reopened]) {
+    let readonly = false;
+    connection.provider.on("stateless", ({ payload }: { payload: string }) => { if (JSON.parse(payload).type === "readonly") readonly = true; });
+    const block = connection.document.getXmlFragment("default").get(0) as Y.XmlElement;
+    const text = new Y.XmlText(); text.insert(0, "blocked_by_application"); block.push([text]);
+    connection.provider.sendStateless(JSON.stringify({ type: "persist" }));
+    await until(() => readonly);
+  }
+  const read = await app.inject({ url: `/api/projects/${f.projects.p1}/documents/${d.id}`, headers: auth(manager) });
+  expect(read.statusCode, read.body).toBe(200);
+  expect(read.json().document.text).not.toContain("blocked_by_application");
+  existing.provider.destroy(); reopened.provider.destroy();
+}, 20000);
 test("two editors merge changes, reconnect pending edits, and persist across fresh connections", async () => {
   await resetDb();
   const f = await seedFixture();

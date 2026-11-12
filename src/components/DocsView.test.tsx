@@ -23,9 +23,10 @@ test("разделы RU и EN совпадают по id и порядку", () 
 
 test.each(["ru", "en"] as const)("help covers current workspace modules and a real-life workflow in %s", lang => {
   const sections = helpCopy[lang].sections;
-  for (const id of ["modules", "documents", "objects", "processes", "forecasts", "files", "library", "workspace-example"])
+  for (const id of ["applications", "modules", "documents", "objects", "processes", "forecasts", "files", "library", "workspace-example"])
     expect(sections.find(section => section.id === id)?.paragraphs.length, id).toBeGreaterThan(1);
   expect(sections.find(section => section.id === "modules")?.table?.rows).toHaveLength(6);
+  expect(sections.find(section => section.id === "applications")?.table?.rows).toHaveLength(3);
   expect(sections.find(section => section.id === "workspace-example")?.paragraphs).toHaveLength(6);
 });
 

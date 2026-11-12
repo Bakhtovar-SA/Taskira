@@ -74,8 +74,11 @@ test("unsaved document survives SPA navigation while collaboration is disconnect
   await expect(page).toHaveURL(new RegExp(second.id));
   await page.getByRole("button", { name: "Offline draft", exact: true }).click();
   await expect(editor).toContainText("Pending text retained through navigation");
-  await page.getByRole("link", { name: "Доска", exact: true }).click();
-  await page.getByRole("link", { name: "Документы", exact: true }).click();
+  await page.getByRole("button", { name: "Переключить приложение", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Работа/ }).click();
+  await expect(page.getByRole("link", { name: "Доска", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Переключить приложение", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Знания/ }).click();
   await page.getByRole("button", { name: "Offline draft", exact: true }).click();
   await expect(editor).toContainText("Pending text retained through navigation");
   offline = false;
@@ -612,18 +615,8 @@ test("project files collect task and document attachments; Taskira controls work
         new URL((element as HTMLAnchorElement).href).pathname.split("/").pop(),
       ),
     );
-  expect(tabs).toEqual([
-    "overview",
-    "board",
-    "list",
-    "timeline",
-    "calendar",
-    "documents",
-    "objects",
-    "processes",
-    "planning",
-    "files",
-  ]);
+  // Files is shared, so opening it from a document keeps the Knowledge context.
+  expect(tabs).toEqual(["documents", "files"]);
   const rows = page.locator(".workspace-files-table tbody tr");
   await expect(rows).toHaveCount(2);
   const source = page.getByRole("combobox", {

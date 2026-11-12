@@ -4,7 +4,6 @@ import { setupApi } from "./api";
 import { onThemeChosen, setProjectBackground } from "./theme";
 import { StoreProvider, useStore } from "./store";
 import { useRouterSync } from "./useRouterSync";
-import Sidebar from "./components/Sidebar";
 import Topbar, { SR_VIEW_HEADING, VIEW_LABEL } from "./components/Topbar";
 import GlobalTopbar from "./components/GlobalTopbar";
 import Board from "./components/Board";
@@ -24,6 +23,9 @@ import { pushRecent } from "./palette/recent";
 
 // Рабочие разделы и тяжёлые модалки загружаются по требованию: первый экран
 // больше не тянет отчёты, документацию и админку одним монолитным бандлом.
+const Sidebar = lazy(() => import("./components/Sidebar"));
+const ApplicationHome = lazy(() => import("./applications/ApplicationHome"));
+const ApplicationReadOnly = lazy(() => import("./applications/ApplicationReadOnly"));
 const ProjectFilesView = lazy(() => import("./workspace/ProjectFilesView"));
 const LibraryView = lazy(() => import("./workspace/LibraryView"));
 const DocumentsView = lazy(() => import("./workspace/DocumentsView"));
@@ -48,7 +50,6 @@ const MyIssuesView = lazy(() => import("./components/MyIssuesView"));
 // IssueModal / CreateIssueModal — тоже ленивые, но с предзагрузкой в простое и при наведении на карточку
 // (src/lazyModals.ts): первое открытие задачи не ждёт чанк.
 const SoloView = lazy(() => import("./components/SoloView"));
-const HomeView = lazy(() => import("./components/HomeView"));
 // Командная палитра и справка «?» — один чанк, грузится при первом открытии (ТЗ 5.8 п.4–5).
 const CommandPalette = lazy(() => import("./components/CommandPalette"));
 const ShortcutsDialog = lazy(() => import("./components/CommandPalette").then((m) => ({ default: m.ShortcutsDialog })));
@@ -92,7 +93,8 @@ function BootSkeleton() {
 
 function Shell() {
   const { t } = useT();
-  const { ui, idx, data, me, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome } = useStore();
+  const { ui, idx, data, me, setView, setCreateOpen, openIssue, can, toast, bootStatus, bootstrap, logout, goHome, application = "work", applications } = useStore();
+  const workEnabled = application === "work" && applications?.applications.find((app) => app.id === "work")?.enabled !== false;
   const gPending = useRef(0);
   const openSettings = useOpenSettings();
   const openProjectSettings = () => openSettings("projectSettings");
@@ -211,14 +213,14 @@ function Shell() {
         return;
       }
       if (bootStatus === "home") {
-        if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") { e.preventDefault(); openHomeCreate(); }
+        if (workEnabled && (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с")) { e.preventDefault(); openHomeCreate(); }
         return;
       }
       if (e.key === "/" || e.code === "Slash") {
         const filter = document.querySelector<HTMLInputElement>("main .workspace-search input");
         if (filter) { e.preventDefault(); filter.focus(); return; }
       }
-      if (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с") {
+      if (workEnabled && (e.key.toLowerCase() === "c" || e.key.toLowerCase() === "с")) {
         e.preventDefault();
         if (can("create")) setCreateOpen(true);
         else toast("error", t("topbar.createDeniedTip"));
@@ -247,7 +249,7 @@ function Shell() {
         };
         if (go[k]) {
           e.preventDefault();
-          go[k]();
+          if (application === "work" || k === "h" || k === "р" || k === "s" || k === "ы") go[k]();
         }
         return;
       }
@@ -257,11 +259,11 @@ function Shell() {
       }
       const map: Record<string, ViewId> = { "1": "board", "2": "backlog", "3": "timeline", "5": "calendar" };
       if (data.project.sprintsEnabled) map["4"] = "sprints";
-      if (map[e.key]) setView(map[e.key]);
+      if (application === "work" && map[e.key]) setView(map[e.key]);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome, openSettings]);
+  }, [bootStatus, setView, setCreateOpen, openIssue, can, toast, modalOpen, paletteOpen, helpOpen, t, data.projects.length, data.project.sprintsEnabled, goHome, openSettings, application, workEnabled]);
 
   const overlays = <>
       <Suspense fallback={null}>
@@ -294,17 +296,18 @@ function Shell() {
   }
 
   // Приглашённый без единого видимого проекта — одиночный режим (COLLAB_MIGRATION.md Фаза 6).
-  if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><SoloView onLogout={logout} /></Suspense>;
+  if (bootStatus === "solo") return <Suspense fallback={<BootSkeleton />}><div className="flex h-full min-h-0 flex-col"><ApplicationReadOnly /><div className="min-h-0 flex-1"><SoloView onLogout={logout} /></div></div></Suspense>;
 
   return (
     <div className="flex h-full overflow-hidden">
-      <Sidebar />
+      <Suspense fallback={<aside aria-busy="true" className="glass-side my-2 ml-2 hidden w-[248px] shrink-0 rounded-xl p-4 lg:block"><div className="skeleton h-8 rounded-lg" /><div className="skeleton mt-6 h-32 rounded-lg" /></aside>}><Sidebar /></Suspense>
       {/* Рабочая область — «лист», вставленный справа от боковой панели:
           своя поверхность, скругление и мягкая тень поверх атмосферы. */}
       <div className="flex min-w-0 flex-1 flex-col md:p-2">
        <div className="glass-sheet glass-edge flex min-h-0 flex-1 flex-col overflow-hidden shadow-e2 md:rounded-xl">
         <GlobalTopbar />
-        {bootStatus !== "home" && (issuePage || ui.missing || !["reports", "dashboards"].includes(ui.view)) && <Topbar />}
+        {bootStatus !== "home" && ui.view !== "applicationHome" && (issuePage || ui.missing || !["reports", "dashboards"].includes(ui.view)) && <Topbar />}
+        <Suspense fallback={null}><ApplicationReadOnly /></Suspense>
         <OfflineBanner />
         <main className="min-h-0 flex-1">
           {/* Граница вокруг контента, а не всего приложения: сайдбар и шапка
@@ -316,12 +319,13 @@ function Shell() {
             reload: t("errorBoundary.reload"),
             details: t("errorBoundary.details"),
           }}>
-          <Suspense fallback={<BootSkeleton />}>{bootStatus === "home" ? <HomeView /> : ui.missing ? (
+          <Suspense fallback={<BootSkeleton />}>{bootStatus === "home" ? <ApplicationHome /> : ui.missing ? (
             <NotFoundPage path={ui.missing} onHome={() => (data.projects.length >= 2 ? goHome() : setView("board"))} onBack={() => history.back()} />
           ) : issuePage ? (
             <div key="issue-page" className="h-full"><IssueModal mode="page" /></div>
           ) : (<div key={ui.view} className="anim-view h-full">
             {SR_VIEW_HEADING.has(ui.view) && <h1 data-view-heading tabIndex={-1} className="sr-only">{t(VIEW_LABEL[ui.view])}</h1>}
+            {ui.view === "applicationHome" && <ApplicationHome />}
             {ui.view === "library" && <LibraryView key={data.currentUserId} />}
             {ui.view === "files" && <ProjectFilesView key={`${data.currentUserId}:${data.currentProjectId}`} />}
              {ui.view === "documents" && <DocumentsView key={`${data.currentUserId}:${data.currentProjectId}`} />}

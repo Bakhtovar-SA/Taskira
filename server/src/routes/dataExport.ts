@@ -141,6 +141,7 @@ interface OffsetTable {
 }
 
 const OFFSET_TABLES: OffsetTable[] = [
+  { type: "applicationSettings", table: "application_settings", columns: ["revision", "work", "knowledge", "objects", "updated_by", "updated_at"], orderBy: "singleton" },
   { type: "departmentMember", table: "department_members", columns: ["department_id", "user_id", "source", "synced_at"], orderBy: "department_id, user_id" },
   { type: "projectMember", table: "project_members", columns: ["project_id", "user_id", "role", "added_at"], orderBy: "project_id, user_id" },
   { type: "issueAssignee", table: "issue_assignees", columns: ["issue_id", "user_id", "added_by", "added_at"], orderBy: "issue_id, user_id" },

@@ -17,6 +17,25 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
   if (lang === "en")
     return [
       {
+        id: "applications",
+        label: "Taskira applications",
+        paragraphs: [
+          "Use Switch application beside the Taskira mark to choose Work, Knowledge or Objects. Each application has its own navigation. Work contains tasks, processes and planning; Knowledge contains documents and their versions; Objects contains registers and record cards. Projects, permissions and source materials stay shared.",
+          "A global administrator connects applications in Organization → Applications. Project settings → Modules still controls capabilities within each project. Connecting an application does not grant project access. All applications are connected on upgrade, and existing project module settings remain unchanged. At least one application must stay connected; an installation can use Work alone or Knowledge alone.",
+          "Existing task, document and object links open the appropriate application. A direct link, page refresh and browser Back or Forward take precedence over remembered navigation. The last application and its project are remembered separately for each account on this browser; signing in with another account does not reuse someone else's choices.",
+          "Disconnecting an application stops new changes while keeping permitted reading and export through existing links. Existing document editors become read-only when Knowledge is disconnected. A task cannot be created from a document or object while Work is disconnected. The server checks permissions for every action.",
+          "Example: open a portal card in Objects, follow its instruction in Knowledge and complete its review task in Work. Links preserve the context. Project files collects attachments from both tasks and documents without copying them.",
+        ],
+        table: {
+          headers: ["Application", "Open it to"],
+          rows: [
+            ["Work", "Create and complete tasks, run a process, plan work and inspect results."],
+            ["Knowledge", "Write or find a document, collaborate, discuss a section and check its verified version."],
+            ["Objects", "Find a system, equipment or other record and its properties, linked work and history."],
+          ],
+        },
+      },
+      {
         id: "modules",
         label: "Project modules",
         paragraphs: [
@@ -69,7 +88,7 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
         id: "library",
         label: "Library",
         paragraphs: [
-          "Library in the personal menu brings together tasks, documents, objects and process runs from projects you can access. Search titles and indexed text, filter by project and material type, then open the original material.",
+          "Library brings together tasks, documents, objects and process runs from projects you can access. Find it in application navigation. Search titles and indexed text, filter by project and material type, then open the original material in its application.",
           "Library indexes materials across projects; Files indexes attachments in one project. Neither duplicates the data. An invitation to one task does not reveal the project's other materials.",
         ],
       },
@@ -87,6 +106,25 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
       },
     ];
   return [
+    {
+      id: "applications",
+      label: "Приложения Taskira",
+      paragraphs: [
+        "Переключатель приложения рядом со знаком Taskira открывает Работу, Знания или Объекты. У каждого приложения своё меню. Работа содержит задачи, процессы и планирование; Знания — документы и версии; Объекты — реестры и карточки записей. Проекты, права и исходные материалы остаются общими.",
+        "Глобальный администратор подключает приложения в Организация → Приложения. Настройки проекта → Модули по-прежнему управляют возможностями конкретного проекта. Подключение приложения не даёт доступа к проекту. При обновлении подключены все приложения, настройки модулей существующих проектов не меняются. Хотя бы одно приложение должно оставаться подключённым; можно использовать только Работу или только Знания.",
+        "Прежние ссылки на задачи, документы и объекты открывают соответствующее приложение. Явная ссылка, обновление страницы и кнопки браузера Назад и Вперёд важнее запомненного выбора. Последнее приложение и его проект запоминаются отдельно для каждой учётной записи в этом браузере; другой пользователь не получает чужие настройки навигации.",
+        "Отключение приложения останавливает новые изменения, сохраняя разрешённое чтение и экспорт по прежним ссылкам. Открытый редактор документа становится доступен для чтения при отключении Знаний. Создать задачу из документа или объекта при отключённой Работе нельзя. Сервер проверяет права на каждое действие.",
+        "Пример: откройте карточку портала в Объектах, прочитайте связанную инструкцию в Знаниях и выполните задачу проверки в Работе. Ссылки сохраняют контекст. Файлы проекта собирают вложения и задач, и документов без создания копий.",
+      ],
+      table: {
+        headers: ["Приложение", "Для чего открывать"],
+        rows: [
+          ["Работа", "Создать и выполнить задачу, запустить процесс, спланировать работу и проверить результат."],
+          ["Знания", "Написать или найти документ, обсудить раздел и проверить подтверждённую версию."],
+          ["Объекты", "Найти систему, оборудование или другую запись, её свойства, связанную работу и историю."],
+        ],
+      },
+    },
     {
       id: "modules",
       label: "Модули проекта",
@@ -140,7 +178,7 @@ export function workspaceHelp(lang: Lang): HelpSection[] {
       id: "library",
       label: "Библиотека",
       paragraphs: [
-        "Библиотека в личном меню собирает задачи, документы, объекты и запуски процессов из доступных проектов. Ищите по названию и индексируемому тексту, выбирайте проект и тип материала, затем открывайте исходную запись.",
+        "Библиотека собирает задачи, документы, объекты и запуски процессов из доступных проектов и находится в навигации приложения. Ищите по названию и индексируемому тексту, выбирайте проект и тип материала, затем открывайте исходную запись в её приложении.",
         "Библиотека — общий каталог материалов разных проектов; Файлы — каталог вложений одного проекта. Оба используют исходные данные без дублирования. Приглашение к одной задаче не открывает остальные материалы её проекта.",
       ],
     },

@@ -6,105 +6,22 @@ import { cssZoom, glideWidth, preloadMotionIdle } from "../motion";
 import { GettingStarted } from "./GettingStarted";
 import { Tag } from "../ds/Display";
 import type { ProjectSummary, ViewId } from "../types";
-import {
-  IcBacklog,
-  IcBoard,
-  IcBook,
-  IcBriefcase,
-  IcChevD,
-  IcDots,
-  IcFlag,
-  IcFlow,
-  IcHome,
-  IcInbox,
-  IcLink,
-  IcMyIssues,
-  IcPanel,
-  IcPlus,
-  IcReport,
-  IcDashboard,
-  IcStar,
-  IcTimeline,
-  IcCalendar,
-  IcUsers,
-  type IconTone,
-} from "../icons";
+import { IcBook, IcChevD, IcDots, IcFlag, IcHome, IcLink, IcPanel, IcPlus, IcDashboard, IcStar } from "../icons";
 import { BrandMark, BrandName } from "./BrandMark";
 import { useBrandName } from "../brand";
 import { ProjectMark } from "../ui";
 import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useT, type TKey } from "../i18n";
+import { useT } from "../i18n";
 import { openProjectWizard } from "../palette/events";
-import "../styles/navigation.css";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
 import { firstSection } from "../settings/access";
+import ApplicationSwitcher from "../applications/ApplicationSwitcher";
+import { defaultApplicationView, projectAvailable, projectViewsForApplication } from "../applications/navigation";
 
 const RailTooltip = lazy(() => import("../ds/Overlay").then((m) => ({ default: m.Tooltip })));
 
-type NavItem = {
-  id: ViewId;
-  labelKey: TKey;
-  icon: (p: { size?: number; tone?: IconTone }) => React.ReactNode;
-  /** Фирменный тон раздела — цветная иконка навигации (ADR-0016). */
-  tone: IconTone;
-  kbd?: string;
-  adminOnly?: boolean;
-  /** Показывать только если есть активные приглашения (data.collaborations). */
-  collabOnly?: boolean;
-  /** Показывать только если у проекта включён модуль спринтов
-   *  (project.sprintsEnabled, миграция 023 — опциональный модуль). */
-  sprintsOnly?: boolean;
-};
-
-/** Представления проекта — вкладки в шапке проекта (ADR-0013 §2.2); в боковой панели их нет. */
-export const PROJECT_VIEWS: NavItem[] = [
-  { id: "overview", labelKey: "sidebar.nav.overview", icon: (p) => <IcDashboard {...p} />, tone: "pink" },
-  { id: "board", labelKey: "sidebar.nav.board", icon: (p) => <IcBoard {...p} />, tone: "violet", kbd: "1" },
-  { id: "backlog", labelKey: "sidebar.nav.backlog", icon: (p) => <IcBacklog {...p} />, tone: "indigo", kbd: "2" },
-  { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, tone: "teal", kbd: "3" },
-  { id: "calendar", labelKey: "calendar.title", icon: (p) => <IcCalendar {...p} />, tone: "blue", kbd: "5" },
-  { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, tone: "amber", kbd: "4", sprintsOnly: true },
-  { id: "documents", labelKey: "workspace.documents", icon: (p) => <IcBook {...p} />, tone: "orange" },
-  { id: "objects", labelKey: "workspace.objects", icon: (p) => <IcBriefcase {...p} />, tone: "teal" },
-  { id: "processes", labelKey: "workspace.processes", icon: (p) => <IcFlow {...p} />, tone: "blue" },
-  { id: "planning", labelKey: "workspace.planning", icon: (p) => <IcTimeline {...p} />, tone: "sky" },
-  { id: "files", labelKey: "workspace.files", icon: (p) => <IcLink {...p} />, tone: "teal" },
-];
-
-/** Три дома настроек (ADR-0013 §2, ТЗ 5.9): Личные, Проект, Организация. */
-export const SETTINGS_VIEWS: NavItem[] = [
-  { id: "settings", labelKey: "settings.home.personal", icon: (p) => <IcBriefcase {...p} />, tone: "violet" },
-  { id: "projectSettings", labelKey: "settings.home.project", icon: (p) => <IcFlow {...p} />, tone: "pink" },
-  { id: "orgSettings", labelKey: "settings.home.org", icon: (p) => <IcUsers {...p} />, tone: "blue", adminOnly: true },
-];
-
-/** Личный слой (ADR-0013 §1): Входящие и Мои задачи — по всем проектам. */
-export const PERSONAL_VIEWS: NavItem[] = [
-  { id: "inbox", labelKey: "sidebar.nav.inbox", icon: (p) => <IcInbox {...p} />, tone: "sky" },
-  { id: "my", labelKey: "sidebar.nav.my", icon: (p) => <IcMyIssues {...p} />, tone: "violet" },
-  { id: "library", labelKey: "workspace.library", icon: (p) => <IcBook {...p} />, tone: "orange" },
-];
-
-/** Плоский список всех разделов — для командной палитры (она ищет по нему). */
-export const NAV_GROUPS: { labelKey: TKey; items: NavItem[] }[] = [
-  { labelKey: "sidebar.group.personal", items: PERSONAL_VIEWS },
-  { labelKey: "sidebar.group.projects", items: PROJECT_VIEWS },
-  {
-    labelKey: "sidebar.group.org",
-    items: [
-      { id: "roadmap", labelKey: "sidebar.nav.roadmap", icon: (p) => <IcFlag {...p} />, tone: "teal" },
-      { id: "dashboards", labelKey: "sidebar.nav.dashboards", icon: (p) => <IcDashboard {...p} />, tone: "violet" },
-      { id: "reports", labelKey: "sidebar.nav.reports", icon: (p) => <IcReport {...p} />, tone: "sky" },
-      { id: "collaborating", labelKey: "sidebar.nav.collaborating", icon: (p) => <IcLink {...p} />, tone: "violet", collabOnly: true },
-      { id: "docs", labelKey: "sidebar.nav.docs", icon: (p) => <IcBook {...p} />, tone: "orange" },
-    ],
-  },
-  { labelKey: "sidebar.settings", items: SETTINGS_VIEWS },
-];
-
-/** Узкий экран (< 1024 px): панель выезжает поверх по кнопке «Меню» в шапке (ТЗ 5.8 п.3). */
-export const SIDEBAR_DRAWER_EVT = "taskira:sidebar-drawer";
-export const openSidebarDrawer = () => window.dispatchEvent(new Event(SIDEBAR_DRAWER_EVT));
+export { PROJECT_VIEWS, PERSONAL_VIEWS, SETTINGS_VIEWS, NAV_GROUPS, SIDEBAR_DRAWER_EVT, openSidebarDrawer } from "../applications/viewCatalog";
+import { PROJECT_VIEWS, PERSONAL_VIEWS, SIDEBAR_DRAWER_EVT } from "../applications/viewCatalog";
 
 const WIDE = "(min-width: 1024px)";
 const isWide = () => window.matchMedia?.(WIDE).matches ?? true;
@@ -147,12 +64,15 @@ function Chevron({ open }: { open: boolean }) {
 
 export default function Sidebar() {
   const { t } = useT();
-  const { data, ui: storedUi, setView: storeSetView, me, goHome, switchProject, enterProject, bootStatus, refreshAssignedToMe } = useStore();
-  const home = bootStatus === "home";
+  const { data, ui: storedUi, setView: storeSetView, me, goHome, switchProject, enterProject, bootStatus, refreshAssignedToMe, application = "work", applications } = useStore();
+  const projects = data.projects.filter((p) => projectAvailable(application, p.id, applications));
+  const projectViews = projectViewsForApplication(application);
+  const personalViews = PERSONAL_VIEWS.filter((v) => application === "work" || v.id === "library");
+  const home = bootStatus === "home" || storedUi.view === "applicationHome";
   const ui = home ? { ...storedUi, view: undefined } : storedUi;
   const setView: typeof storeSetView = (view, section) => {
+    if (home) { const target = projects.find((p) => p.id === data.currentProjectId) ?? projects[0]; if (target) enterProject(target.id); }
     storeSetView(view, section);
-    if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
   };
   const homeAvailable = data.projects.length > 0;
   useEffect(() => { void refreshAssignedToMe(); }, [refreshAssignedToMe, data.currentProjectId]);
@@ -273,7 +193,7 @@ export default function Sidebar() {
   // Проекты по отделам (ТЗ 5.6: «Проекты, сгруппированные по отделам»).
   const deptName = (id: string) => data.departments.find((d) => d.id === id)?.name ?? t("home.noDepartment");
   const byDept = new Map<string, ProjectSummary[]>();
-  for (const p of data.projects) {
+  for (const p of projects) {
     const list = byDept.get(p.departmentId) ?? [];
     list.push(p);
     byDept.set(p.departmentId, list);
@@ -286,14 +206,14 @@ export default function Sidebar() {
   /** Открыть другой проект. Если сейчас открыто представление (Доска, Список…) —
    *  то же представление в новом проекте; иначе — Доска. switchProject сохраняет ui.view. */
   const openProject = (p: ProjectSummary) => {
-    const keep = PROJECT_VIEWS.some((v) => v.id === ui.view) && (ui.view !== "sprints" || p.sprintsEnabled);
-    if (!keep || home) storeSetView(p.defaultView ?? "board");
+    const keep = projectViews.includes(ui.view as ViewId) && (ui.view !== "sprints" || p.sprintsEnabled);
+    if (!keep || home) storeSetView(application === "work" ? p.defaultView ?? "board" : defaultApplicationView(application));
     if (home) enterProject(p.id);
     else switchProject(p.id);
   };
   const openProjectSettings = (p: ProjectSummary) => {
-    storeSetView("projectSettings", firstSection("projectSettings", { isAdmin: me.globalRole === "admin", hasProject: true }) ?? "");
     enterProject(p.id);
+    storeSetView("projectSettings", firstSection("projectSettings", { isAdmin: me.globalRole === "admin", hasProject: true }) ?? "");
   };
 
   // Проект в дереве — одна строка: представления (Доска, Список, Таймлайн, Спринты) живут
@@ -305,7 +225,7 @@ export default function Sidebar() {
       <div key={p.id} className="sidebar-project-row">
       <Button variant="ghost" size="sm"
         type="button"
-        onClick={() => !cur ? openProject(p) : !active && setView("board")}
+        onClick={() => !cur ? openProject(p) : !active && setView(defaultApplicationView(application))}
         aria-current={cur ? "true" : undefined}
         className={(`sidebar-project-link ${navItem} ${active ? navOn : cur ? "font-semibold text-ink" : navOff}`) + " [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2"}
       >
@@ -365,6 +285,8 @@ export default function Sidebar() {
       </div>
 
 
+      <ApplicationSwitcher />
+
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 [scrollbar-width:none]">
         {/* Личный слой */}
         <nav aria-label={t("calendar.personalNav")} className="flex flex-col gap-px pt-1">
@@ -374,7 +296,7 @@ export default function Sidebar() {
                 <span className="flex-1 truncate">{t("sidebar.nav.home")}</span>
               </Button>
             )}
-            {PERSONAL_VIEWS.map((v) => {
+            {personalViews.map((v) => {
               const on = !home && ui.view === v.id;
               return (
                 <Button variant="ghost" size="sm"
@@ -395,7 +317,7 @@ export default function Sidebar() {
                 </Button>
               );
             })}
-            {data.collaborations.length > 0 && (
+            {application === "work" && data.collaborations.length > 0 && (
               <Button variant="ghost" size="sm"
                 type="button"
                 onClick={() => setView("collaborating")}
@@ -441,8 +363,8 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* Организация */}
-        <div>
+        {/* Work-wide reports stay in Work. */}
+        {application === "work" && <div>
           <p className={sectionLabel}>{t("sidebar.group.org")}</p>
           <Button variant="ghost" size="sm"
             type="button"
@@ -463,11 +385,11 @@ export default function Sidebar() {
             <IcDashboard size={18} tone="violet" />
             <span className="flex-1 truncate">{t("sidebar.nav.dashboards")}</span>
           </Button>
-        </div>
+        </div>}
       </div>
 
       {/* «Начало работы» (ТЗ 5.11) — тем, у кого нет главной (один проект): свёрнутая строка с прогрессом. */}
-      {!home && data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
+      {application === "work" && !home && data.projects.length < 2 && !collapsed && <GettingStarted compact className="mx-3 mb-2" />}
 
       {/* Справка остаётся внизу панели; профиль и настройки — в общей шапке. */}
       <div className="sidebar-dock mx-2 mb-2 flex flex-col gap-1 border-t border-linesoft/70 pt-2">
@@ -509,12 +431,12 @@ function Rail({
   onExpand: () => void;
 }) {
   const { t } = useT();
-  const { data, ui: storedUi, setView: storeSetView, goHome, enterProject, bootStatus } = useStore();
-  const home = bootStatus === "home";
+  const { data, ui: storedUi, setView: storeSetView, goHome, enterProject, bootStatus, application = "work" } = useStore();
+  const home = bootStatus === "home" || storedUi.view === "applicationHome";
   const ui = home ? { ...storedUi, view: undefined } : storedUi;
   const setView: typeof storeSetView = (view, section) => {
+    if (home) { const target = projects.find((p) => p.id === data.currentProjectId) ?? projects[0]; if (target) enterProject(target.id); }
     storeSetView(view, section);
-    if (home) enterProject(data.currentProjectId || data.projects[0]?.id);
   };
   const brandName = useBrandName();
   const btn = (key: string, label: string, icon: React.ReactNode, onClick: () => void, on = false, extra?: React.ReactNode) => {
@@ -538,15 +460,16 @@ function Rail({
   return (
     <aside aria-label={t("sidebar.menu")} className={`${className} sidebar-rail items-center py-2.5`}>
       {btn("logo", homeAvailable ? t("sidebar.homeAria") : brandName, <BrandMark size={22} />, () => homeAvailable && goHome())}
+      <ApplicationSwitcher compact />
       {sep}
       <div className="flex flex-col items-center gap-1">
         {homeAvailable && btn("home", t("sidebar.nav.home"), <IcHome size={18} tone="violet" />, goHome, home)}
-        {PERSONAL_VIEWS.map((v) =>
+        {PERSONAL_VIEWS.filter((v) => application === "work" || v.id === "library").map((v) =>
           btn(v.id, t(v.labelKey), v.icon({ size: 16, tone: v.tone }), () => setView(v.id), !home && ui.view === v.id,
             v.id === "inbox" && unread > 0 ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent-glow)] ring-2 ring-[var(--bg-frame)]" /> : undefined,
           ),
         )}
-        {data.collaborations.length > 0 &&
+        {application === "work" && data.collaborations.length > 0 &&
           btn("collab", t("sidebar.nav.collaborating"), <IcLink size={18} tone="violet" />, () => setView("collaborating"), ui.view === "collaborating")}
       </div>
       {sep}
@@ -560,13 +483,13 @@ function Rail({
             <span className={`flex rounded-md ${cur && !active ? "ring-2 ring-accent/50 ring-offset-1 ring-offset-[var(--bg-frame)]" : ""}`}>
               <ProjectMark projectKey={p.key} icon={p.icon} color={p.color} size={22} />
             </span>,
-            () => (!cur ? openProject(p) : !active && setView("board")),
+            () => (!cur ? openProject(p) : !active && setView(defaultApplicationView(application))),
             active,
           );
         })}
         {sep}
-        {btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={18} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
-        {btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={18} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
+        {application === "work" && btn("roadmap", t("sidebar.nav.roadmap"), <IcFlag size={18} tone="teal" />, () => setView("roadmap"), ui.view === "roadmap")}
+        {application === "work" && btn("dashboards", t("sidebar.nav.dashboards"), <IcDashboard size={18} tone="violet" />, () => setView("dashboards"), ui.view === "dashboards" || ui.view === "reports")}
       </div>
       <div className="sidebar-dock mt-1 flex flex-col items-center gap-1 border-t border-linesoft/70 pt-2">
         {btn("docs", t("sidebar.nav.docs"), <IcBook size={18} tone="orange" />, () => setView("docs"), ui.view === "docs")}

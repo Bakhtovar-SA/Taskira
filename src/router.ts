@@ -60,6 +60,7 @@ const dec = (s: string) => {
 
 /** URL вида. `section` — подраздел дома настроек (для остальных видов не используется). */
 export const pathForView = (projectKey: string, view: ViewId, section = ""): string => {
+  if (view === "applicationHome") return `/apps/${["work", "knowledge", "objects"].includes(section) ? section : "work"}`;
   if (isSettingsHome(view)) {
     const sec = section && isSection(view, section) ? section : DEFAULT_SECTION[view];
     if (view === "settings") return `/settings/${sec}`;
@@ -95,6 +96,8 @@ export type ParsedPath =
  *  трактуется как `root`, а не как ошибка: та же терпимость, что была у старого
  *  `readIssueHash` к «хэш есть, но не похож на наш» (тихо игнорировался). */
 export const parsePath = (pathname: string): ParsedPath => {
+  const application = /^\/apps\/(work|knowledge|objects)\/?$/.exec(pathname);
+  if (application) return { kind: "global", view: "applicationHome", section: application[1] };
   const g = GLOBAL_VIEW[pathname.replace(/\/$/, "")];
   if (g) return { kind: "global", view: g };
   const md = pathname.match(RE_DASHBOARD);

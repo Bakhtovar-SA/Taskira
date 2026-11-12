@@ -12,7 +12,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
 | src/components/BoardCard.tsx:89 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardCard.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
-| src/components/Sidebar.tsx:197 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
+| src/components/Sidebar.tsx:117 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
 | src/dashboards/gridFlip.ts:59 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/dashboards/gridFlip.ts |
 | src/ds/Dialog.tsx:56 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/ds/Dialog.tsx |
@@ -98,7 +98,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:915 | css-animation | .anim-flash-done: background, box-shadow | doneFlash var(--dur-5) ease-out both | личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:929 | css-transition | .timeline-bar: transform, width | transform var(--dur-4) var(--ease-out), width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
 | src/index.css:955 | css-transition | .timeline-bar-fill: width | width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
-| src/index.css:978 | css-animation | .skeleton: background-position | shimmer 1.4s ease-in-out infinite | @media + личный выключатель | src/App.tsx, src/components/IssueModal.tsx, src/components/IssueSearchBox.tsx, src/components/ReportsView.tsx, src/components/RoadmapView.tsx, src/issuePages.ts, src/useSkeletonReveal.ts |
+| src/index.css:978 | css-animation | .skeleton: background-position | shimmer 1.4s ease-in-out infinite | @media + личный выключатель | src/App.tsx, src/applications/ApplicationHome.tsx, src/applications/ApplicationSwitcher.tsx, src/components/IssueModal.tsx, src/components/IssueSearchBox.tsx, src/components/ReportsView.tsx, src/components/RoadmapView.tsx, src/issuePages.ts, src/useSkeletonReveal.ts |
 | src/index.css:989 | css-keyframes | fadeOnly: opacity | из правила применения | см. правила применения | см. CSS |
 | src/listEnter.ts:29 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/listEnter.ts |
 | src/listExit.ts:101 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
@@ -114,8 +114,8 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/motion.ts:399 | waapi-wrapper | animate: frames | { duration: DUR_4_MS, easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/motion.ts:446 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/roadmapDateFlash.ts:35 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/roadmapDateFlash.ts |
-| src/store.tsx:463 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
-| src/store.tsx:476 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store.tsx:493 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
+| src/store/applications.ts:140 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/applications.ts |
 | src/store/session.ts:344 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/store/session.ts:546 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/styles/native-controls.css:17 | css-transition | :where(details:not(.form-disclosure)) > summary::before: transform | transform var(--dur-2) var(--ease-out) | @media + личный выключатель | src/components/CreateIssueModal.tsx |

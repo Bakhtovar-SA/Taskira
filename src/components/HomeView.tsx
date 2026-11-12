@@ -39,7 +39,7 @@ export default function HomeView() {
   const target = data.projects.find(p => p.id === (data.currentProjectId || readLastProject())) ?? data.projects[0];
   const navigate = (view: ViewId, section?: string, projectId = target?.id) => {
     if (!projectId) return;
-    setView(view, section); enterProject(projectId);
+    enterProject(projectId); setView(view, section);
   };
   const createInProject = (projectId: string) => {
     setChoosingProject(false); setCreateOpen(true); enterProject(projectId);

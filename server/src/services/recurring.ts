@@ -1,3 +1,4 @@
+import { applicationSettings, assertApplicationWritable } from "../applications/registry.js";
 /** Правила повторяющихся задач и атомарные запуски (ADR-0030). */
 import type { PoolClient } from "pg";
 import { audit } from "../audit.js";
@@ -299,6 +300,7 @@ async function afterRun(ruleId: string, outcome: RunOutcome): Promise<void> {
 }
 
 export async function runRecurringNow(project: ProjectRow, id: string): Promise<RecurringRunDto> {
+  await assertApplicationWritable("work");
   const outcome = await withTransaction(async client => {
     const rule = await loadRule(client, project.id, id, true);
     const now = (await client.query<{ now: Date; scheduled: Date }>(
@@ -340,6 +342,7 @@ async function parkFailedRule(attempt: RunAttempt & { rule: RuleRow }, now: Date
 
 /** Уже под локом тика: maintenance вызывает эту функцию без второго advisory-лока. */
 export async function runRecurringWork(now = new Date()): Promise<RecurringStats> {
+  if (!(await applicationSettings()).work) return emptyStats(true);
   if (!loadConfig().recurring.enabled) return emptyStats(true);
   const stats = emptyStats(false);
   for (let processed = 0; processed < 20; processed++) {
@@ -347,6 +350,9 @@ export async function runRecurringWork(now = new Date()): Promise<RecurringStats
     let result: { ruleId: string; outcome: RunOutcome } | null;
     try {
       result = await withTransaction(async client => {
+        // Hold the installation switch through this scheduled action. Disabling Work
+        // must leave its next occurrence pending, rather than record a failed run.
+        if (!(await applicationSettings(client)).work) return null;
         const rule = (await client.query<RuleRow>(`${RULE_SELECT}
           WHERE r.state = 'active' AND r.next_run_at <= $1 ORDER BY r.next_run_at, r.id LIMIT 1 FOR UPDATE OF r SKIP LOCKED`, [now])).rows[0];
         if (!rule) return null;

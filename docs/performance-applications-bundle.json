@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-12",
+  "baseRef": "01588d5d",
+  "baseline": {
+    "total": 692397,
+    "initial": 196188
+  },
+  "current": {
+    "js": 663790,
+    "css": 42813,
+    "entry": 95523,
+    "total": 706603,
+    "initial": 193650
+  },
+  "results": [
+    {
+      "key": "total",
+      "label": "JS + CSS",
+      "base": 201204,
+      "allowed": 509952,
+      "limit": 711156,
+      "current": 706603,
+      "growth": 505399,
+      "ok": true
+    },
+    {
+      "key": "js",
+      "label": "JS, все чанки",
+      "base": 187489,
+      "allowed": 480256,
+      "limit": 667745,
+      "current": 663790,
+      "growth": 476301,
+      "ok": true
+    },
+    {
+      "key": "css",
+      "label": "CSS",
+      "base": 13715,
+      "allowed": 32768,
+      "limit": 46483,
+      "current": 42813,
+      "growth": 29098,
+      "ok": true
+    },
+    {
+      "key": "entry",
+      "label": "входной чанк (index.js)",
+      "base": 81035,
+      "allowed": 40960,
+      "limit": 121995,
+      "current": 95523,
+      "growth": 14488,
+      "ok": true
+    },
+    {
+      "key": "initial",
+      "label": "старт: вход + modulepreload",
+      "base": 193520,
+      "allowed": 4096,
+      "limit": 197616,
+      "current": 193650,
+      "growth": 130,
+      "ok": true
+    },
+    {
+      "key": "initialJs",
+      "label": "JS до первого экрана",
+      "base": 0,
+      "allowed": 196608,
+      "limit": 196608,
+      "current": 193650,
+      "growth": 193650,
+      "ok": true
+    },
+    {
+      "key": "documentEditor",
+      "label": "ленивый редактор документов",
+      "base": 0,
+      "allowed": 204800,
+      "limit": 204800,
+      "current": 195036,
+      "growth": 195036,
+      "ok": true
+    }
+  ],
+  "ok": true
+}

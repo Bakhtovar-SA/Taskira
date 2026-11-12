@@ -40,7 +40,7 @@ import {
   type DocumentFile,
 } from "../workspaceContract.js";
 import {
-  modules,
+  storedModules,
   writable,
   history,
   entityHistory,
@@ -226,7 +226,7 @@ export async function workspaceRoutes(
   app.get(
     "/workspace/modules",
     { preHandler: requirePerm("browse") },
-    async (req) => modules(pid(req)),
+    async (req) => storedModules(pid(req)),
   );
   app.patch(
     "/workspace/modules",
@@ -254,7 +254,7 @@ export async function workspaceRoutes(
         "modules.changed",
         b,
       );
-      return modules(pid(req));
+      return storedModules(pid(req));
     },
   );
   app.get("/documents", { preHandler: requirePerm("browse") }, async (req) => ({

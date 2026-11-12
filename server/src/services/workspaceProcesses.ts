@@ -1,3 +1,4 @@
+import { applicationSettings, assertApplicationWritable } from "../applications/registry.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { q, withTransaction, withAdvisoryLock } from "../db.js";
@@ -126,6 +127,7 @@ export async function startProcess(
   input: z.infer<typeof ProcessStartBody>,
   client: PoolClient,
 ): Promise<string> {
+  await assertApplicationWritable("work", client);
   const existing = (
     await client.query<{ id: string }>(
       "SELECT id FROM workspace_process_runs WHERE project_id=$1 AND request_id=$2",
@@ -490,6 +492,7 @@ export async function getRun(
   };
 }
 async function processEvents() {
+  if (!(await applicationSettings()).work) return;
   for (let n = 0; n < 40; n++) {
     const pending = (
       await q<{ id: string }>(
@@ -500,6 +503,9 @@ async function processEvents() {
     let failedRule: string | null = null;
     try {
       await withTransaction(async (client) => {
+        // Do not consume pending events when the installation switch changes
+        // between the worker tick and this transaction.
+        if (!(await applicationSettings(client)).work) return;
         const event = (
           await client.query<{
             id: string;
@@ -714,12 +720,14 @@ export async function runWorkspaceOnce() {
         month: "2-digit",
         day: "2-digit",
       }).format(new Date());
-      await q(
+      const applications = await applicationSettings();
+      if (applications.work) await q(
         `WITH due AS(INSERT INTO workspace_due_events(issue_id,due_date) SELECT i.id,i.due_date FROM issues i JOIN workspace_modules m ON m.project_id=i.project_id AND m.processes JOIN workflow_statuses s ON s.id=i.status_id WHERE i.due_date<=$1::date AND s.category<>'done' AND i.archived_at IS NULL ON CONFLICT DO NOTHING RETURNING issue_id)
       INSERT INTO workspace_events(project_id,type,issue_id,actor_id,data) SELECT i.project_id,'issue.due',i.id,i.reporter_id,to_jsonb(i) FROM issues i JOIN due ON due.issue_id=i.id`,
         [today],
       );
-      await withTransaction(async (client) => {
+      if (applications.knowledge) await withTransaction(async (client) => {
+        if (!(await applicationSettings(client)).knowledge) return;
         const due = (
           await client.query<{
             id: string;
@@ -753,9 +761,9 @@ export async function runWorkspaceOnce() {
           );
         }
       });
-      const runs = await q<{ id: string }>(
+      const runs = applications.work ? await q<{ id: string }>(
         "SELECT r.id FROM workspace_process_runs r JOIN workspace_modules m ON m.project_id=r.project_id AND m.processes WHERE r.state='running' OR (r.state='completed' AND EXISTS (SELECT 1 FROM workspace_process_steps s WHERE s.run_id=r.id AND s.issue_id IS NULL AND s.state='completed')) ORDER BY r.created_at LIMIT 100",
-      );
+      ) : [];
       for (const r of runs)
         try {
           await withTransaction((c) => advanceRun(c, r.id));

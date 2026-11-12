@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { issuesApi } from "../api";
+import { useStore } from "../store";
+import { projectAvailable } from "../applications/navigation";
 import { workspaceApi } from "./api";
 import { useResource, useAction } from "./hooks";
 import {
@@ -16,9 +18,13 @@ import {
 import "./workspace.css";
 export default function LibraryView() {
   const { c, data } = useWorkspace();
+  const { application = "work", applications } = useStore();
+  const fixedKind = application === "knowledge" ? "document" : application === "objects" ? "object" : null;
+  const projects = data.projects.filter((p) => projectAvailable(application, p.id, applications));
   const [search, setSearch] = useState(""),
-    [kind, setKind] = useState("all"),
+    [chosenKind, setKind] = useState("all"),
     [project, setProject] = useState("all");
+  const kind = fixedKind ?? chosenKind;
   const [, navigate] = useLocation();
   const a = useAction();
   const r = useResource(
@@ -36,7 +42,7 @@ export default function LibraryView() {
     r.data?.items.filter(
       (i) =>
         (kind === "all" || i.ref.kind === kind) &&
-        (project === "all" || i.projectId === project),
+        (project === "all" || i.projectId === project) && projects.some((p) => p.id === i.projectId),
     ) ?? [];
   return (
     <Frame title={c.library} hint={c.libraryHint}>
@@ -46,7 +52,7 @@ export default function LibraryView() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Select
+        {!fixedKind && <Select
           aria-label={c.materialKind}
           value={kind}
           onChange={setKind}
@@ -56,14 +62,14 @@ export default function LibraryView() {
               (v) => ({ value: v, label: c[v] }),
             ),
           ]}
-        />
+        />}
         <Select
           aria-label={c.type}
           value={project}
           onChange={setProject}
           options={[
             { value: "all", label: c.all },
-            ...data.projects.map((p) => ({ value: p.id, label: p.name })),
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
           ]}
         />
       </div>

@@ -21,17 +21,20 @@ import { resolveBootPathTarget } from "./store/mappers";
 import { parsePath, pathForIssue, pathForView, samePlace, sharesIssueFilters } from "./router";
 import type { Data } from "./types";
 import type { BootStatus, UIState } from "./store/mappers";
+import type { ApplicationId } from "../server/src/applicationContract";
 
 /** Где должна стоять адресная строка по ТЕКУЩЕМУ состоянию: путь и ключ задачи в `?issue=`
  *  (панель задачи поверх представления, ADR-0013 §3). `undefined` — «пока не решить»
  *  (загрузка, задача выбрана, но ещё не подгружена и т.п.) — эффекты в этом случае
  *  ничего не пушат и ждут следующего рендера. */
 type Place = { path: string; issue: string | null };
-function derivePlace(data: Data, ui: UIState, bootStatus: BootStatus): Place | undefined {
-  if (bootStatus === "home" || bootStatus === "solo") return { path: "/", issue: null };
+function derivePlace(data: Data, ui: UIState, bootStatus: BootStatus, application: ApplicationId = "work"): Place | undefined {
+  if (bootStatus === "home") return { path: application !== "work" || ui.view === "applicationHome" ? pathForView("", "applicationHome", application) : "/", issue: null };
+  if (bootStatus === "solo") return { path: "/", issue: null };
   if (bootStatus !== "ready") return undefined;
   // «Не найдено» (ТЗ 5.12 a): адрес не трогаем — человек видит ссылку, по которой пришёл.
   if (ui.missing) return undefined;
+  if (ui.view === "applicationHome") return { path: pathForView("", ui.view, ui.section), issue: null };
   const proj = data.projects.find((p) => p.id === data.currentProjectId) ?? data.project;
   if (!proj.key || proj.key === "…") return undefined; // стор ещё пуст
   if (ui.selectedIssueId) {
@@ -60,6 +63,7 @@ export function useRouterSync(): void {
   const urlIssue = issueParam(search);
   const store = useStore();
   const { data, ui, bootStatus, switchProject, enterProject, openIssue, openCollabIssue, setView, goHome, toast, showMissing } = store;
+  const application = store.application ?? "work";
   const { t } = useT();
   // Only membership/key changes invalidate routing. A refresh may return the
   // same access lists in a different order without granting or revoking access.
@@ -102,7 +106,7 @@ export function useRouterSync(): void {
     const unavailable = unavailableSourcesRef.current;
     const sourcesChanged = unavailable !== null && unavailable !== accessSignature;
     if (seen && seen.path === path && seen.issue === urlIssue && !sourcesChanged) return;
-    const want = derivePlace(data, ui, bootStatus);
+    const want = derivePlace(data, ui, bootStatus, application);
     if (want && want.path === path && want.issue === urlIssue) {
       seenUrlRef.current = { path, issue: urlIssue };
       unavailableSourcesRef.current = null;
@@ -203,7 +207,7 @@ export function useRouterSync(): void {
   // Состояние → URL.
   useEffect(() => {
     if (applyingRef.current || urlChangedRef.current) return; // URL navigation wins in this commit.
-    const want = derivePlace(data, ui, bootStatus);
+    const want = derivePlace(data, ui, bootStatus, application);
     if (!want || (want.path === path && want.issue === urlIssue)) return;
     // Старый адрес того же места (/p/K/backlog?status=… → /p/K/list?status=…, ADR-0013 §5) и
     // переход между задачами в открытой панели (J/K) — заменить запись истории, а не добавить;
@@ -217,5 +221,5 @@ export function useRouterSync(): void {
     seenUrlRef.current = { path: want.path, issue: want.issue };
     const hash = want.path === path ? location.hash : "";
     navigate(`${want.path}${q}${hash}`, { replace });
-  }, [data, ui, bootStatus, path, urlIssue, navigate, urlRevision]);
+  }, [data, ui, bootStatus, application, path, urlIssue, navigate, urlRevision]);
 }

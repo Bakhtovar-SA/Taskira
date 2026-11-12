@@ -5,14 +5,14 @@ export type HelpCopy = { title: string; subtitle: string; permission: string; se
 const baseHelp: Record<"ru" | "en", HelpCopy> = {
   "ru": {
     "title": "Документация Taskira",
-    "subtitle": "Задачи, документы, объекты, процессы, файлы и планирование",
+    "subtitle": "Работа, Знания и Объекты: приложения, права и связанные материалы",
     "sections": [
       {
         "id": "overview",
         "label": "Обзор системы",
         "paragraphs": [
-          "Taskira объединяет проекты, задачи и связанные материалы. Доска, список, календарь и таймлайн показывают одну работу разными способами; изменение задачи отражается во всех видах. Дополнительные модули добавляют документы, объекты, процессы, прогнозы и общий каталог файлов проекта.",
-          "Начните с выбора проекта и создания задачи. На доске задачи расположены по статусам; список удобен для поиска и массовых действий, календарь — для сроков, таймлайн — для направлений.",
+          "Taskira разделена на приложения с собственным меню: Работа — задачи, процессы и планирование; Знания — документы; Объекты — реестры и карточки записей. Переключатель рядом со знаком Taskira меняет приложение. Учётная запись, проекты и права остаются общими.",
+          "Выберите приложение по цели и доступный проект. В Работе создавайте и выполняйте задачи, в Знаниях готовьте инструкции и результаты, в Объектах находите сведения о системах, оборудовании и другой длительно существующей работе. Ссылки связывают эти материалы без копирования; Файлы собирают вложения задач и документов проекта.",
           "Настройки организации, команды, создание проектов и рабочий процесс доступны администратору. Интерфейс объясняет недоступные действия, а окончательное решение о доступе принимает сервер."
         ]
       },
@@ -311,14 +311,14 @@ const baseHelp: Record<"ru" | "en", HelpCopy> = {
   },
   "en": {
     "title": "Taskira documentation",
-    "subtitle": "Tasks, documents, objects, processes, files and planning",
+    "subtitle": "Work, Knowledge and Objects: applications, access and connected materials",
     "sections": [
       {
         "id": "overview",
         "label": "System overview",
         "paragraphs": [
-          "Taskira brings together projects, tasks and related materials. Board, list, calendar and timeline show the same work in different ways; task changes appear in every view. Optional modules add documents, objects, processes, forecasts and a shared project file catalogue.",
-          "Start by selecting a project and creating an issue. The board groups issues by status; the list supports searching and bulk actions, the calendar shows due dates, and the timeline shows directions.",
+          "Taskira has applications with their own navigation: Work for tasks, processes and planning, Knowledge for documents, and Objects for registers and record cards. Use the switcher beside the Taskira mark to change applications. Your account, projects and permissions stay shared.",
+          "Choose an application for your purpose and a project you can access. Create and complete tasks in Work, prepare instructions and results in Knowledge, and find systems, equipment and other lasting records in Objects. Links connect materials without copying them; Files collects attachments from both project tasks and documents.",
           "Organization settings, teams, project creation and workflow management are available to administrators. The interface explains unavailable actions; the server makes the final access decision."
         ]
       },

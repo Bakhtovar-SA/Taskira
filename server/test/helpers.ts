@@ -49,6 +49,8 @@ export async function resetDb(): Promise<void> {
           issue_watchers, issue_collaborators, attachments, project_counters, audit_log,
           sprints, user_favorite_projects, login_attempts, instance, project_templates, ops_runs RESTART IDENTITY CASCADE`,
       );
+      await q(`INSERT INTO application_settings(singleton) VALUES(true)
+        ON CONFLICT(singleton) DO UPDATE SET revision=1,work=true,knowledge=true,objects=true,updated_by=NULL,updated_at=now()`);
       return;
     } catch (e) {
       if ((e as { code?: string }).code === "40P01" && attempt < 5) continue; // deadlock_detected — ретраим

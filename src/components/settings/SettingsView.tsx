@@ -45,6 +45,7 @@ const ProjectIntegrations = lazy(() => import("./ProjectIntegrations"));
 const ProjectRecurring = lazy(() => import("./ProjectRecurring"));
 const PersonalTokens = lazy(() => import("./PersonalTokens"));
 const ServiceAccounts = lazy(() => import("./ServiceAccounts"));
+const ApplicationSettings = lazy(() => import("../../applications/ApplicationSettings"));
 
 type Meta = { icon: (p: { size?: number; tone?: IconTone }) => ReactNode; tone: IconTone };
 const META: Record<string, Meta> = {
@@ -54,6 +55,7 @@ const META: Record<string, Meta> = {
   language: { icon: (p) => <IcGlobe {...p} />, tone: "sky" },
   tokens: { icon: (p) => <IcLock {...p} />, tone: "teal" },
   "service-accounts": { icon: (p) => <IcBolt {...p} />, tone: "teal" },
+  applications: { icon: (p) => <IcBriefcase {...p} />, tone: "violet" },
   general: { icon: (p) => <IcSettings {...p} />, tone: "gray" },
   // ключ appearance у личных и проектных настроек общий — та же иконка «Внешний вид»
   roadmap: { icon: (p) => <IcFlag {...p} />, tone: "teal" },
@@ -88,9 +90,10 @@ const sectionKey = (home: SettingsHome, s: string) =>
   `settings.${home === "settings" ? "personal" : home === "projectSettings" ? "project" : "org"}.${s}` as TKey;
 
 export function useSettingsNav() {
-  const { me, data } = useStore();
+  const { me, data, application = "work" } = useStore();
   const ctx = { isAdmin: me.globalRole === "admin", isService: me.authSource === "service", hasProject: !!data.currentProjectId };
-  return (home: SettingsHome) => allowedSections(home, ctx);
+  return (home: SettingsHome) => allowedSections(home, ctx).filter((section) =>
+    home !== "projectSettings" || application === "work" || !["roadmap", "workflow", "fields", "templates", "recurring"].includes(section));
 }
 
 export default function SettingsView() {
@@ -98,7 +101,8 @@ export default function SettingsView() {
   const { ui, data, me, setView } = useStore();
   const nav = useSettingsNav();
   const home = ui.view as SettingsHome;
-  const allowed = nav(home);
+  // Navigation follows the application; existing direct settings links retain their permissions.
+  const allowed = allowedSections(home, { isAdmin: me.globalRole === "admin", isService: me.authSource === "service", hasProject: !!data.currentProjectId });
   const section = ui.section || (allowed.includes(DEFAULT_SECTION[home]) ? DEFAULT_SECTION[home] : allowed[0] ?? DEFAULT_SECTION[home]);
   const ok = allowed.includes(section);
 
@@ -121,7 +125,7 @@ export default function SettingsView() {
       ) : (
         <ProjectSection section={section} />
       );
-  } else page = section === "service-accounts" ? <ServiceAccounts key={me.id} /> : section === "departments" ? <AdminView /> : <OrgSection section={section} />;
+  } else page = section === "applications" ? <ApplicationSettings key={me.id} /> : section === "service-accounts" ? <ServiceAccounts key={me.id} /> : section === "departments" ? <AdminView /> : <OrgSection section={section} />;
 
   return (
     <div className="settings-layout flex h-full min-h-0 max-md:flex-col">

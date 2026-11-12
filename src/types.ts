@@ -328,6 +328,7 @@ export interface NotificationT {
 export type NotifyPrefsT = NotifyPrefs;
 
 export type ViewId =
+  | "applicationHome"
   | "library" | "documents" | "objects" | "processes" | "planning" | "files"
   /** «Обзор» проекта — его общий дашборд (ADR-0022). */
   | "overview"
