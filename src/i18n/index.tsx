@@ -31,8 +31,10 @@ export function loadRuLazy(): Promise<void> {
   ruLazyLoading ??= import("./ruLazy")
     .then((m) => registerRuLazy(m.default))
     .catch((err: unknown) => {
-      // A later loadRuLazy() call may try again. A screen already opened through lazyView() does not recover:
-      // React.lazy keeps the rejected promise, exactly as it does when the screen's own chunk fails to load.
+      // No retry here on purpose: Chromium keeps a failed module fetch for the lifetime of the page, so importing
+      // the same chunk again fails at once without a request (checked in a browser test). Recovery is a page
+      // reload, which the error boundary offers — the same as when a screen's own chunk fails to load.
+      // The promise is dropped so that browsers which do allow a second fetch get one on the next call.
       ruLazyLoading = null;
       throw err;
     });
@@ -51,9 +53,14 @@ let enLoading: Promise<void> | null = null;
 export function loadLang(l: Lang): Promise<void> {
   if (l === "ru") return loadRuLazy();
   if (DICTS[l]) return Promise.resolve();
-  enLoading ??= import("./en").then((m) => {
-    DICTS.en = m.default;
-  });
+  enLoading ??= import("./en")
+    .then((m) => {
+      DICTS.en = m.default;
+    })
+    .catch((err: unknown) => {
+      enLoading = null; // same as ruLazyLoading above
+      throw err;
+    });
   return enLoading;
 }
 /** Язык из localStorage — для main.tsx, чтобы дождаться словаря до первой отрисовки. */
@@ -103,13 +110,21 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const setLang = (l: Lang) => {
-    // Сначала словарь, потом переключение — чтобы интерфейс не мигнул русским.
-    void loadLang(l).then(() => setLangState(l));
-    try {
-      localStorage.setItem(STORAGE_KEY, l);
-    } catch {
-      /* приватный режим / заблокировано — язык просто не переживёт перезагрузку */
-    }
+    // Сначала словарь, потом переключение — чтобы интерфейс не мигнул русским. Выбор сохраняем только после
+    // успешной загрузки: иначе при сбое сети интерфейс оставался на прежнем языке, а после перезагрузки стартовал на новом.
+    loadLang(l).then(
+      () => {
+        setLangState(l);
+        try {
+          localStorage.setItem(STORAGE_KEY, l);
+        } catch {
+          /* приватный режим / заблокировано — язык просто не переживёт перезагрузку */
+        }
+      },
+      () => {
+        /* словарь не загрузился — остаёмся на текущем языке, выбор не сохраняем */
+      },
+    );
   };
 
   const dict = DICTS[lang] ?? (ruCore as PartialDict);
