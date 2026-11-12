@@ -1,852 +1,278 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) in this repository. It holds the commands, the rules that CI or the product enforce,
+and a map of where things live. Reasoning, bug history and per-feature design notes are in
+[docs/ENGINEERING-NOTES.md](docs/ENGINEERING-NOTES.md); decisions are in [docs/adr/](docs/adr/README.md).
 
 ## What this is
 
-Taskira — an internal corporate task tracker (board / task list / timeline / workflow editor)
-with a role-based permission system. Two independent npm packages:
+Taskira is an internal corporate task tracker (board, list, timeline, calendar, roadmap, dashboards, workflow editor) with a
+role-based permission system. Two independent npm packages:
 
-- **root** — React 19 + TypeScript + Vite 8 SPA (`src/`). RU + EN interface (`src/i18n/`, track E): screens, toasts,
-  issue history, help and email are in both languages; user data stays as typed — see the i18n section below.
-- **`server/`** — Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The permission system's source of truth.**
+- **root**: React 19 + TypeScript + Vite SPA (`src/`). Russian and English UI.
+- **`server/`**: Fastify 5 + PostgreSQL + JWT API (`server/src/`). **The source of truth for permissions.**
 
-The client was originally a localStorage-only app; it now talks to the API exclusively
-(`src/api/`, `src/store.tsx`). `README.md` (root) and `ARCHITECTURE.md` track the current
-design; **`server/README.md`** is the authoritative API contract and data model. The
-`*_MIGRATION.md` files are historical records of completed schema/feature migrations; the list of
-migrations is generated from `server/migrations/` into [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md) and the
-permission table into [docs/PERMISSIONS.md](docs/PERMISSIONS.md) — don't maintain either by hand. Sprints (migration
-023) are an optional, off-by-default module and a deliberate exception to migration 012's removal, not a reversal of
-it (ADR-0002/0003).
+The client talks to the API only (`src/api/`, `src/store.tsx`). Documentation map:
 
-**Decisions live in [docs/adr/](docs/adr/README.md).** An ADR records a decision on its date and never goes stale: it is
-`Accepted` or `Superseded by ADR-MMMM`. Changing an architectural decision = a **new ADR** with a
-`Supersedes ADR-NNNN` line; the old ADR gets only `Status: Superseded by ADR-MMMM` — its content is never edited.
-Generated docs (`npm run permissions:generate`, `npm run docs:generate`) are checked in CI (job `types`).
-
-Database changes must follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md): immutable legacy
-migrations, timestamp-prefixed new files, transactional execution, and expand/contract across
-separate releases. CI rejects unmarked destructive contract operations.
-
-Security-facing behavior and claims must stay aligned with
-[docs/SECURITY_OVERVIEW.md](docs/SECURITY_OVERVIEW.md). Vulnerability reporting is documented
-in [SECURITY.md](SECURITY.md); do not add credentials, customer data, or private reports to issues.
-License key storage/rotation/breach procedure is [docs/LICENSE_KEYS.md](docs/LICENSE_KEYS.md) — the
-private signing key itself never goes in the repo, only its public half
-(`server/src/licenseTrustedKeys.ts`).
+- [server/README.md](server/README.md): route tables, per-feature server notes, local run (Russian; parts are historical, so
+  check against the code). Generated and checked in CI: [docs/API-SCHEMAS.md](docs/API-SCHEMAS.md) (request/response shapes),
+  [docs/PERMISSIONS.md](docs/PERMISSIONS.md), [docs/MIGRATION-LIST.md](docs/MIGRATION-LIST.md); never edit them by hand.
+- [ARCHITECTURE.md](ARCHITECTURE.md), [README.md](README.md), `*_MIGRATION.md` (records of finished migrations),
+  [DOCKER_SETUP.md](DOCKER_SETUP.md), [docs/OPERATIONS.md](docs/OPERATIONS.md), [docs/REALTIME.md](docs/REALTIME.md),
+  [docs/SECURITY_OVERVIEW.md](docs/SECURITY_OVERVIEW.md), [SECURITY.md](SECURITY.md), [docs/LICENSE_KEYS.md](docs/LICENSE_KEYS.md),
+  [docs/design/](docs/design/) (DESIGN, COMPONENTS, MOTION, PERF-BUDGET, IA).
+- Do not add credentials, customer data or private vulnerability reports to issues or docs. Security-facing claims must stay
+  aligned with `docs/SECURITY_OVERVIEW.md`. The license private signing key never goes in the repo, only its public half
+  (`server/src/licenseTrustedKeys.ts`).
 
 ## Commands
 
-Client (run from repo root):
+Client (repo root):
 
 ```bash
-npm ci                # after every pull/merge from main — never trust an existing node_modules (React/Vite versions
-                      # have moved under people before: a stale install gives phantom type errors, e.g. RefObject).
-                      # WINDOWS: STOP the dev servers first (Vite holds lightningcss's native .node open) — otherwise
-                      # `npm ci` dies with EPERM halfway and leaves node_modules half-deleted; recover with `npm install`.
-npm run dev         # Vite dev server on http://localhost:3000 (strictPort — fails if taken)
-npm run build       # production build to dist/
-npm run typecheck   # tsc --noEmit (noUnusedLocals is on in both packages: an unused import or local fails it)
-npm run lint        # eslint src — react-hooks rules only; errors fail CI, `npm run lint:all` also shows the exhaustive-deps warnings
-npm test            # vitest run — permissions / validation / store helpers
-npm run bundle:check    # after build: gzip JS/CSS + startup JS (entry + modulepreload) vs scripts/bundle-budget.json (CI, docs/design/PERF-BUDGET.md)
-npm run repo:check      # docs/ total size and per-file size limits (part of docs:check); don't commit audit screenshots or raw dumps
-npm run perf:rerenders  # re-render measurement tables (src/perf/, ADR-0011); same file runs silently in npm test
+npm ci               # after every pull/merge; a stale node_modules gives phantom type errors. On Windows stop dev servers first
+npm run dev          # Vite on http://localhost:3000 (strictPort)
+npm run build        # production build to dist/
+npm run typecheck    # tsc --noEmit; noUnusedLocals is on, so an unused import or local fails
+npm run lint         # eslint src --quiet: react-hooks rules only; errors fail CI. `lint:all` also shows exhaustive-deps warnings
+                     # (triaged: the ~110 that remain are deliberate — stable store actions, refs, generation counters;
+                     #  see ENGINEERING-NOTES "Client store". Do not add deps wholesale: each one changes when an effect runs)
+npm test             # vitest run (jsdom + Testing Library)
+npm run bundle:check # after build: gzip size and startup-JS budget vs scripts/bundle-budget.json
+npm run docs:check   # generated docs are current, motion tokens/map, docs/ size limit (repo:check)
 ```
 
-Server (run from `server/`):
+Style checks that fail CI: `colors:check`, `contrast:check`, `motion:check`, `antilist:check`, `permissions:check`.
+`npm run perf:rerenders` prints re-render tables; `npm run test:ui` is Playwright + axe (CI only for PRs touching components).
+Playwright uses 2 workers in CI (`PLAYWRIGHT_WORKERS` overrides). Vitest stays on its default isolated pool: `isolate: false`
+breaks tests that rely on isolation and `pool: 'vmThreads'` was faster but flaky when measured.
+
+Server (`server/`):
 
 ```bash
-cd server
-npm ci                 # same rule as the client: after every pull, dev server stopped first on Windows (tsx holds esbuild)
-cp .env.example .env   # then fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERNAME/ADMIN_PASSWORD
-npm run dev            # tsx watch (chokidar polling) -> migrations -> seed admin+project+instance -> :8080
-npm run dev:native     # same, native fs events (no polling)
-npm run build          # tsc -p tsconfig.json -> dist/
-npm run start          # node dist/index.js
-npm run seed           # run migrate() + seedAdmin() + seedProject() + seedInstance() standalone
-npm run typecheck      # tsc --noEmit
-npm test               # vitest run — access/contract/home/notifications/lifecycle/reports/storage/ldap suites (~140 tests)
+npm ci
+cp .env.example .env   # fill DATABASE_URL, JWT_SECRET (>=32 chars), ADMIN_USERNAME/ADMIN_PASSWORD
+npm run dev            # tsx watch with polling -> migrations -> seeds -> API on :8080 (dev:native: native fs events)
+npm run build && npm run start
+npm run typecheck      # also noUnusedLocals
+npm test               # vitest, about 2400 tests (~5 min, files run serially); needs local PostgreSQL
 ```
 
-The server has a **vitest** suite (`server/test/`, `npm test`); it needs a local PostgreSQL
-(`vitest.config.ts` / `test/global-setup.ts` spin up a scratch DB). LDAP / S3 / mail suites are
-`describe.skip` unless their env vars are set (CI sets them via docker-compose — see
-`.github/workflows/test.yml`). The client now has **vitest** too (root `npm test`, `vitest.config.ts`, jsdom + Testing Library
-available): `src/*.test.ts` covers the pure logic (permissions, validation, store helpers), and
-`src/store.bootstrap.test.tsx` is the first component-level test — it renders `StoreProvider`
-via a probe component and drives `bootstrap()` against mocked `./api` responses shaped exactly
-like the real endpoints. That test exists because a real regression shipped to `main` unnoticed:
-`issuesApi.assignedToMe()` returns `{items, truncated, limit}`, but the ≥2-projects boot branch
-assigned the whole object to `data.assignedToMe`, and `HomeView`'s `.filter()` on it crashed the
-whole app with no ErrorBoundary — typecheck and the pure-logic tests both missed it because the
-`as AssignedIssue[]` cast hid the shape mismatch from `tsc`. When adding a new `bootstrap()`
-branch or changing what an API method returns, extend this file rather than trusting types alone.
-Full client verification is `npm run typecheck` + `npm test` + `npm run build`, and CI runs all
-three. A cross-package check also exists: `server/test/permissions-sync.test.ts` reads
-`src/permissions.ts` and `src/validation.ts` from disk and fails if the duplicated `MATRIX` or
-`LIMITS` drift from the server copies. Linting is deliberately narrow: `tsc` with `noUnusedLocals` in both packages, plus a client-only ESLint (`eslint.config.js`)
-with just the React hooks rules — `rules-of-hooks` is an error, `exhaustive-deps` a warning (113 existing findings when it
-was enabled; don't "fix" them wholesale, each one changes when an effect runs). There is no style linter. A local PostgreSQL
-reachable via `DATABASE_URL` is required to run the server at all (`initPool` → `migrate`
-happen before `listen`).
+A local PostgreSQL reachable through `DATABASE_URL` is required to run the server at all (`initPool` and `migrate()` run before
+`listen`). `npm test` creates the scratch database `taskira_test` itself (`test/global-setup.ts`; the role needs `CREATEDB`).
+LDAP, S3 and mail suites are `describe.skip` unless their env vars are set; CI sets them (`.github/workflows/test.yml`).
 
-## Architecture
+Verifying a change: client `npm run typecheck && npm test && npm run build` (plus the style checks above for UI work); server
+`npm run typecheck && npm test`; if you touched permissions, docs-generating code or migrations, run `npm run permissions:check`
+and `npm run docs:check` at the root. CI job `types` typechecks server and client together and checks generated docs.
 
-### Permission matrix: one source, two generated copies; the logic on top is mirrored and behaviour-tested
+## Hard rules and what enforces them
 
-`shared/permissions.matrix.json` is the **only** place to change `MATRIX`, `PermId`, role/permission names and the
-permissions doc table. `npm run permissions:generate` (`scripts/generate-permissions.mjs`) writes
-`src/permissions.matrix.ts` and `server/src/permissions.matrix.ts` (identical content) and `docs/PERMISSIONS.md`; never
-edit them by hand — `npm run permissions:check` (CI job `types`, and `server/test/permissions-sync.test.ts`) fails on any
-drift. A shared *import* is impossible by design: the server builds from `server/` (Dockerfile, `rootDir: src`), the
-client from the repo root with `server/` in `.dockerignore`. What stays duplicated in code — `resolveRole`, `isOwnIssue`,
-`roleCan`/`can`, `denialReason` in `src/permissions.ts` ↔ `server/src/permissions.ts` — is verified by behaviour:
-the sync test runs client `can()`/`denialReason()` against the server's on every role × permission × own/foreign issue
-combination. The client copy exists **only for instant UX feedback**; the server re-checks every mutation and is
-authoritative. Client-only extras (`ACCESS_ROLES` colors, `summarize`, …) stay in `src/permissions.ts` fed by the matrix.
+### Permissions
 
-Enforcement points:
-- **Client**: `store.tsx` → `requirePerm()` gates every mutating action before the API call and
-  toasts `denialReason()` on failure. UI components also call `can()` to disable/hide controls.
-- **Server**: Fastify `preHandler` hooks in `middleware.ts` — `requirePerm(perm)` for
-  role-level checks, `requireIssuePerm(perm)` for task-level checks (loads the issue into
-  `req.issueRef`, applies the "employee can only edit own issues" rule). Both call `requireAuth`
-  themselves, so a route lists only the permission hook.
-- Task-level rule: `employee` may `edit` an issue only if `assigneeId === me || reporterId === me`.
-  `admin`/`manager` edit anything.
-- **Every new API route needs a row in `server/test/access/routes.manifest.ts`, or CI fails.**
-  `routes.manifest.test.ts` diffs the manifest against the routes `buildApp()` really serves. Pick the policy from `P`
-  by the hook the route uses, and add a `BODIES`/`QUERIES` row when zod validation would otherwise answer 400 before
-  the permission check. Keep one sorted line per route. A new nested path param under `/projects/:projectId`, such as
-  `/things/:thingId`, must also be mapped in `OWNED` or `NOT_OWNED` in `server/test/access/crossProject.test.ts`.
-  An `OWNED` object is seeded in P2. Looking it up through a P1 path must return 404: scope the lookup by the parent
-  from the path, not by the id alone. The 404/403 rule is in `docs/SECURITY_OVERVIEW.md`.
+- `shared/permissions.matrix.json` is the only place to change `MATRIX`, `PermId`, role and permission names. Run
+  `npm run permissions:generate`: it writes `src/permissions.matrix.ts`, `server/src/permissions.matrix.ts` and
+  `docs/PERMISSIONS.md`. Never edit those by hand ([ADR-0001](docs/adr/0001-permission-matrix-generated-not-imported.md)).
+- The logic on top is duplicated by design (the server builds from `server/` alone): `resolveRole`, `isOwnIssue`, `can`,
+  `denialReason` in `src/permissions.ts` and `server/src/permissions.ts` (server also has `roleCan`). `server/test/permissions-sync.test.ts`
+  runs both over every role x permission x own/foreign issue and compares behaviour, and also checks that `LIMITS` match.
+- The client copy is for instant UX feedback only. The server re-checks every mutation. Client mutations go through
+  `requirePerm()` in `store.tsx` (toasts `denialReason()` on failure); UI disables or hides controls with `can()`.
+- Server hooks (`middleware.ts`): `requirePerm(perm)` for role-level checks, `requireIssuePerm(perm)` for task-level checks (loads
+  `req.issueRef`; an `employee` may edit an issue only if they are an assignee or the reporter). Both call `requireAuth`.
+  `requireSession` excludes API tokens, `requireGlobalAdmin` rejects every API token, `requireAuth` accepts scoped tokens.
+- **Every new API route needs a row in `server/test/access/routes.manifest.ts`, or CI fails** (`routes.manifest.test.ts` diffs the
+  manifest against the routes `buildApp()` serves). Pick the policy from `P` by the route's hook; add a `BODIES` / `QUERIES` row if zod
+  would answer 400 before the permission check; keep one sorted line per route. A new nested param under `/projects/:projectId`
+  (such as `/things/:thingId`) must also be listed in `OWNED` or `NOT_OWNED` in `server/test/access/crossProject.test.ts`; an
+  `OWNED` object must return 404 when looked up through another project's path, so scope lookups by the parent from the path.
+  The 404/403 rule is in `docs/SECURITY_OVERVIEW.md`.
 
-### Validation limits are also mirrored
+### Contract and validation
 
-`src/validation.ts` `LIMITS` ↔ `server/src/contract.ts` `LIMITS` + zod schemas. `contract.ts`
-is the single source of request/response shapes; the server validates every body/query with it
-via `zbody()` / `zquery()` preValidation hooks. Client validation is UX-only; the server repeats it.
-**Response types (TZ 2.1):** `contract.ts` holds zod schemas for API responses (`IssueDto`, `ProjectBootstrapDto`,
-`NotificationDto`, `ReportSummaryDto`, …). Server mappers/handlers are annotated with the `z.infer` types and the client
-imports the same types (`import type` from `../../server/src/contract`; root has `zod` as a devDependency for types only —
-nothing reaches the bundle). `src/types.ts` aliases them for pure mirrors and keeps only real view-models (ms timestamps
-etc.). Those schemas are **type sources only, never `.parse()`d at runtime** — they do not guarantee a mapper returns what
-it declares (SQL rows are cast `q<Row>`); don't assume the API is protected from drift against the DB because a schema
-exists. The server tests close part of that gap: `server/test/responseContract.ts` maps routes to their response schema and
-an `onSend` hook on the test app (`getApp()`) parses every successful response of a mapped route; a mismatch fails the test
-that made the request. Production code is untouched. When a route's whole response is described by a `contract.ts` schema,
-add it to `RESPONSES` there; handler-built envelopes without a schema are not covered. Still hand-written: request-side client params (`IssueFilterParams`, `IssueTemplateInput`, `ReportFilter`) and
-small inline envelopes in `src/api/index.ts` (login, auth config, LDAP ping/resync, member PUT, link/checklist/custom-field
-wrappers, transition, sprint complete). CI job `types` typechecks server and client together (UI-02: not verifiably a
-required check). The old text-emitting `generate-client-contracts.mjs` / `contracts:check` is gone.
+- `server/src/contract.ts` is the single source of request and response shapes, including zod schemas for responses (`IssueDto`,
+  `ProjectBootstrapDto`, ...). Handlers are annotated with the `z.infer` types and the client imports the same types with
+  `import type` from `../../server/src/contract` (zod is a root devDependency for types only; never value-import `contract.ts` in
+  client code, it would pull zod into the bundle). The server validates every body and query with `zbody()` / `zquery()`.
+- Response schemas are type sources only and are never `.parse()`d in production; SQL rows are cast. Drift is caught in tests:
+  `server/test/responseContract.ts` maps routes to schemas (`RESPONSES`) and an `onSend` hook on the test app parses every
+  successful response of a mapped route. Add a route whose whole response has a `contract.ts` schema to `RESPONSES`.
+- `src/validation.ts` `LIMITS` mirrors `server/src/contract.ts` `LIMITS`. Client validation is UX-only.
 
-### Client data flow
+### Database
 
-`src/store.tsx` is a React Context (`StoreProvider` / `useStore`) — no reducer library. Measured (ТЗ 5.2):
-every state change re-rendered the whole tree incl. all board cards; the accepted fix is a domain-by-domain move to
-`useSyncExternalStore` selector subscriptions behind the `useStore()` facade
-([ADR-0011](docs/adr/0011-store-selector-subscriptions.md)). Done so far (steps 0–2): board cards take stable props
-and columns are `memo` (`BoardColumn`), so they don't depend on the context; toasts and notifications live in
-external stores (`src/store/slices.ts`) — read them with `useToasts()` / `useNotifications()` / `useUnreadCount()`,
-they are **not** on `useStore()` anymore. Modal chunks are preloaded via `src/lazyModals.ts`.
-Track K (01.10.2026) measured and reverted the stable `useActions()` experiment: no reliable browser gain.
-There is no public `useActions()` hook. Steps 3–4 remain pending; `useIssue(id)` still reads the
-existing store facade, not a migrated external `byId` store. See `docs/PERFORMANCE.md` for profiles.
-Async issue reads, PATCH and transitions capture both project id and session epoch; ignore stale
-successes and errors after navigation/re-login, even when the project id is unchanged.
-Boot sequence in `App.tsx` → `store.bootstrap()`: call `authApi.me()` with the HttpOnly session cookie;
-401 shows `LoginForm`. An authenticated boot calls `projectsApi.bootstrap(id)` + `issuesApi.list()`
-and populate one flat `Data` object. `bootStatus` drives the shell:
-`idle | loading | ready | unauthenticated | error | solo | home` (`solo` = invited to individual
-issues but member of no project; `home` = ≥2 visible projects, none entered yet → `HomeView`).
+Follow [docs/MIGRATIONS.md](docs/MIGRATIONS.md): the legacy `001`-`029` files in `server/migrations/` are immutable; new files are
+named `YYYYMMDDTHHMM_name.sql` (never another sequential number); each file runs in one transaction (no `BEGIN`/`COMMIT` inside);
+schema changes that replace data or contracts are expand/contract across separate releases; destructive operations need a
+`-- contract-phase:` marker, which CI checks. `migrate()` applies files in filename order and tracks `schema_migrations`.
+Do not maintain `docs/MIGRATION-LIST.md` by hand.
 
-`src/api/index.ts` is the whole HTTP layer: a generic `api()` wrapper plus typed
-`authApi` / `projectsApi` / `issuesApi` / `commentsApi` / `collaboratorsApi` / `attachmentsApi` /
-`notificationsApi` / `membersApi` / `departmentsApi` / `workflowApi` / `ldapApi` objects.
-Errors are normalized to `ApiError { status, code, reason }`; a 401 invalidates the client session epoch.
-JWTs are not stored in browser localStorage. `API_BASE` comes from `VITE_API_URL`, default same origin.
+### ADRs
 
-Server DTOs are camelCase; the store maps them to client types (`mapIssue`, `mapUser`) and
-carries `comments`/`activity` separately (fetched on demand when an issue modal opens).
-Mutations are optimistic-ish: call API, then patch `data` from the returned DTO; `moveStatus`
-re-fetches issues on failure to undo local drift.
+An ADR records a decision on its date and never goes stale: it is `Accepted` or `Superseded by ADR-MMMM`. To change a decision write
+a new ADR with a `Supersedes ADR-NNNN` line; the old one only gets `Status: Superseded by ADR-MMMM`. Never edit an ADR's content.
 
-Views (`ViewId`: `overview | board | backlog | timeline | calendar | reports | dashboards | workflow | access | admin | docs | collaborating | inbox | my`)
-are switched by `ui.view` in `App.tsx`, reflected into real, human-readable URLs (ADR-0013 §5:
-`/p/:projectKey/{board,list,timeline,calendar,sprints}`, `/p/:projectKey/settings/{workflow,access}`, and project-less
-`/inbox`, `/my-issues`, `/reports`, `/admin/departments`, `/help`, `/shared` — a project-less path at boot opens that view
-inside the last project's shell instead of the home screen; old `/p/:projectKey/<view>` links still parse and are replaced
-in place — `samePlace()` in `src/router.ts`, query preserved; an open issue is `?issue=KEY` on the view path when
-shown as the right-hand panel (`ui.issueMode = "panel"`, Back closes it, `J`/`K` walk the view's `data-issue-id`
-order via `src/issueNav.ts`) and `/p/:projectKey/issue/:issueKey` when shown as a full page inside the sheet
-(`"page"` — used from Inbox, My issues and search, and by every shared link)) by
-`useRouterSync.ts` — `wouter` (ADR-0008), not a hand-rolled hash parser (ТЗ 3.1, plan v2
-Track 3; see that file's own header comment for the bidirectional-sync design and the
-race it guards against). `backlog` is internal id for the "Список задач" view
-(`Backlog.tsx`, a flat filtered/sorted list — sprints removed in migration 012).
-`bootStatus` also has a `"home"` state: with ≥2 visible projects, login lands on
-`HomeView.tsx` (Мои задачи + Недавние проекты) before any project is entered — its URL
-is `/`. Deep links to a task (`/p/:projectKey/issue/:issueKey`) resolve the human-readable
-key via `GET /api/issues/resolve` (`server/src/routes/search.ts` — the key is globally
-unique, so no project needs to be named to resolve it) before opening the issue; `src/router.ts`
-holds the pure path helpers/parser. `nginx.conf`'s `try_files $uri /index.html` (and Vite's
-dev-server default) is what makes a hard refresh on one of these paths work — required now
-that the path itself carries state, unlike the old hash-only scheme.
-**Project calendar (track J, ADR-0025):** /p/:projectKey/calendar, lazy CalendarView, due-date month/week grid starting Monday. Visible-range cursor pages are capped at 500; a separate dueEmpty panel lists unscheduled issues. Local civil dates, native DnD under issue edit permissions, M opens DatePicker; Enter creates with the selected due date. Calendar is not a project default view. Keys 1–4 stay unchanged; 5 opens calendar.
+### Deployment model
 
-Keyboard shortcuts (`/`, `C`, `1`–`5` for the project views — board/list/timeline/sprints/calendar, `G` then `H`/`I`/`M`/`R`/`D`/`O`/`S` for
-home/inbox/my issues/reports/dashboards/project overview/project settings, `[` collapses the sidebar to an icon rail (`taskira.sidebar.collapsed`), `Esc`, `?` help — ADR-0013 §7) are wired in `App.tsx`;
-they are suppressed while a modal is open. `⌘K`/`Ctrl+K` (matched by `e.code`, so it works in the Russian layout)
-opens the command palette from anywhere (`CommandPalette.tsx`, lazy chunk; `src/palette/` — fuzzy + wrong-layout
-matching, recent issues in `localStorage`, `openPalette()` event for buttons). `reports` (`ReportsView.tsx`) is project-less —
-it reads `/api/reports/*`, which scope themselves to the user's visible projects.
+One serving API process per database ([ADR-0024](docs/adr/0024-single-serving-api.md)): startup holds a PostgreSQL session lock and
+exits if it loses it. Stop the old API before upgrading; rolling or multi-replica deployment and transaction-mode PgBouncer are
+unsupported. There is no multi-tenancy (one database per organization, [ADR-0009](docs/adr/0009-database-per-tenant.md)).
 
-**Settings — three homes** (ТЗ 5.9, ADR-0013 §2, `docs/design/IA.md` §3): `ViewId` `settings` (personal, `/settings/:section`),
-`projectSettings` (`/p/:projectKey/settings/:section`) and `orgSettings` (`/admin/:section`), sub-page in `ui.section`
-(`setView(view, section)`). Section lists — `src/settings/sections.ts`; who sees what — `src/settings/access.ts`
-(`allowedSections`: project general/modules/archive and the whole organization home are global-admin only — the server's
-`PATCH/DELETE /projects/:id` and admin routes require it; workflow/fields/templates/access are open to every member,
-read-only without `editWorkflow`/`manageAccess`, as before); open a home with `useOpenSettings()` so it lands on a section
-the person may see. Screens: `src/components/settings/` (`SettingsView` shell; `PersonalSettings`, `ProjectSettings`,
-`OrgSettings`), the old `WorkflowView` (split by `part`), `PermissionsView` (the only place for project members) and
-`AdminView` (departments + project creation only). Every setting has exactly one home; env-only values are shown
-read-only with an `env` tag. `GET /api/admin/license` (read-only, `routes/license.ts`) feeds the license page.
+### i18n (Russian and English)
 
-**Big screens are split by file, not by behaviour:** the board is `Board.tsx` (screen) + `BoardColumn.tsx` (column and its
-paged card list) + `BoardCard.tsx` (card, skeleton, drag ghost); the list is `Backlog.tsx` + `BacklogRow.tsx` +
-`BacklogFilters.tsx`; the issue card is `IssueModal.tsx` + `IssueModalFields.tsx` (collaborators, attachments, subtasks,
-checklist, custom fields, links, actions) + `IssueModalParts.tsx`; `MentionText.tsx` is separate so `SoloView` doesn't pull
-the card. On the server `routes/issues.ts` holds hooks, schemas and responses; the list queries are in
-`services/issueList.ts` and the PATCH logic in `services/issueUpdate.ts`.
+The whole client UI exists in both languages. Code is in `src/i18n/`: `ru.ts` is the source dictionary (flat `"domain.key"`), `en.ts`
+is typed `Record<keyof Dict, string>` so TypeScript refuses a missing or extra key, `index.tsx` provides `useT()` returning
+`{ lang, setLang, t, tn, errText }`.
 
-The store also exposes **`idx`** alongside `data`: prebuilt `Map`s (`users`, `issues`,
-`statuses`) and a `doneStatusIds` `Set`. Use them instead of `data.users.find(...)` inside
-list/card renders — the linear scans were quadratic across a board.
+- Use `t(key, params?)`; use `tn(n, one, few, many)` for counts instead of a local plural helper. Shared labels come from the
+  dictionary (``t(`priority.${p}`)``, `issueType.*`, `complexity.*`, `permission.*`, `role.*`), not from `.name` fields.
+- **`src/i18n/cyrillicGuard.test.ts` fails on Russian text in client code outside the dictionary**, unless it is an RU/EN pair, a
+  developer message (`console.*`, `throw new Error`, `new ApiError`), a Russian-layout hotkey, or a file in its `FILE_ALLOW` with a
+  reason. Add dictionary keys instead of silencing it. The store uses `local(ru, en)` pairs for toasts.
+- User and admin data is never translated: workflow status names, project and team names, issue text, comments, job roles.
+- **Server errors:** show them through `errText(e, fallback)` (`apiErrorText()` in `src/i18n/apiErrors.ts`), not `e.message`. Russian
+  UI shows the server's Russian `reason`; English maps `ApiError.code` to an `apiError.<CODE>` key, and an unmapped code falls back
+  to `fallback`. `apiErrors.test.ts` scans `server/src` and fails if a thrown code has no dictionary entry. Do not add English
+  strings to server handlers. `denialReason()` stays the Russian mirror of the server; the UI shows `denialText()`.
+- **Issue history is data:** `logActivity(issueId, actorId, event)` (`server/src/services/activity.ts`) takes an `ActivityEvent`, a
+  closed zod union in `contract.ts`, and stores `activity.kind` + `payload` plus the Russian phrase in `text`. The client renders the
+  event through `activity.*` keys (`src/activityText.ts`). A new history event means: a union member, an `activityText()` case, two
+  dictionary keys, an `activityLine()` case. Never call `logActivity` with free text. New history also needs a thin-body mapping in
+  `services/webhookPayload.ts` (unknown history is not forwarded).
+- Email is rendered in the recipient's language from `MAIL_STRINGS` (`server/src/services/emailTemplates.ts`; `users.lang` is set
+  by `PUT /api/me/lang`; shape checked by `mailLang.test.ts`). The in-app help has matching RU and EN sections (`DocsView.test.tsx`).
+- **The Russian dictionary is split to keep startup small:** `ruCore.ts` holds the keys read by modules reachable statically from
+  `main.tsx` and ships with startup; `ruLazy.ts` holds the rest and is a separate chunk (`ru.ts` only composes the two for types
+  and tests; never import `ru.ts` or `ruLazy.ts` from startup code). Put a new key where its reader lives. Load lazy screens and
+  dialogs with `lazyView()` / `withRuLazy()` from `src/i18n`, not bare React `lazy()`: they wait for `ruLazy` so a screen never
+  renders with blank labels. `src/i18n/ruSplit.test.ts` enforces all of this; `e2e/ru-lazy-dictionary.pw.ts` checks it in a browser.
+- The English dictionary is a lazy chunk (`loadLang()`); the UI language is in `localStorage` (`taskira.lang`).
+- UI says «команда» / "team" for what code, API, DB and env call `department`.
 
-### Import (Trello, Jira, Asana) is entirely client-side
+### Design tokens, motion, components
 
-`src/import/trello.ts` parses a Trello board's JSON export (`parseTrelloExport`, a pure
-function with its own unit tests using a hand-written fixture — there is no live Trello account
-in this environment to pull a real export from, so the fixture is only as good as the publicly
-documented schema) into `{title, description, labels, dueDate, closed}[]`. `store.importIssues()`
-(`store.tsx`) then POSTs each one through the exact same `issuesApi.create()` (and therefore the
-exact same server-side permission check and validation) that a normal single "Создать" goes
-through — one request per card, sequentially, no new bulk endpoint. That was a deliberate
-trade-off: a server-side bulk-import endpoint would mean *untested* parsing code running with
-real database writes; keeping the parse client-side and reusing the already-tested single-issue
-path means the only new, review-worthy code is the pure parser, and it's the one piece that
-actually needed new tests. One summary toast ("Импортировано N из M") replaces per-issue
-toasts — 50 "успешно создана" toasts from one import would be noise, not signal. `ImportModal.tsx`
-(entry point: a button in `Backlog.tsx`'s header, gated by `can("create")`) reads the file with
-`FileReader`, shows the parsed count and a "include archived Trello cards" checkbox before
-committing to anything, and reports live progress during the import. Each Trello list name
-becomes a `trello:<list name>` label on the issue (so nothing about the original board structure
-is silently discarded) rather than being mapped onto a Taskira workflow status — inventing that
-mapping (which Trello list is "todo" vs "done"?) isn't something the file alone can answer
-reliably, and getting it wrong would misfile every imported card into the wrong column. Trello
-members aren't mapped to Taskira users either, for the same reason — identity across the two
-systems doesn't line up, and a wrong-assignee guess is worse than leaving it unassigned. Import
-from Jira and Asana uses their CSV exports. `src/import/csv.ts` preserves repeated columns and
-quoted line breaks; `jira.ts` and `asana.ts` are separate pure parsers tested with hand-written
-fixtures based on public export documentation. Status/section names become `jira:`/`asana:` labels,
-and source users are not mapped to Taskira users. `ImportModal.tsx` is loaded lazily from the list
-header, limits files to 20 MB, previews skipped/closed issues, and calls the same `store.importIssues()`
-path. No server endpoint or migration is involved.
+- Every colour lives in `src/styles/tokens.css` (OKLCH primitives, semantic tokens, legacy `--c-*` aliases). **No raw `#hex` or
+  `rgb()` in components** (`colors:check`); declared text/background pairs must stay at 4.5:1 (`contrast:check`). Themes override only
+  the semantic layer. See `docs/design/DESIGN.md` and ADR-0012/0016.
+- `motion:check` fails an animation or transition whose duration is not a `--dur-*` token (or exceeds 450 ms), or a moving animation
+  not overridden under `prefers-reduced-motion`. The only entry to `motion/mini` is `src/motion.ts`; every function there honours
+  `motionReduced()`. Changing motion means updating `docs/design/MOTION.md` ([ADR-0035](docs/adr/0035-motion-library-spike.md)).
+- `antilist:check` fails on `uppercase` caps labels (`first-letter:uppercase` is fine) and a trailing arrow in a dictionary string.
+- No `backdrop-filter` on large surfaces (sidebar translucent, work sheet opaque; ADR-0023/0027); only small floating `.glass`
+  surfaces may use it. Font is Manrope only; icons are the in-house set in `src/icons.tsx`.
+- Components are `src/ds/` on native `<dialog>` and the Popover API with `@floating-ui/dom` (ADR-0014; Radix was rejected because its
+  scroll lock injects `<style>`, which the CSP blocks). Popups are `ds` `Menu` / `Popover`, never hand-rolled open/close state. A
+  `Dialog` takes `onClose` inline. Escape handled inside a window must `preventDefault()` so the window stays open. The reasons are
+  in ENGINEERING-NOTES ("Client UI components"); the component map is `docs/design/COMPONENTS.md`.
+- **Bundle budget and entry chunk:** `bundle:check` compares gzip JS/CSS and the "startup" metric (entry plus every `modulepreload`)
+  with `scripts/bundle-budget.json` ([PERF-BUDGET](docs/design/PERF-BUDGET.md)). Modules in the entry chunk (Board and what it imports
+  statically, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted, `WorkspaceControls`, `BoardBackgroundControl`) import
+  `ds` components from their files (`../ds/Button`), not the `../ds` barrel, and take `Menu` / `Popover` from `ds/LazyOverlay`; code
+  that only shows or hides a popover uses `showPop` / `hidePop` from `ds/pop.ts`, not `ds/floating.ts`. `Button`, `IconButton` and
+  `AvatarGroup` use the lazy `ds/LazyTooltip` (`dsId` is in `ds/ids.ts`). Importing `Select` from the file, not the barrel, is the same
+  rule. Otherwise `Overlay` and `@floating-ui/dom` land in `modulepreload`.
+- **Dynamic styles under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md)): CSSOM writes (`el.style.x`,
+  `setProperty('--x')`, WAAPI) are allowed; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked (`style-src-attr 'none'`).
+  For continuous values (positions, progress, colours from data) set a custom property with `ref={cssVars({"--x": 12})}`
+  (`src/cssVars.ts`) and read it in a static class (`left-[var(--x)]`); enumerable states go in `data-*` attributes. `secure-jsx`
+  turns each distinct `style` value into a new rule in `public/dynamic.css`, which is unbounded, so avoid `style={...}`.
 
-### Client i18n (RU/EN) — foundation, not full coverage
+## Architecture map
 
-`src/i18n/` — `ru.ts` (the source-of-truth dictionary, flat `"domain.key"` strings, `as const`),
-`en.ts` (typed `Record<keyof Dict, string>` — TS refuses to compile if a key is missing *or*
-if an extra one is added that `ru.ts` doesn't have, so the two can't silently drift), and
-`index.tsx` (`I18nProvider` + `useT()` → `{ lang, setLang, t, tn }`). `t(key, params?)` does
-`{param}` interpolation; `tn(n, oneKey, fewKey, manyKey)` picks the grammatically correct
-dictionary key for a count (Russian 1/2-4/5+ with the 11-14 exception, English singular/plural)
-— use it instead of a local `plural()` helper (two near-identical copies of one existed in
-Board.tsx and HomeView.tsx before this existed; both are gone now). The UI language lives in `localStorage`
-(`taskira.lang`, default `"ru"`), switched from the same "Оформление" popup as the theme picker (`AppearanceSettings` in
-`ui.tsx`). The server only needs it for email: the store sends it with `PUT /api/me/lang` after sign-in and on every
-switch (`users.lang`, migration `20260929T1510_users_lang.sql`), and `notifier.ts` renders mail in the recipient's
-language from `MAIL_STRINGS` (`emailTemplates.ts`, RU/EN of one shape, checked by `mailLang.test.ts`).
+### Client
 
-**Coverage (track E, [docs/tracks/TRACK-E-ENGLISH-UI.md](docs/tracks/TRACK-E-ENGLISH-UI.md))**: the whole client UI is in both
-languages — screens read `t()`; store toasts use `local(ru, en)` pairs (the store's idiom); `ds` components take their
-default labels from the dictionary; the in-app help (`DocsView`) has a Russian and an English version with the same
-sections (`DocsView.test.tsx`). Shared labels `issueType.*` / `priority.*` / `complexity.*` come from the dictionary, not
-from `.name` fields on `ISSUE_TYPES` / `PRIORITIES` / `COMPLEXITIES` (call sites do `t(\`priority.${p}\`)`, which TS checks
-against the key union). **`src/i18n/cyrillicGuard.test.ts` fails on Russian text in client code outside the dictionary**
-unless it is a RU/EN pair, a developer message (`console.*`, `throw new Error`, `new ApiError`), a Russian-layout hotkey, or
-in a file listed in its `FILE_ALLOW` with a reason — add a key to `ru.ts`/`en.ts` instead of silencing it. Permission and
-role names in the UI come from `permission.*` / `role.*` keys; `denialReason()` stays the Russian mirror of the server,
-the UI shows `denialText()`.
+- **Data flow.** `src/store.tsx` is a React Context facade (`StoreProvider` / `useStore`) over domain modules in `src/store/`; a
+  gradual move to `useSyncExternalStore` selectors is ADR-0011. Toasts and notifications are external stores: use `useToasts()`,
+  `useNotifications()`, `useUnreadCount()` (not on `useStore()`). There is no public `useActions()`. Use `idx` (prebuilt `Map`s
+  and `doneStatusIds`) in list and card renders instead of scanning `data.users` or `data.issues`.
+- **Boot.** `App.tsx` calls `store.bootstrap()` (`src/store/session.ts`): `authApi.me()` with the HttpOnly session cookie (no JWT in
+  `localStorage`), 401 shows `LoginForm`. `bootStatus` is `idle | loading | ready | unauthenticated | error | solo | home` (`solo`:
+  invited to single issues but in no project; `home`: two or more visible projects and none entered, URL `/`). When you add a
+  `bootstrap()` branch or change what an API method returns, extend `src/store.bootstrap.test.tsx`; a cast once hid a shape
+  mismatch that crashed the app.
+- **HTTP layer.** `src/api/index.ts`: a generic `api()` plus typed objects (`authApi`, `projectsApi`, `issuesApi`, ...). Errors are
+  normalized to `ApiError { status, code, reason }`; a 401 invalidates the client session epoch. Async issue reads, PATCH and
+  transitions capture project id and session epoch and ignore stale results after navigation or re-login. `API_BASE` comes from
+  `VITE_API_URL` (default same origin). Server DTOs are camelCase and mapped by `mapIssue` / `mapUser` (`src/store/mappers.ts`);
+  mutations call the API and then patch `data` from the returned DTO.
+- **Views and URLs.** `ViewId` (`src/types.ts`): `overview | board | backlog | sprints | timeline | calendar | reports | roadmap |
+  dashboards | settings | projectSettings | orgSettings | docs | collaborating | inbox | my`. `ui.view` selects the screen in
+  `App.tsx` and `useRouterSync.ts` mirrors it into the URL with `wouter` (ADR-0008, ADR-0013 §5). Paths (`src/router.ts`):
+  `/p/:projectKey/{overview,board,list,timeline,calendar,sprints}`, `/p/:projectKey/settings/:section`, `/settings/:section`,
+  `/admin/:section`, and project-less `/inbox`, `/my-issues`, `/reports`, `/roadmap`, `/dashboards[/:id]`, `/help`, `/shared`. A
+  project-less path at boot opens inside the last project's shell. Old `/p/:projectKey/<view>` links still parse and are replaced in
+  place (`samePlace()`). An open issue is `?issue=KEY` on the view path (`ui.issueMode = "panel"`; `J`/`K` walk `data-issue-id` order via
+  `src/issueNav.ts`) or `/p/:projectKey/issue/:issueKey` as a full page (`"page"`; used by Inbox, My issues, search and shared links).
+  `GET /api/issues/resolve` maps a key to an issue without naming a project. `nginx.conf` `try_files $uri /index.html` makes a hard
+  refresh work. `backlog` is the internal id of the list view (`Backlog.tsx`).
+- **Settings have three homes** (ADR-0013 §2): `settings` (personal), `projectSettings`, `orgSettings`, section in `ui.section`. Section
+  lists are in `src/settings/sections.ts`, visibility in `src/settings/access.ts` (`allowedSections`); open a home with
+  `useOpenSettings()`. Screens are in `src/components/settings/`; project members live only in `PermissionsView`. Every setting has
+  one home; env-only values show read-only with an `env` tag.
+- **Shortcuts** (wired in `App.tsx`, off while a modal is open): `/`, `C`, `1`-`3` and `5` for board / list / timeline / calendar (`4` is
+  sprints, only when the project has them), `G` then `H I M R D O S`, `[` collapses the sidebar, `?` help, `Esc`. `Ctrl/Cmd+K`
+  (matched by `e.code`, so it works in the Russian layout) opens the lazy command palette (`src/palette/`).
+- **Big screens are split by file:** board = `Board.tsx` + `BoardColumn.tsx` + `BoardCard.tsx` (the done-column window
+  `DONE_WINDOW_DAYS` is in `src/boardFilters.ts`); list = `Backlog.tsx` + `BacklogRow.tsx` + `BacklogFilters.tsx`; issue card =
+  `IssueModal.tsx` + `IssueModalFields.tsx` (collaborators, attachments, subtasks, checklist, custom fields, links) +
+  `IssueModalParts.tsx`; `MentionText.tsx` is separate so `SoloView` does not pull the card.
+- **Other client pieces.** Dashboards: `src/dashboards/` and `DashboardView.tsx`. Time scale for Timeline and roadmap:
+  `src/timeScale.ts` + `TimeCanvas.tsx` (reuse, do not write a second one). Branding: `src/brand.ts` and `<BrandMark>` / `useBrandName()`
+  instead of `<Logo>` or a hardcoded name. Onboarding: `src/onboarding.ts`. Project appearance: pass `icon`/`color` to `ProjectMark`
+  or use `lookOf()` from `src/projectLook.tsx`. People pickers are the `ds` `Combobox` over `usersApi.pickable()`; never load the whole
+  directory into a `<select>`. Imports from Trello, Jira and Asana are client-side parsers in `src/import/` that call the normal
+  `issuesApi.create()` through `store.importIssues()`.
 
-**Issue history is data, not text** (track E, migration `20260929T1500_activity_kind.sql`): `logActivity(issueId, actorId,
-event)` (`server/src/services/activity.ts`) takes an `ActivityEvent` — a closed zod union in `contract.ts` — and writes
-`activity.kind` + `payload` **and** the same Russian phrase into `text` as before (older clients, export, rows from before
-the migration). The client renders `event` through the `activity.*` dictionary keys (`src/activityText.ts`); a row with
-`event: null` shows its `text` in Russian UI and, in English, is parsed back from the known phrases. Names of people and
-statuses in an event are a snapshot at write time. Add a new history event = a new union member + `activityText()` case +
-two dictionary keys + a case in `activityLine()`; never a free-text `logActivity`.
+### Server
 
-**Server-originated text** is localized on the client by error code (the server still has no locale): `src/i18n/apiErrors.ts`
-`apiErrorText()` — exposed as `errText(e, fallback)` from `useT()` and used by the store's `handleApiError` — shows the
-server's Russian `reason` as-is in the Russian UI, and in English maps `ApiError.code` to an `apiError.<CODE>` dictionary
-key (generic codes like FORBIDDEN/CONFLICT/VALIDATION are prefixed with the action's `fallback`; an unmapped code falls
-back to `fallback`, never to the Russian reason). `src/i18n/apiErrors.test.ts` scans `server/src` and fails if a code the
-server throws has no dictionary entry. Show API errors through `errText`, not `e.message`. Don't add English strings to
-server route handlers — that just swaps which single language is hardcoded.
+Order at startup: `index.ts` loads config, `initPool`, `migrate()`, startup seeds (`seedStartup.ts`: first admin, project `CORP`,
+instance row), `buildApp()`, then listens. `app.ts` registers plugins, the unified error handler (`{ error: { code, reason } }`),
+`/api/health` and all routes under `/api`.
 
-User-authored or admin-configured content is **out of scope for `t()` by design, not an
-oversight**: workflow status names, project/department names, issue titles/descriptions,
-comments, and job-role text all come from the database and stay whatever language the person
-who typed them used — there is no dictionary key for someone's actual data.
-
-### Server structure
-
-`index.ts` (bootstrap: config → pool → migrate → seed → `buildApp` → listen) →
-`app.ts` (Fastify plugins, unified error handler emitting `{ error: { code, reason } }`,
-`/api/health` with DB check, route registration all under `/api`).
-
-- `routes/` — thin HTTP handlers, one file per resource. Permission hook + zod schema in the
-  route options, business logic inline or delegated to `services/`.
-- `services/maintenance.ts` — background loop: auto-archives issues closed longer ago than
-  `ARCHIVE_AFTER_DAYS` (default 30) and prunes `audit_log`. Separate from `notifier.ts`, which
-  only starts when `NOTIFY_EMAIL_ENABLED`; archiving must run regardless. ADR-0024 permits one serving API per
-  database. Use stop-first deployment; multi-replica/rolling deployment and transaction-mode PgBouncer are unsupported.
-- `services/reports.ts` / `routes/reports.ts` — reporting. Visibility is resolved through
-  `listVisibleProjects()` and passed into queries as `project_id = ANY($ids)`, so the
-  visibility predicate is **not** duplicated a fourth time here.
-- `services/` — domain helpers: `issues.ts` (DTO map, `nextIssueNum` atomic counter),
-  `workflow.ts` (`DEFAULT_STATUSES`/`DEFAULT_TRANSITIONS`, `assertTransition` → 409 on
-  illegal move), `rank.ts` (fractional `issues.rank` float8; midpoint insert, column
-  rebalance when gap `< 1e-9`, whole calculation under `pg_advisory_xact_lock` keyed by
-  status column so concurrent drags into the same slot don't race to the same rank),
-  `project.ts` (`projectById()`, cached — resolved per `:projectId`, not a singleton: multi-project
-  within one installation since migration 007. **No multi-tenant** in the ADR-0009 sense still
-  holds — no `organization_id` anywhere — but "single project" stopped being true back at that
-  migration and this line just hadn't caught up; see [docs/adr/0009-database-per-tenant.md](docs/adr/0009-database-per-tenant.md)).
-  `maintenance.ts` runs three independent background jobs on a shared `startJob(name,
-  intervalMs, startDelayMs, run)` helper (not one bespoke timer per job — that was the
-  original shape and it triplicated the same ~20 lines of guard-flag/setInterval/log
-  boilerplate; `startJob` also makes `stop()` reliably reset the in-flight guard flag, which
-  the copy-pasted versions didn't, silently wedging a job forever if `stopMaintenance()` ran
-  mid-tick): archive + `audit_log` purge every `intervalMs` (default 1h, first pass after `MAINTENANCE_START_DELAY_MS`, default 5 min, in `MAINTENANCE_BATCH_SIZE` batches under `FOR UPDATE SKIP LOCKED`, capped by `MAINTENANCE_MAX_PER_RUN`; advisory lock prevents overlap with manual maintenance (serving API remains single-process per ADR-0024); metrics `taskira_background_job_*`; admin `GET /api/maintenance` + `POST /api/maintenance/run?dryRun=` — MAINT-01),
-  `storageSweeper.ts` every `storageSweepIntervalMs` (default 24h, `startDelayMs=15s` — a full
-  `Storage.list()` is pricier than one `UPDATE`), and (when `AUTH_MODE=ldap` + a bind DN)
-  `departmentSync.ts`'s LDAP resync every `resyncIntervalMs` (default 6h, `startDelayMs=30s`).
-  The staggered `startDelayMs` values exist so a fresh deploy doesn't fire a full storage scan,
-  a full LDAP directory sync, and the archive pass all in the same instant. The sweeper diffs
-  `Storage.list()` against `attachments.storage_key` and deletes objects with no matching row
-  (bounded concurrency, `DELETE_CONCURRENCY` in `storageSweeper.ts` — sequential one-by-one
-  network deletes were a review finding too), but skips anything younger than
-  `storageSweepGraceMs` (default 24h) — `routes/attachments.ts` writes the object via
-  `storage.put()` *before* the `INSERT INTO attachments`, so a just-uploaded object is briefly
-  visible to `list()` without a DB row yet; the grace period is the guard against sweeping it
-  mid-upload.
-- `services/license.ts` (ТЗ 4.3, plan v2 Track 4) — offline license: an RS256-signed token
-  (`header.payload.signature`, base64url, `node:crypto` directly — no new JWT dependency), verified
-  against `server/src/licenseTrustedKeys.ts`'s `kid`-keyed public-key registry, never against
-  `JWT_SECRET` (that's a separate, symmetric key for user sessions). `kid` support and a multi-key
-  registry are there from the start — without it, key rotation is permanent breakage, and a leaked
-  private key has no recovery path. `getLicenseStatus()` reads `instance.license_key` with its own
-  `SELECT`, deliberately bypassing `services/instance.ts`'s `getInstance()` cache, since
-  `scripts/install-license.ts` writes that column from a separate one-off process with no way to
-  call `invalidateInstanceCache()` on the running server. Seat counting (`countActiveSeats`) counts
-  users who logged in within `activeWindowDays` (a field *in the license itself*, default 30 at
-  issuance — not a server constant), not `count(*) FROM users`: LDAP JIT-provisioning
-  (`userProvisioning.ts`, `departmentSync.ts`) creates user rows automatically on first login and on
-  background AD resync, with no purchaser involvement, so counting all rows would blow a seat limit
-  on day one for any client with a large AD tree, regardless of how many people actually use
-  Taskira. `users.last_login_at` (migration `20260922T1600_users_last_login.sql`, set in
-  `routes/auth.ts` on every successful login) is what this counts against — not `audit_log`, whose
-  retention (`AUDIT_RETENTION_DAYS`) is independently configurable and could silently drop below the
-  license's window. Expiry is a grace period, not a hard stop: `checkLicenseAndWarn()` (run at
-  startup and once every 24h, `startLicenseCheck()`/`stopLicenseCheck()`) only writes
-  `audit_log` (`license.expired` / `license.invalid` / `license.seats_over_limit`); nothing blocks a
-  request. `requiresPlan(feature)` (`middleware.ts`, same shape as `requirePerm`) exists but is
-  intentionally wired to zero routes in this PR. `docs/LICENSE_KEYS.md` covers private-key custody,
-  rotation, and breach response — the private key itself never enters this repo.
-- `db.ts` — thin `pg` wrapper: `q` / `one` / `exec` / `withClient` (dedicated client for
-  race-free read-then-write). `migrate()` applies `server/migrations/*.sql` in filename order,
-  each file in one transaction, tracked in `schema_migrations`. New migration policy and naming
-  are defined in [docs/MIGRATIONS.md](docs/MIGRATIONS.md); do not allocate another sequential
-  number after the legacy `001`–`029` series.
-- `config.ts` — env only (no secrets in code), loaded once and cached. Parses `server/.env`
-  itself (no dotenv dep). Fails fast if `DATABASE_URL` missing or `JWT_SECRET` < 32 chars.
-  Production `index.ts` permits one serving API per database (ADR-0024); startup holds a dedicated
-  PostgreSQL session lock and exits on loss of that connection. Stop the old API before upgrading.
-- `middleware.ts` — `requireAuth` verifies JWT but re-reads `global_role` / `is_active` from
-  the DB (30s in-memory cache) so role changes and deactivation take effect without waiting
-  for token expiry. The same lookup checks the token's `iatMs` (milliseconds, not JWT's
-  second-granularity `iat`) against `users.tokens_valid_from`; `POST /api/auth/logout`
-  (migration 017) bumps that column so a copied/stale token stops working immediately instead
-  of surviving to its 12h expiry. Project resources live under
-  `/api/projects/:projectId/...` (issues, comments, attachments, collaborators, members,
-  workflow); `requirePerm` resolves the caller's membership for that `:projectId`.
-  `assertFreshUser(userId, iatMs)` — the DB-freshness half of `requireAuth` (active/revoked
-  check), factored out so `routes/ws.ts` can reuse it without going through
-  `req.jwtVerify()`'s header-based extraction (a browser `WebSocket` can't set an
-  `Authorization` header on the handshake). **Two cache-invalidation functions, not one** —
-  `invalidateUserCache(userId)` is cheap and safe to call on *any* write to a user row, even a
-  no-op one (LDAP re-login on every successful auth, an admin re-saving an unchanged row): it
-  only evicts the 30s cache so the next check re-reads fresh. `revokeUserSessions(userId,
-  reason)` does that *and* closes the user's open `/api/ws` sockets (`services/wsHub.ts`
-  `closeUserSockets`) — call it only for a genuine revocation (logout, deactivation, a role
-  change that actually changed something), never unconditionally on every touch of the row.
-  Conflating the two was a real bug caught in review: routing every LDAP re-login or identical
-  admin PATCH through the WS-closing path force-disconnected other live tabs/devices for
-  users whose access hadn't changed at all.
-- `audit.ts` — fire-and-forget `audit_log` inserts; never throws into the request.
-- `routes/ws.ts` + `services/wsHub.ts` — `GET /api/ws` carries two things: the notification
-  push (Этап 3c) and project realtime sync ([ADR-0036](docs/adr/0036-durable-project-realtime.md),
-  `services/realtime.ts`, protocol in [docs/REALTIME.md](docs/REALTIME.md)). After `auth_ok` a client
-  sends `{type:"sync:subscribe", projectId, cursor}` (one subscription per connection, the next
-  replaces it); the server answers with `sync` batches that only say *what to re-read* — the
-  client then calls `GET /api/projects/:projectId/sync`, never applies a pushed card. `presence`
-  is still unimplemented. Auth: the browser is authenticated by the same HttpOnly session cookie
-  during the handshake; a first message `{type:"auth",token}` is kept for older and CLI clients
-  (never a query param — it would land in access logs). A 5s timer closes the socket (1008) if
-  neither arrives or it fails `app.jwt.verify` + `assertFreshUser`. On success the server replies
-  `{type:"auth_ok"}` — the client (`src/realtime.ts`) waits for exactly this message, not the transport-level `onopen`, to reset its reconnect backoff; resetting
-  on `onopen` was a real bug (caught in review) that made the backoff never compound on
-  repeated auth failure — a tab with a revoked token hammered `/api/ws` roughly once a second
-  forever instead of backing off. `wsHub.ts` keeps a `Map<userId, Set<WebSocket>>`;
-  `services/notify.ts` `emit()` calls `pushToUser(id, {type:"notify"})` for every recipient in
-  its own try/catch (separate from the notification-creation try/catch above it, so a push
-  failure — e.g. a socket closing mid-send — doesn't get logged as if the notification itself
-  failed to create) right after the `INSERT INTO notifications` — no notification payload over
-  the socket, just a "go refetch" signal, so the client reuses the already-authorized REST path
-  instead of a second serialization. Three races worth knowing before touching this, all found
-  in review and fixed: (1) the handshake checks `socket.readyState === socket.OPEN` right after
-  the `assertFreshUser` DB round-trip, before registering — without it, a slow DB call racing
-  the 5s auth timeout registers an already-closed socket that `unregisterSocket()` (fired from
-  `close`) never runs for again, leaking the map entry forever; (2) `revokeUserSessions()`
-  closes only *already-registered* sockets, so a revocation landing in the DB-round-trip window
-  between `assertFreshUser` and `registerSocket()` would find nothing to close and the socket
-  would then register anyway, unaffected — `wsHub.ts` `revokedSince(userId, sinceMs)` closes
-  this: `routes/ws.ts` stamps `handshakeStartedAt` before the round-trip and checks
-  `revokedSince(userId, handshakeStartedAt)` immediately after `registerSocket()` with no
-  `await` in between (atomic w.r.t. any concurrent revoke — Node has no other way for code to
-  interleave there), closing the socket itself if a revocation landed mid-handshake;
-  (4) `userId` alone isn't a strong-enough re-entrancy guard for the `message` handler — it's
-  only set *after* `assertFreshUser` resolves, so a second "auth" frame arriving before the
-  first's DB round-trip finishes would pass `if (userId) return` too and start its own
-  concurrent verification, possibly for a different user, with whichever resolves last winning
-  `userId` and the other's `registerSocket()` call leaking an entry nothing ever
-  `unregisterSocket()`s. `authStarted` is a separate boolean set synchronously *before* the
-  first `await`, so it closes over the whole handshake attempt, not just its outcome — the
-  general shape (a sync latch set before you commit to an async exclusive section, checked
-  instead of a value only assigned deep inside it) is the fix, not the specific variable.
-  `storageSweeper.ts`'s delete loop and `notify.ts`'s push loop got the same class of fix in
-  the same review: both used to wrap an entire batch/loop in one `try/catch`, so one failing
-  `Storage.delete()` or one `pushToUser()` throw aborted every later item in the same run —
-  each is now try/catch'd per-item so one failure doesn't take down the rest.
-
-### Integrations (track L)
-
-- `integration_events` is the transactional outbox; PostgreSQL triggers on `activity` and `comments` emit events
-  only for eligible active subscriptions. An event requires a committed history row or comment; rollback removes both.
-- Changes to one issue in one transaction coalesce into one event; never emit webhooks from route handlers.
-- New history behavior needs a member of `ActivityEvent` in `contract.ts` and an explicit thin-body mapping in
-  `services/webhookPayload.ts`; unknown history is ignored, never forwarded wholesale.
-- `webhook-dispatch`, `due-events` and `recurring` use `startJob` with the existing maintenance lifecycle.
-  `MAINTENANCE_ENABLED=false` stops these loops; reminders and notifier have their own switches.
-- Operator env defines the SSRF allowlist/deny ranges. Check and pin every attempt's DNS result; no redirects/proxies.
-- `secretBox` encrypts subscription URL/signing secrets with `WEBHOOK_SECRET_KEY`; store that key outside backups.
-- API tokens start with `tsk_`, store only a hash, and act as project members. `requireSession` excludes tokens;
-  `requireAuth` accepts scoped tokens. `requireGlobalAdmin` rejects every API token, including an admin owner's token.
-- Service accounts have `auth_source='service'`: no password/LDAP login, notifications or human pickers.
-  Assign explicit project membership before using their tokens; do not grant global admin.
-- Recurring uses `createIssueInTx`; `(rule_id, scheduled_for)` prevents duplicate occurrences and downtime yields one
-  catch-up issue. Rules use calendar time in their own zone; monthly intervals include 1, 3, 6 and 12 months.
-- Owner access is rechecked at execution; loss of `create` pauses the rule until an administrator confirms resuming.
-- Host scripts write `ops_runs`; the API is read-only. Backup/drill reports include redacted failures, never secrets.
-- `GET /api/admin/status` is a global-admin session snapshot of 11 independent checks (5 s deadline, 15 s cache).
-  `/ready` and `/api/health` keep their readiness response; UI refresh is manual, history loads on disclosure.
-- Operator procedures: [OPERATIONS](docs/OPERATIONS.md); contracts/thresholds: [server README](server/README.md).
-
-### Data model notes
-
-Workflow is a DB-backed directed graph: `workflow_statuses` (with stable `sid`:
-`todo`/`inprogress`/`review`/`done`) + `workflow_transitions` (edges). Every status change
-(`POST /api/projects/:projectId/issues/:id/transition`) is checked against the transitions
-table — even an admin cannot move an issue against the schema. `admin` edits the graph via
-`POST/DELETE /api/projects/:projectId/workflow/transitions` and `.../workflow/reset` (statuses
-are never deleted).
-
-Issue types: `task | bug | request` only (migration 002 collapsed `story`/`epic` → `task`;
-grouping survives via nullable `issues.epic_id`, timeline fields `t_start`/`t_span` kept).
-Issue keys (`CORP-1`) are assigned by the server via the atomic `project_counters` upsert.
-Direction ("epic") child counts are **stored on the direction's own row** (`issues.epic_child_total/done`, EPIC-01,
-migration `20260930T0500`) and kept by triggers with ±1 deltas — `GET …/issues/epics` reads them through
-`idx_issues_active_epics` instead of aggregating every child. Never maintain them from application code; a new
-write path is covered automatically. Checking and repairing drift: `docs/OPERATIONS.md`.
-Priorities: `low | medium | high | critical` (migration 013 collapsed the old 5 levels).
-Issue links (`issue_links`, migration 014): `relates` (symmetric) or `blocks` (directed);
-`blocked_by` is `blocks` seen from the other end, not a stored row. The old numeric
-`points` (Scrum story points, dropped from the card UI in round4 but left dangling in the
-schema/contract) was replaced outright by `complexity` — a plain three-value scale
-(`simple | medium | hard`, `COMPLEXITIES`/`COMPLEXITY_ORDER` in `types.ts` ↔ `COMPLEXITIES`
-in `contract.ts`) — migration 018. It has no dedicated client validator, same as
-`priorityId`: the type system and a fixed dropdown are enough, no numeric range to check.
-
-Multiple assignees (`issue_assignees`, migration 025, `services/issues.ts`): the old single
-nullable `issues.assignee_id` was replaced outright by a join table — a flat list, no "primary"
-assignee, same shape as `issue_collaborators` (008) but a materially different concept: a
-collaborator is invited to one issue, sees it and can comment, but is never assignable; an
-assignee is a real project member doing the work, and there can now be zero, one, or several.
-`isOwnIssue` (both `permissions.ts` copies) widened from `assigneeId === me` to
-`assigneeIds.includes(me)` — an employee can edit an issue if they're *any* of its assignees, not
-just its sole one. `mapIssue(row, assigneeIds)` takes the ids as an explicit second argument
-rather than reading them off the row, since they no longer live in `issues` — callers either
-batch-load them for a list (`listAssigneeIdsBatch`, one query for N issues, not N) or load one
-issue's at a time (`listAssigneeIds`); `requireIssuePerm`'s hot path aggregates them into
-`IssueRef` with `array_agg` in the same round-trip as the rest of the row, not a second query.
-`PATCH .../issues/:id` treats `assigneeIds` as a full-list replacement (like `labels`), diffs
-it against the previous set for activity log lines and to notify only the *newly* added
-assignees (never a no-op re-notify of someone already on the issue), and writes the join table
-only when that diff is non-empty. Reports' `groupBy=assignee` breakdown deliberately fans out an
-issue across every one of its assignees (an issue with two assignees contributes to both rows) —
-overall totals are unaffected since that join only appears in the breakdown query, not the
-totals query; the CSV export instead `string_agg`s names into one cell, since a row-per-issue
-export can't fan out. `assignableUsers()` (client `store.tsx`) takes the issue's current
-`assigneeIds` (not a single id) so someone already assigned but since removed from the project
-still shows up in the picker instead of silently vanishing.
-
-Checklist (`checklist_items`, migration 019, `services/checklist.ts`): one row per item, on
-the same `edit`-permission model as `issue_links` — no dedicated permission, whoever can edit
-the issue manages its checklist. `position` is an integer assigned once at insert time
-(`COALESCE(MAX(position)+1, 0)` in the same `INSERT`) and never rewritten — there is
-deliberately no reorder endpoint in v1 (see the comment in the migration itself: if
-drag-and-drop ordering is ever needed, move to a fractional rank like `issues.rank`
-rather than adding one preemptively for a feature that doesn't exist yet). Two concurrent
-adds can race to the same position; `listChecklistItems` breaks the tie with `created_at`
-as a secondary sort instead of taking a lock over something this low-stakes. Activity
-(`logActivity`) is only written for add/remove, not for every check/uncheck — else the
-issue's history feed would drown in checkbox toggles. `LIMITS.checklistItemsPerIssue` (50)
-and `LIMITS.checklistItem.text` mirror between `server/src/contract.ts` and
-`src/validation.ts` like every other limit.
-
-Custom fields (`custom_fields`/`custom_field_values`, migration 020, `services/customFields.ts`):
-project-level definitions (`text | number | select | checkbox | date`), one value row per
-(field, issue) — NULL/absent row means unset, everything stored as `text` regardless of type
-since parsing depends on which field it is (`validateValueForField` in the service, not a
-static zod schema). Defining fields (`POST/PATCH/DELETE /custom-fields`) reuses the `editWorkflow`
-permission rather than a new `PermId` — it's the same "structural project schema" capability as
-workflow transitions, and adding a dedicated permission would mean touching the shared MATRIX
-(both `permissions.ts` copies + `permissions-sync.test.ts`) for one narrow feature. Setting a
-*value* on a specific issue uses plain `edit`, same as priority/complexity/labels. Managed in
-`WorkflowView.tsx` (schema-editing screen) alongside the workflow graph, not a separate view.
-
-Subtasks (`issues.parent_id`, migration 021): exactly two levels, no arbitrary nesting —
-`assignParentLocked()`/`validateParentAssignmentTx()` (`services/issues.ts`) refuse to set
-`parentId` to an issue that already has a parent itself (no "subtask of a subtask"), and refuse
-to give an issue a parent if it already has children of its own (no turning an existing parent
-into someone's child, which would silently make its own children three generations deep). The
-validation and the actual `INSERT`/`UPDATE` run inside one transaction under
-`pg_advisory_xact_lock` (same idiom as `rank.ts`), locked on both issues involved (the candidate
-parent and, when it already exists, the issue being reparented) — without this, two concurrent
-`PATCH`es could each pass validation against stale state and together build a 3-level chain
-(caught in review, PR #46). This is deliberately independent of `epicId` ("direction" — a
-free-form grouping with no depth limit and no link back to completion status); an issue can be
-both in a direction and someone's subtask at once. There is **no dedicated subtasks endpoint** —
-the client already loads the project's full active issue list into `data.issues` and filters by
-`parentId` locally (`IssueModal.tsx`'s subtasks section), the same way `TimelineView` already
-groups by `epicId` client-side; adding a server list endpoint for something the client can
-already derive for free would just be a second source of truth to keep in sync. `+ добавить
-подзадачу` opens `CreateIssueModal` with `ui.createParentId` pre-set (`store.tsx`'s
-`openCreateSubtask()`, separate from the plain `setCreateOpen()` so a normal "Создать" doesn't
-inherit a stale parent from a previous subtask flow) — the parent is fixed for that create, not
-user-editable in the form, since the whole point of the button is "a child of *this* issue."
-Deleting a parent does not delete its subtasks (`ON DELETE SET NULL`, same as `epicId`) — the
-child becomes an ordinary standalone issue rather than disappearing silently, and `deleteIssue()`
-on the client mirrors that FK by nulling `parentId` on the affected rows already in `data.issues`
-(same as it already did for `epicId`) so the UI doesn't show a dangling reference before the next
-refetch. Snapping `parentId` to `null` (unassigning) goes through `withIssueParentLock()` — the
-same advisory-lock helper `assignParentLocked()` uses, factored out — so a concurrent assign and
-unassign on the same issue serialize on the same primitive (`services/issues.ts`). The list of
-subtask rows shown in `IssueModal.tsx` is still derived from the client's already-loaded
-`data.issues` (active issues only, like everywhere else in the app), but the *count* badge
-("Подзадачи · N/M") comes from `getIssueDto.subtasksSummary` — a small aggregate query counting
-**all** children including archived ones — because the plain client-side filter would otherwise
-make the badge silently regress when a closed subtask ages into the archive (archiving isn't
-deletion; see Issue lifecycle below).
-Issue templates (`issue_templates`, migration 022, `services/issueTemplates.ts`): project-level
-presets (`name`, `typeId`, `priorityId`, a default title, a default description, and an optional
-starting `statusId`) managed from `WorkflowView.tsx` under the same `editWorkflow` permission as
-the workflow graph and custom fields — a third instance of "this is project-schema configuration,
-not worth a dedicated `PermId`." Applying one is **pure client-side prefill**: `CreateIssueModal`'s
-"Шаблон" dropdown copies the template's fields into the form's local state once, on selection —
-nothing is sent to the server about which template (if any) was used, and nothing stops the user
-from editing every field afterward. There is deliberately no link between a created issue and the
-template it came from; the template is a starting point, not a stamped relationship. Scoped
-independently of `checklist_items`/`issues.parent_id` (separate, unmerged branches at the time
-this was written) — a template does not (yet) carry a checklist or subtask structure to copy in;
-folding template support for those in is natural follow-up work once those branches land, not
-part of this one.
-
-Sprints (`sprints`/`issues.sprint_id`, migration 023, [SPRINTS_MIGRATION.md](SPRINTS_MIGRATION.md)):
-an **optional, off-by-default** module, not part of the base workflow — migration 012 removed
-sprints entirely (dead functionality, `SCOPE.md` scoped them out from the start) and that decision
-still holds for any project without the flag. `project.sprintsEnabled` gates it end to end: every
-`/sprints*` route and `PATCH .../issues/:id/sprint` 404 when it's off, regardless of role — not
-merely hidden in the UI. `manageSprints` (`admin`/`manager`) is a restored `PermId`, gating sprint
-CRUD *and* assigning an issue to a sprint (the latter via its own `PATCH .../issues/:id/sprint`
-sub-route, not a branch inside the general issue `PATCH` — unlike the pre-012 version, which had
-both; not worth reproducing that redundancy now that checklist/custom-field/link sub-routes
-already establish the "dedicated sub-route per concern" pattern). At most one `active` sprint per
-project is a DB-level guarantee (`uq_sprints_one_active_per_project`, a partial unique index), not
-just a route check. Completing a sprint moves its unfinished issues (`done_at IS NULL`) back to
-the backlog (`sprint_id = NULL`) in one transaction; there is no auto-carry into a next sprint.
-`project.sprintsEnabled` is a deliberately minimal capability flag — the seed of a future
-`ProjectCapabilities` model (sprints, WIP limits, estimation mode, board layout, vocabulary) that
-a later pass will generalize, not reinvent; this migration does not build that model, only the one
-flag it needs today.
-
-Project templates (`project_templates`, migration `20260927T1000_project_templates.sql`, [ADR-0017](docs/adr/0017-project-templates-as-data.md),
-`services/projectTemplates.ts`): a template is **data over existing project settings** — statuses (own `sid`s allowed),
-transitions, custom fields, issue templates, suggested labels, default view — never code. Five built-ins live in
-`server/src/templates/builtin.json` (ТЗ 5.10 caps them at 5); organisation templates are rows saved from a project
-(`POST /projects/:id/save-as-template`, PermId `saveProjectTemplate`). `POST /projects` with `templateId` + `members[]`
-creates the project, applies the template and adds members in **one transaction**. Workflow reset returns 409 for a
-project whose statuses aren't the default four (reset would orphan its issues). New project columns: `default_view`
-(bootstrap opens it when the URL names no view) and `suggested_labels` (quick "+ label" chips in `IssueModal`).
-Client: `ProjectWizard.tsx` (lazy; opened by `openProjectWizard()` from the sidebar "+", the palette and
-«Отделы и проекты») — template → name/key/icon/colour (`suggestKey`, transliterated) → access → background + review.
-`WorkflowView`'s graph lays out any status set with `src/workflowLayout.ts` (layered: longest forward path, loop-back
-statuses beside their earliest predecessor, done statuses last or in a row below; arcs for back/skip edges), the
-standard four keep their fixed layout. **Project appearance** ([ADR-0018](docs/adr/0018-project-appearance.md),
-migration `20260927T1400_project_appearance.sql`): `projects.icon`/`color`/`background` are ids from closed lists in
-`contract.ts` (`PROJECT_ICONS`, `PROJECT_COLORS` = `tk-tone-*`, `PROJECT_BACKGROUNDS` = atmosphere presets) — never
-hex/URLs, so nothing new under the CSP; `null` = old behaviour (key letter, tone by key, personal background).
-`ProjectMark` (`ui.tsx`) takes `icon`/`color` — pass them (or `lookOf(data.projects, key)` from `src/projectLook.tsx`)
-wherever a project mark is shown. A project background overrides the personal one while that project is open
-(`setProjectBackground()` in `theme.ts`, driven from `App.tsx`); the wizard previews it live and restores on close.
-
-Onboarding ([ADR-0019](docs/adr/0019-onboarding-in-product.md), migration `20260927T1800_onboarding.sql`): progress lives
-on the server per user (`user_onboarding`: done steps, hidden, dismissed hint ids). Steps are marked **by the server from
-real actions** — routes call `markStep()` (`services/onboarding.ts`, never throws, per-process cache) after opening an
-issue you're assigned to, a status change, a comment, saving notification prefs; only `theme` is reported by the client
-(`markThemeStep()` via `onThemeChosen` in `theme.ts`). Client store: `src/onboarding.ts` (external store; call
-`refreshOnboardingSoon()` after an action that may mark a step). UI: `GettingStarted` (Home; collapsed in the sidebar
-when there's no Home), `<Hint id>` one-line first-encounter tips (never modal, never shown again once dismissed),
-guest explanation in `SoloView`, «Организация → Начальная настройка» (`Setup.tsx`, `/admin/setup`) opened once per
-session for an admin while `instance.setup_completed_at` is null. Demo project (`projects.is_demo`, at most one) is built
-directly in one transaction by `services/demoProject.ts` — no notifications, **no audit rows** — and its deletion removes
-the project plus any `audit_log` rows for it and its issues; `server/test/onboarding.test.ts` compares row counts of every
-table before/after. New project-list columns reach the client as `isDemo` (sidebar «демо» tag).
-
-Dashboards ([ADR-0022](docs/adr/0022-dashboards.md), migration `20260929T1000_dashboards.sql`, `services/dashboards.ts` +
-`services/dashboardData.ts`, `routes/dashboards.ts`): one `dashboards` table — personal (owner only; others get 404),
-organisation-shared (`shared`, global admin edits) and one «Обзор» per project (`project_id`, new PermId
-`manageDashboards` for admin/manager; no row = the client's built-in `DEFAULT_PROJECT_OVERVIEW`). Widgets are **data**
-(a closed zod union `DashboardWidget` in `contract.ts`, grid position inside each widget); rows with an unknown type are
-dropped on read, not fatal. `POST /api/dashboards/data` computes a whole set (saved or unsaved) under
-`listVisibleProjects()` like reports — an invisible project yields empty data, one failing widget yields
-`{type:"error"}` for itself only; on an overview every widget is forced to that project. Client: `src/dashboards/`
-(`grid.ts` pure layout: compact/move/resize/nudge/firstFit, tested; `charts.tsx` own SVG charts on `--chart-1…8`, a
-categorical palette whose **order** was validated for colour-blind separation on our light/dark surfaces — don't
-reorder or add a 9th; `DashboardGrid.tsx` native drag-and-drop + pointer resize + keyboard; `spec.ts` mirrors contract
-constants — value imports from `contract.ts` would pull zod into the bundle, `spec.test.ts` checks the mirror),
-`src/components/DashboardView.tsx` (lazy; `/dashboards/:id` via `ui.section`, `/p/KEY/overview`). Built-in tabs come first
-(`DashboardTabs`): «Обзор организации» (`/dashboards/overview`, client constant `DEFAULT_ORG_OVERVIEW`, read-only,
-«Сохранить как свой» makes a personal copy; `/dashboards` opens it) and the unchanged Reports. Shared dashboards and overviews are in the admin export;
-personal ones are not. Measured on 100 projects / 50 000 issues (`docs/PERFORMANCE.md` «Дашборды»,
-`server/scripts/performance-dashboard*.mjs`): the trend widget is one grouped pass per side, not a subquery per week,
-and «Активность» relies on `idx_activity_created` — keep both when touching those queries.
-
-**Portfolio dashboards (track J):** projects (limit 5–50), projectHealth and milestones (periodDays 7–180) extend the closed widget catalogue. Organization overview starts with these; project overview remains issue-based, adds milestones when present, and filters portfolio widgets from new selections. Existing saved layouts still render. Server projectHealth uses ordered rules and CURRENT_DATE over all issues including archives; see ADR-0025.
-
-**Terminology:** the UI calls a department a **«команда» / “team”** (part C, owner's request — reads more universally);
-code, API, DB and env keep `department*` (`/api/departments`, `departmentId`, `DEFAULT_DEPARTMENT`). Use «команда» in
-new dictionary strings and server error reasons; names of existing teams are data and stay as typed (the seed default
-«Общий отдел» is not renamed — the seed finds it by name on every start).
-
-Department membership (`department_members`, migration 009) has always had a `source` column
-(`'ldap' | 'manual'`), but only the LDAP sync path (`departmentSync.ts`) ever wrote to it until
-now — there was no route or UI for `source='manual'` despite the schema explicitly being built
-for it (see that migration's own comment). `routes/departments.ts` now has
-`GET/PUT/DELETE .../departments/:id/members(/:userId)` (global-admin only, like the rest of that
-file): `PUT` inserts `source='manual'` (idempotent, and it won't overwrite an existing
-`source='ldap'` row — `ON CONFLICT DO NOTHING`, so a manual add never fights a row the sync
-already owns); `DELETE` refuses (409) to remove a `source='ldap'` row, since the next login or
-scheduled resync would just recreate it and silently make the removal look like it worked when
-it didn't — the only real way to drop an LDAP-sourced membership is from the AD group itself.
-Both routes call `invalidateDeptMembership()` (`middleware.ts`) so the 30s project-visibility
-cache picks up the change immediately rather than on its own schedule.
-
-People pickers (issue collaborators in `IssueModal.tsx`, project and team members in `AdminView.tsx`) are the `ds`
-`Combobox` over `usersApi.pickable()` — debounced server-side search, ≥2 characters, ≤20 results; stale responses are
-dropped inside `Combobox`. They replaced flat, unsearchable `<select>`s that rendered the *entire* user list (and, later,
-the hand-written `UserSearchPicker`, removed in track G): on an organization with a few hundred people, scrolling a plain
-`<select>` to find one name was the actual complaint. Don't bring back a picker that loads the whole directory.
-
-## Issue lifecycle (migration 016)
-
-`issues.done_at` is set when an issue enters a `done`-category status and **cleared** when it
-returns to work; moving between two closing statuses leaves it alone. `issues.archived_at` is
-set by the maintenance worker for issues closed longer ago than `ARCHIVE_AFTER_DAYS`.
-
-**Archiving is not deletion** — the row stays, the issue opens by direct link, is searchable
-(`?archived=all`) and still counts in reports. It only leaves the project's active working set,
-which is what keeps the board and task list from growing without bound. `GET …/issues` returns
-active issues by default; `?archived=1` for archived only, `?archived=all` for both.
-
-Anything reporting on "what got done" keys off `done_at` — `updated_at` is not a substitute,
-since any edit touches it. The board shows the last 14 days in its done column
-(`DONE_WINDOW_DAYS` in `Board.tsx`) and collapses the rest behind "Ранее закрыто".
+- `routes/`: thin handlers, one file per resource, with the permission hook and zod schema in the route options. `services/`: domain
+  logic (`issues.ts`, `issueUpdate.ts`, `issueList.ts`, `workflow.ts`, `rank.ts`, `reports.ts`, `projects.ts`, ...). Project resources
+  live under `/api/projects/:projectId/...`; `requirePerm` resolves the caller's membership for that id.
+- Issue keys (`CORP-1`) come from the atomic `project_counters` upsert. Issue ordering is a fractional `issues.rank`, computed under
+  `pg_advisory_xact_lock` per status column. Illegal status moves return 409 (`assertTransition`, even for admin).
+- **Reports and dashboards resolve visibility through `listVisibleProjects()`** and pass ids as `project_id = ANY($ids)`; do not
+  re-implement the visibility predicate.
+- `db.ts`: `q` / `one` / `exec` / `withClient`. `config.ts`: env only, parsed once, fails fast on a missing `DATABASE_URL` or a
+  `JWT_SECRET` under 32 characters.
+- `middleware.ts` `requireAuth` verifies the JWT but re-reads role and active flag from the DB (30 s cache), so role changes and
+  deactivation apply quickly. Two invalidation functions on purpose: `invalidateUserCache(userId)` is safe on any user write;
+  `revokeUserSessions(userId, reason)` also closes the user's WebSockets, so call it only for a real revocation (logout,
+  deactivation, an actual role change). `audit()` awaits its INSERT but never throws into
+  the request; a failed audit write is only logged.
+- Realtime: `GET /api/ws` carries notification pushes and durable project sync ([REALTIME.md](docs/REALTIME.md), ADR-0036). The
+  client never applies a pushed card; it re-reads through `GET /api/projects/:projectId/sync`. Handshake races and their fixes are in
+  ENGINEERING-NOTES; touch `routes/ws.ts` / `wsHub.ts` only after reading that section.
+- Background jobs run through `startJob` in `services/maintenance.ts` (archive and audit purge, storage sweep, LDAP resync, webhook
+  dispatch, due events, recurring); `MAINTENANCE_ENABLED=false` stops them. The notifier has its own switch.
+- Integrations (track L): `integration_events` is a transactional outbox filled by PostgreSQL triggers on `activity` and `comments`;
+  never emit webhooks from route handlers. `WEBHOOK_SECRET_KEY` encrypts subscription secrets (`secretBox`) and must live outside
+  backups. The SSRF allowlist is operator env; DNS results are checked and pinned per attempt, no redirects. API tokens start with
+  `tsk_`, store only a hash and act as project members. Service accounts (`auth_source='service'`) cannot log in and need explicit
+  project membership, never global admin. Recurring issues use `createIssueInTx` with `(rule_id, scheduled_for)` uniqueness. Host
+  scripts write `ops_runs`; the API only reads it. `GET /api/admin/status` is a global-admin snapshot of 11 checks. Emergency outbox
+  stop and operator procedures are in [OPERATIONS](docs/OPERATIONS.md); thresholds in [server/README.md](server/README.md).
+- Feature data models (assignees, subtasks, checklist, custom fields, templates, sprints, project templates, onboarding, dashboards,
+  departments, licensing) are in ENGINEERING-NOTES "Server data model". Rules that bite across them: epic child counts are
+  maintained by DB triggers, never from application code; sprints are off by default and every sprint route 404s when
+  `project.sprintsEnabled` is false; archiving is not deletion (`done_at` drives "what got done", `archived_at` only removes an issue
+  from the active set); subtasks are two levels deep and the `parentId` writes go through the advisory-locked helpers in
+  `services/issues.ts`; an issue's assignees are a list (`assigneeIds`), and `mapIssue(row, assigneeIds)` takes them explicitly.
 
 ## Gotchas
 
-- **Emergency outbox stop**: `WEBHOOKS_ENABLED=false` stops delivery after restart, but database triggers can still
-  record events for active subscriptions. Only during an incident disable `trg_activity_integration_event` on
-  `activity` and `trg_comments_integration_event` on `comments` (`ALTER TABLE … DISABLE TRIGGER …`), then re-enable
-  both after recovery. Events missed while disabled are not replayed automatically; see `docs/OPERATIONS.md`.
-
-- **`server npm test` used to flake with "обнаружена взаимоблокировка" (Postgres 40P01)**
-  in `resetDb()`'s `TRUNCATE`, on a different test file each run — root-caused and fixed:
-  `audit()` (`audit.ts`) writes to `audit_log` via `void q(...)`, deliberately not awaited by
-  callers. If the previous test hit a mutating route, that INSERT can still be in flight when
-  the next test's `beforeEach` → `resetDb()` fires; `TRUNCATE` grabs ACCESS EXCLUSIVE on 15
-  tables at once (including `users` and `audit_log`) while the background INSERT holds
-  `audit_log` and needs an FK-check lock on `users` — a real wait-cycle, not a false alarm.
-  `test/helpers.ts` `resetDb()` now retries on `code === "40P01"` (up to 5 attempts); don't
-  "fix" this by awaiting `audit()` in production code — that reintroduces the hot-path
-  round-trip the fire-and-forget design deliberately avoids.
-- **Server imports use `.js` extensions** on relative paths (NodeNext module resolution) even
-  though the files are `.ts`. The client uses `allowImportingTsExtensions` and imports `.tsx`/`.ts`.
-- **`npm run dev` forces chokidar polling** (`cross-env CHOKIDAR_USEPOLLING=1 CHOKIDAR_INTERVAL=250`).
-  Windows' recursive `fs.watch` (tsx's default) silently drops change events from atomic-save
-  editors and from tooling that writes via temp-file + rename, so the server keeps running stale
-  code. Polling costs a little CPU and is reliable. `npm run dev:native` opts back out. After a
-  large multi-file change, still worth restarting dev to be sure.
-- `server/.env` is untracked (git-ignored via `.gitignore`) and never entered git history —
-  only `.env.example` files are committed, with empty secret values. The working-tree
-  `server/.env` may hold real development secrets; never paste its contents into shared output.
-- `CORS_ORIGIN` in `server/.env` must match the client's actual origin — the Vite dev server
-  is `:3000` (`strictPort`), which is what `.env.example` now ships.
-- Behind nginx/an LB, set `TRUST_PROXY` (`true` or an IP/CIDR list) — it feeds Fastify's
-  `trustProxy` (`app.ts`). Without it `req.ip` is the proxy address, which breaks the
-  per-IP login rate-limit (`routes/auth.ts`) and the `ip` field in `audit_log`.
-- **`docker-compose.yml` (root)** deploys the whole stack (postgres + server + client)
-  — see `DOCKER_SETUP.md`. It's a separate config surface from `server/.env`: the
-  container reads config from `environment:` in the compose file (`config.ts`'s `.env`
-  parser is a no-op fallback when the file doesn't exist, real `process.env` wins either
-  way). `VITE_API_URL` for the client is baked in at `docker build` time (`ARG`/`ENV` in
-  the root `Dockerfile`) — changing it after the image is built means rebuilding, not just
-  restarting. Not built/run locally (no Docker on this dev machine) — verified by re-reading
-  the Dockerfiles/compose against the actual `package.json` scripts and `src/index.ts` boot
-  sequence, not by executing them. `docker-compose.yml`'s `DATABASE_URL` interpolates
-  `POSTGRES_PASSWORD` into a `postgresql://user:pass@host/db` string with no URL-encoding —
-  a password containing `@ / : # %` (plausible from `openssl rand -base64`) mis-parses the
-  connection string with no obvious error pointing at the cause. `.env.example` recommends
-  `openssl rand -hex 24` (URL-safe alphabet) specifically for this variable — don't "fix" a
-  broken deploy by switching it back to `-base64`.
-- User switching is real login/logout only. The old `switchUser` / `resetDemo` client stubs
-  and the "Войти как" role-preview UI were removed (dept branch) — they only re-skinned the
-  UI locally and never changed which JWT the API saw.
-- Root `package.json` was trimmed to `react` / `react-dom` + dev tooling (Vite, Tailwind,
-  TypeScript, Playwright). The old unused deps (`@dnd-kit`, `@supabase/supabase-js`,
-  `framer-motion`, `recharts`, `canvas-confetti`, `react-router-dom`, `uuid`, …) are gone —
-  pathname routing uses `wouter` and `src/router.ts`; drag and drop uses native HTML5 DnD.
-- CI (`.github/workflows/test.yml`) now has a `client` job (root `npm run typecheck` +
-  `npm test` + `npm run build`) alongside the server/ldap/storage-s3/mail jobs.
-- **Theming / design tokens** (ADR-0012 + ADR-0016, [docs/design/DESIGN.md](docs/design/DESIGN.md)): every colour lives in
-  `src/styles/tokens.css` — OKLCH primitives (`--violet-*`, `--gray-*`, hue 288) → semantic tokens (`--bg-*`,
-  `--text-1/2/3`, `--border-*`, `--accent-*`, `--status-*`, `--elev-*`) → aliases of the old `--c-*` names, so old
-  classes (`bg-canvas`, `text-ink`, …) still resolve ([docs/design/ALIASES.md](docs/design/ALIASES.md)). Themes
-  override only the semantic layer. **Don't add raw `#hex`/`rgb()` to components** — `npm run colors:check` fails CI;
-  `npm run contrast:check` fails CI if a declared text/background pair drops below 4.5:1. `npm run motion:check` fails CI on an animation/transition
-  duration that isn't a `--dur-*` token (or > 450 ms), or on a moving animation not overridden under
-  `prefers-reduced-motion` (ТЗ 5.13, `scripts/check-motion.mjs`). `npm run antilist:check` fails CI on caps labels
-  (`uppercase`; `first-letter:uppercase` is fine) or a trailing «→» in a dictionary string (DESIGN.md «Нельзя», ТЗ 5.16). The start splash is static markup in `index.html`
-  (`#splash`), removed by `src/splash.ts` right after the first render. Theme and atmosphere preset
-  are `<html>` attributes (`data-theme`, `data-atmosphere`) set by `applyTheme()`
-  and, before first paint, by `public/theme-init.js`; values are `localStorage` only (`taskira.theme` / `taskira.bg`).
-  ADR-0016/0027: the sidebar (`.glass-side`) is translucent over the atmosphere glow on `body` (no grain);
-  the work sheet (`.glass-sheet`) is opaque `--bg-canvas`. Popovers/menus/toasts use `.glass`; task cards and forms are opaque.
-  **ADR-0023/0027: no `backdrop-filter` on large surfaces** — sidebar is translucent, sheet is opaque (blur under
-  ~90% of a 3440 px screen cost 10 fps on the board and 13–27 fps on dialogs); a personal photo is blurred once in
-  `body::before`; scrims and sticky headers don't blur. `backdrop-filter` only on small floating `.glass` surfaces.
-  Board plates/card edges come from `--board-col-bg/-line` and `--board-card-line` (stronger in light themes).
-  Font is Manrope only (vendored in `src/assets/fonts/`); `font-mono` in the UI means issue keys = Manrope with tabular
-  numerals, real code uses `--font-code`. Icons are the in-house duotone set in `src/icons.tsx` (`tone` prop for nav
-  colours); logo is `<Logo variant="mark|mono|app">`, app-icon files come from `scripts/generate-brand-assets.mjs`.
-- **Motion** ([ADR-0035](docs/adr/0035-motion-library-spike.md), working doc [docs/design/MOTION.md](docs/design/MOTION.md)): the only
-  entry to `motion/mini` is `src/motion.ts` (lazy chunk, WAAPI/CSSOM only because of the CSP); every function there
-  honours `motionReduced()` (system `prefers-reduced-motion` or the personal «Reduce motion» switch); durations are `--dur-*` tokens,
-  checked by `npm run motion:check`. Add or change motion → update MOTION.md; the ADR itself is never edited.
-- **Component library** (ТЗ 5.7, [ADR-0014](docs/adr/0014-component-library-native-primitives.md),
-  [docs/design/COMPONENTS.md](docs/design/COMPONENTS.md)): `src/ds/` — own components on native `<dialog>` and the
-  Popover API, positioned by `@floating-ui/dom` (Radix was rejected: its scroll lock injects `<style>`, which our CSP
-  blocks). Styles are `ds-*` classes in `src/ds/ds.css` (layer `components`); states via `:hover`/`:focus-visible`/
-  `aria-disabled`/`data-loading`, `data-force` only for the showcase; density is `data-density` on `<html>`. The
-  showcase `/dev/ui` (`src/dev/DevUI.tsx`) exists only under `import.meta.env.DEV` in `main.tsx`; `npm run test:ui`
-  (Playwright + axe, `e2e/`, baselines in `e2e/__screenshots__`, Linux Chromium of `@playwright/test` 1.56.1 — pinned
-  exactly) runs in CI only for PRs touching components (`.github/workflows/ui-visual.yml`). jsdom has no Popover API
-  (`showPopover` is guarded) and no jest-dom matchers — use plain `getAttribute`/`textContent` in unit tests. `Button`/`IconButton`/`AvatarGroup` use the lazy `Tooltip` from `ds/LazyTooltip.tsx` and `dsId` lives in `ds/ids.ts`, so `@floating-ui/dom` stays out of the entry chunk — in tests await tooltips (`findByRole("tooltip")`). **Modules in the entry chunk (Board and what it imports statically — `WorkspaceControls`, `BoardBackgroundControl` —, Sidebar, LoginForm, StatusScreens, ErrorBoundary, GettingStarted) import `ds` components from their files (`../ds/Button`), not the `../ds` barrel, and take `Menu`/`Popover` from `ds/LazyOverlay`** — the barrel's re-exports and a static `ds/Overlay` import pull `Overlay` and `@floating-ui/dom` into `modulepreload`; `bundle:check`'s «старт» metric (entry + every `modulepreload`) catches that. Entry code that only shows/hides a popover imports `showPop`/`hidePop` from `ds/pop.ts`, not `ds/floating.ts`. The English dictionary is a lazy chunk (`loadLang()` in `src/i18n/index.tsx`; `main.tsx` awaits it before the first render when English is stored). Screens
-  are all on `src/ds` (tracks G and H, done 01.10.2026); `src/ui.tsx` keeps only app-data helpers with no `ds` pair
-  (`ProjectMark`, `projectTone`, `labelTone`, `directionColor`, `catColor`, `Toasts`, board column classes) — the
-  finished map is in COMPONENTS.md. A window that should animate out stays mounted through `Presence`
-  (`<Presence show={x}>{(open) => <Window open={open} />}</Presence>`); people avatars are `UserAvatar`/`UserAvatarGroup`
-  (`src/components/UserAvatar.tsx`); entry-chunk modules that need `Menu`/`Popover` take the lazy ones from
-  `ds/LazyOverlay.tsx`.
-- **Dynamic style values under the CSP** ([ADR-0010](docs/adr/0010-dynamic-styles-under-csp.md), verified in Chromium by
-  `npm run csp:spike`): CSSOM writes (`el.style.x`, `setProperty('--x')`, WAAPI `el.animate`) are allowed by
-  `style-src-attr 'none'`; `style=""` in markup, `setAttribute('style')` and `<style>` are blocked. `secure-jsx`
-  currently turns every distinct `style` value into a new rule in `public/dynamic.css` (unbounded) — for continuous
-  values (positions, progress, colours from data) set a custom property via ref/CSSOM and consume it from a static rule
-  (`ref={cssVars({"--x": 12})}` from `src/cssVars.ts` + `left-[var(--x)]`);
-  enumerable states go in `data-*` attributes. Browser matrix: [docs/design/BROWSERS.md](docs/design/BROWSERS.md).
-- **Time scale** (ТЗ 5.12 f): `src/timeScale.ts` (pure: date ↔ x, week/month/quarter ticks) + `TimeCanvas.tsx` (grid,
-  sticky header, today line) are shared by the Timeline and the project roadmap (ТЗ 5.15) — reuse them, don't
-  write a second scale. **Roadmap** (`/roadmap`, `RoadmapView.tsx`, pure layout in `src/roadmapLayout.ts`; server
-  `routes/roadmap.ts`, migration `20260928T1400_project_roadmap.sql`, PermId `editRoadmap`, [ADR-0021](docs/adr/0021-project-roadmap.md)): project start/target dates,
-  milestones, dependencies (cycles refused server-side under one advisory lock); edited in project settings «Сроки и
-  вехи». Rows keep positions in days and CSS multiplies by `--ppd`, and only rows in the scroll window are rendered —
-  measured: with 100 projects a zoom switch re-rendering every row cost 250 ms, mostly style recalc; keep it that way.
-- **Branding** (ТЗ 5.14 п.5, [ADR-0020](docs/adr/0020-brand-hue-bounded-variable.md), `src/brand.ts`, `BrandMark.tsx`, «Организация → Брендирование»): name, accent hue
-  (`--brand-h` on `<html>`, every accent token derives from it; range `BRAND_HUE` 255–320 in `contract.ts`, mirrored in
-  `brand.ts`, whole range swept by `contrast:check`), PNG/WebP logo. Public `GET /api/instance/brand`; hue and name are
-  cached in `taskira.brand` so `theme-init.js` applies them before first paint. Use `<BrandMark>`/`useBrandName()`
-  instead of `<Logo>`/"Taskira" in the shell.
-- **Responsive layout**: below 1024px the sidebar is a drawer over the content, opened by the
-  «Меню» button in `Topbar.tsx` (`openSidebarDrawer()`), closed by navigation / Esc / the scrim; the
-  project view tabs stay in a separate scrollable header row with their labels, and the search box idles as a
-  magnifier. `.glass-edge` sets `position: relative` unlayered, so the drawer's `position: fixed`
-  lives in `index.css` (`.side-drawer`), not in a Tailwind utility. Below 768px the issue modal's
-  right-hand panel (status, assignee, due date, labels) collapses under the main content, the board
-  presents status columns vertically in one scroll container, and view side padding drops to 16px. Card layout is still desktop-first above that breakpoint —
-  don't assume mobile parity for anything not explicitly listed here.
-- **Popups are `ds` `Menu`/`Popover`, never local open/close state.** They sit on the Popover API, so closing on an
-  outside click, on Escape, and when another popup opens comes from the browser. A real bug shipped from hand-rolling
-  one: the board card's move menu (`Board.tsx`, opens on click *and* on `m`/`ь`) had its own `useState` — it never
-  closed on an outside click, and two cards' menus could be open at once, which looked exactly like a UI freeze. It is
-  now a `Menu` with controlled `open` (track G); the old `<Dropdown>` and its `DROPDOWN_OPEN_EVT` broadcast are gone.
-  jsdom has no Popover API: query popup content with `hidden: true` in unit tests.
-- **Escape handled inside a window must not close it.** `ds` `Dialog`/`SidePanel` close on Escape only if nothing
-  inside called `preventDefault()` (an open menu, a title edit being cancelled), and `App.tsx`'s global Escape handler
-  skips `e.defaultPrevented` too — without that, Escape in the issue card's status menu closed the whole card. If a
-  control inside a window uses Escape for itself, `preventDefault()` it.
-- **`ds` `Dialog` takes `onClose` inline** (`onClose={() => setX(false)}`) — a fresh function on every render of the
-  caller, and typing into a field re-renders the caller. The old `<Modal>` once listed `onClose` in its mount effect's
-  deps, so the effect re-ran on *every keystroke* and re-focused the first focusable element (usually the × button) —
-  focus jumped out of the field in every modal. `useNativeDialog` (`ds/Dialog.tsx`) holds `onClose` in a ref; keep any
-  new setup in that effect independent of values the caller re-creates per render. Initial focus: `[data-autofocus]`,
-  else the first enabled control in the body (a disabled button is skipped), else the window itself; `focusReady`
-  re-runs it once a loading placeholder is replaced. The focus tests are `src/ds/dialog.focus.test.tsx`.
-- **`upsertIssue()` (`store.tsx`) used to force `comments`/`activity` back to whatever was
-  already in `data.issues` for that id**, "to be safe." Its only caller, `openIssue()`, calls
-  `mapIssue()` (which itself already defaults to `prev?.comments`/`prev?.activity` for every
-  other caller — list refresh, `updateIssue`, `moveStatus`, …) and then deliberately *overwrites*
-  `mapped.comments`/`mapped.activity` with what it just fetched from `GET .../comments` and
-  `GET .../activity`, specifically so the card shows real data on open. `upsertIssue()`'s extra
-  "safety" clobbered exactly that overwrite back to the stale (usually empty) values already in
-  the list — so the "Комментарии"/"История" tab counts and content on a freshly opened card never
-  reflected what the server actually returned, only what happened to already be in memory. Found
-  by manual smoke-testing, unrelated to whatever else was being worked on at the time — a reminder
-  to actually click through a UI change rather than trust that green tests cover it. Fixed by
-  dropping the override; `mapIssue()`'s own default already does the right thing for every other
-  caller, since `upsertIssue()` has exactly one caller.
+- Server imports use `.js` extensions on relative paths (NodeNext) even though files are `.ts`; the client imports `.ts` / `.tsx`
+  (`allowImportingTsExtensions`).
+- `upsertIssue()` (`src/store/mappers.ts`) replaces the stored issue wholesale; pass it the already merged issue (`mapIssue()` keeps
+  the previous `comments` / `activity` by default).
+- jsdom has no Popover API (`showPopover` is guarded) and no jest-dom matchers; query popup content with `hidden: true` and use
+  `getAttribute` / `textContent`. Await tooltips with `findByRole("tooltip")`.
+- `server/.env` is untracked and may hold real secrets; never paste it into shared output. `CORS_ORIGIN` must match the client origin
+  (`http://localhost:3000` in dev). Behind nginx or a load balancer set `TRUST_PROXY`, or the per-IP login rate limit and audit IPs
+  see the proxy address.
+- Root `docker-compose.yml` is a separate config surface from `server/.env`; `VITE_API_URL` is baked into the client image at build
+  time; use `openssl rand -hex 24` for `POSTGRES_PASSWORD` (it goes into a URL unencoded). See [DOCKER_SETUP.md](DOCKER_SETUP.md).
+- User switching is real login and logout only; there are no role-preview stubs.

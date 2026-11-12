@@ -3,9 +3,9 @@
  *  пользователи, проверка LDAP, лицензия, аудит, обслуживание, состояние системы. Значения, которые
  *  задаются только переменными окружения, показаны справочно (ТЗ 5.9: новых настроек не добавлять). */
 import { Setup } from "./Setup";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useStore } from "../../store";
-import { useT } from "../../i18n";
+import { useT, lazyView } from "../../i18n";
 import type { BrandDto } from "../../../server/src/contract";
 import { BRAND_EXTRA_HUES, BRAND_HUE, DEFAULT_BRAND_NAME, previewHue, setBrand, useBrand } from "../../brand";
 import { cssVars } from "../../cssVars";
@@ -19,7 +19,7 @@ import { openProjectWizard } from "../../palette/events";
 import { LIMITS } from "../../validation";
 import { dataColorFor } from "../../dataColors";
 import { SettingRow, SettingsCard, SettingsPage } from "./parts";
-const SystemStatus = lazy(() => import("./SystemStatus"));
+const SystemStatus = lazyView(() => import("./SystemStatus"));
 
 export function OrgSection({ section }: { section: string }) {
   switch (section) {

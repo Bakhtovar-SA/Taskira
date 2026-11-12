@@ -1,4 +1,5 @@
 import { createElement, lazy, useState, type ComponentType } from "react";
+import { withRuLazy } from "./i18n";
 
 /**
  * Ленивые модалки задачи с предзагрузкой (PERF-BUDGET п. 3: «открытие задачи < 150 мс»; первое открытие было
@@ -39,8 +40,8 @@ export function lazyWithPreload<P extends object>(factory: () => Promise<{ defau
   return Object.assign(Preloaded, { preload, displayName });
 }
 
-export const IssueModal = lazyWithPreload(() => import("./components/IssueModal"), "PreloadedIssueModal");
-export const CreateIssueModal = lazyWithPreload(() => import("./components/CreateIssueModal"), "PreloadedCreateIssueModal");
+export const IssueModal = lazyWithPreload(withRuLazy(() => import("./components/IssueModal")), "PreloadedIssueModal");
+export const CreateIssueModal = lazyWithPreload(withRuLazy(() => import("./components/CreateIssueModal")), "PreloadedCreateIssueModal");
 
 /** Для `onPointerEnter`/`onFocus` карточек: к клику чанк карточки задачи уже загружен. */
 export const preloadIssueModal = IssueModal.preload;

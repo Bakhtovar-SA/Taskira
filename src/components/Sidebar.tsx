@@ -259,7 +259,11 @@ export default function Sidebar() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [drawer, collapsed]);
+    // `wide` is listed because changeCollapsed reads it: after the window grew past 1024 px, the stale narrow-screen
+    // closure collapsed the panel without the width glide. changeCollapsed itself is new on every render and reads
+    // nothing else that changes (refs and a state setter).
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above: its only changing input is `wide`.
+  }, [drawer, collapsed, wide]);
 
   const isOpen = (id: string, dflt = true) => open[id] ?? dflt;
   const toggle = (id: string, dflt = true) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? dflt) }));

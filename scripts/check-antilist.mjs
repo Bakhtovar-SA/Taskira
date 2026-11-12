@@ -36,7 +36,7 @@ for (const file of walk(SRC)) {
         errors.push(`${rel}:${i + 1}: капс-подпись (uppercase) — DESIGN.md «Нельзя»; регистр предложения`);
     });
 }
-for (const dict of ["src/i18n/ru.ts", "src/i18n/en.ts"]) {
+for (const dict of ["src/i18n/ruCore.ts", "src/i18n/ruLazy.ts", "src/i18n/en.ts"]) {
   readFileSync(join(ROOT, dict), "utf8")
     .split("\n")
     .forEach((line, i) => {
