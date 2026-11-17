@@ -50,7 +50,13 @@ describe("Tabs", () => {
     fireEvent.keyDown(board, { key: "ArrowRight" });
     expect(document.activeElement).toBe(list);
     expect(onChange).not.toHaveBeenCalled();
-    fireEvent.click(list, { ctrlKey: true });
+    // jsdom cannot navigate; intercept the browser default only after React, and verify the component left it intact.
+    let nativeAllowed = false;
+    const finishClick = (event: MouseEvent) => { nativeAllowed = !event.defaultPrevented; event.preventDefault(); };
+    document.addEventListener("click", finishClick, { once: true });
+    try { fireEvent.click(list, { ctrlKey: true }); }
+    finally { document.removeEventListener("click", finishClick); }
+    expect(nativeAllowed).toBe(true);
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.click(list);
     expect(onChange).toHaveBeenCalledWith("list");

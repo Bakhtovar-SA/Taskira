@@ -67,7 +67,7 @@ describe("Russian dictionary split", () => {
 
   it("the startup graph is found and does not reach ruLazy", () => {
     expect(startup.length).toBeGreaterThan(50);
-    expect(startup.map((f) => relative(SRC, f))).toContain("components/Board.tsx");
+    expect(startup.map((f) => relative(SRC, f))).toContain(join("components", "Board.tsx"));
     expect(startup.filter((f) => /[\\/]ruLazy\.ts$/.test(f) || /[\\/]i18n[\\/]ru\.ts$/.test(f)).map((f) => relative(SRC, f))).toEqual([]);
   });
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { viewTransition } from "./motion";
+import { __resetMotionForTests, viewTransition } from "./motion";
 
 let main: HTMLElement;
 const heading = () => { const el = document.createElement("h1"); el.textContent = "New view"; el.getClientRects = () => ({ length: 1 }) as DOMRectList; return el; };
@@ -23,11 +23,10 @@ beforeEach(() => {
   main.querySelector("button")!.focus();
 });
 afterEach(() => {
+  __resetMotionForTests();
   Reflect.deleteProperty(document, "startViewTransition");
   document.body.replaceChildren();
-  // A new navigation disposes a pending lazy-heading observer.
-  viewTransition(() => {});
-  vi.runOnlyPendingTimers();
+  vi.runAllTimers();
   document.documentElement.classList.remove("vt-nav");
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
@@ -80,6 +79,16 @@ test("a new navigation disposes the old lazy observer", async () => {
   const next = heading(); viewTransition(() => main.replaceChildren(next)); vi.runOnlyPendingTimers(); await tick();
   expect(document.activeElement).toBe(next); expect(vi.getTimerCount()).toBe(0);
 });
+
+test.each([false, true])("test reset cancels pending navigation focus (observer started: %s)", async observed => {
+  viewTransition(() => main.replaceChildren());
+  if (observed) vi.runOnlyPendingTimers();
+  __resetMotionForTests();
+  main.append(heading());
+  await tick(); vi.runOnlyPendingTimers(); await tick();
+  expect(document.activeElement).toBe(document.body);
+  expect(vi.getTimerCount()).toBe(0);
+});
 test("reduce skips VT and still restores focus", () => {
   const start = vi.fn(); Object.defineProperty(document, "startViewTransition", { configurable: true, value: start });
   vi.stubGlobal("matchMedia", () => ({ matches: true }));
@@ -93,6 +102,18 @@ test("a rejected native transition still restores focus and clears its class", a
   } });
   const next = heading(); viewTransition(() => main.replaceChildren(next)); await tick();
   expect(document.activeElement).toBe(next); expect(document.documentElement.classList.contains("vt-nav")).toBe(false);
+});
+
+test("a skipped snapshot handles ready rejection without blocking the completed navigation", async () => {
+  const ready = Promise.reject(new DOMException("New ViewTransition started", "AbortError"));
+  const caught = vi.spyOn(ready, "catch");
+  Object.defineProperty(document, "startViewTransition", { configurable: true, value: (update: () => void) => {
+    update(); return { ready, finished: Promise.resolve() };
+  } });
+  const next = heading(); viewTransition(() => main.replaceChildren(next)); await tick();
+  expect(caught).toHaveBeenCalledOnce();
+  expect(document.activeElement).toBe(next);
+  expect(document.documentElement.classList.contains("vt-nav")).toBe(false);
 });
 test("lazy observation expires without retaining a detached route", async () => {
   viewTransition(() => main.replaceChildren()); vi.advanceTimersByTime(2001);

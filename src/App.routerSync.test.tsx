@@ -6,6 +6,7 @@ import * as storeModule from "./store";
 import { useRouterSync } from "./useRouterSync";
 import { I18nProvider } from "./i18n";
 import { pathForIssue, pathForView } from "./router";
+import { __resetMotionForTests } from "./motion";
 import App from "./App";
 import {
   ApiError,
@@ -103,6 +104,7 @@ afterEach(() => {
   unmountCurrent?.();
   unmountCurrent = null;
   cleanup(); // тесты ниже (полный <App/>), в отличие от остальных в файле, не проходят через mount()/unmountCurrent
+  __resetMotionForTests();
   localStorage.clear();
   history.replaceState(null, "", "/");
   vi.restoreAllMocks();

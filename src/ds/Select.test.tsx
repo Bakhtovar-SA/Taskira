@@ -137,6 +137,25 @@ describe("Select", () => {
     expect(onClose).toHaveBeenCalledTimes(1); // closed list: Escape is not handled by Select, the dialog closes
   });
 
+  test("reopening starts a new typeahead even before the previous prefix expires", () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    try {
+      render(<Harness initial="apple" options={FRUITS} />);
+      const cb = screen.getByRole("combobox");
+      fireEvent.keyDown(cb, { key: "b" });
+      expect(activeText(cb)).toBe("Banana");
+      fireEvent.keyDown(cb, { key: "Escape" });
+      now.mockReturnValue(1_100);
+      fireEvent.keyDown(cb, { key: "d" });
+      expect(activeText(cb)).toBe("Date");
+      fireEvent.keyDown(cb, { key: "Enter" });
+      now.mockReturnValue(1_200);
+      fireEvent.click(cb);
+      fireEvent.keyDown(cb, { key: "b" });
+      expect(activeText(cb)).toBe("Banana");
+    } finally { now.mockRestore(); }
+  });
+
   test("Tab closes the list without choosing", () => {
     const onChange = vi.fn();
     render(<Harness initial="apple" options={FRUITS} onChange={onChange} />);

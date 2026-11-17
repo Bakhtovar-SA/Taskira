@@ -152,6 +152,7 @@ export const ROUTES: Readonly<Record<string, Policy>> = {
   "GET /api/projects/:projectId": P.projectMember,
   "GET /api/projects/:projectId/background-photo/:size": P.projectMember,
   "GET /api/projects/:projectId/custom-fields": P.projectMember,
+  "GET /api/projects/:projectId/files": P.projectMember,
   "GET /api/projects/:projectId/issue-templates": P.projectMember,
   "GET /api/projects/:projectId/issues": P.projectMember,
   "GET /api/projects/:projectId/issues/:id": P.issueMember,

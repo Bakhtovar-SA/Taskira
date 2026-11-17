@@ -331,7 +331,8 @@ export type ViewId =
   | "backlog"
   | "sprints"
   | "timeline"
-    | "calendar"
+  | "calendar"
+  | "files"
   | "reports"
   /** Роадмап проектов (ТЗ 5.15) — без проекта, по всем видимым. */
   | "roadmap"

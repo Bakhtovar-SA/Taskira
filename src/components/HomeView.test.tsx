@@ -53,7 +53,13 @@ describe("Главная", () => {
     await renderHome();
     const link = screen.getByRole("link", { name: /Созвон с клиентом/ });
     expect(link.getAttribute("href")).toBe("/p/B/issue/B-7");
-    fireEvent.click(link, { ctrlKey: true }); expect(store.switchProject).not.toHaveBeenCalled();
+    let nativeAllowed = false;
+    const finishClick = (event: MouseEvent) => { nativeAllowed = !event.defaultPrevented; event.preventDefault(); };
+    document.addEventListener("click", finishClick, { once: true });
+    try { fireEvent.click(link, { ctrlKey: true }); }
+    finally { document.removeEventListener("click", finishClick); }
+    expect(nativeAllowed).toBe(true);
+    expect(store.switchProject).not.toHaveBeenCalled();
     fireEvent.click(link); expect(store.switchProject).toHaveBeenCalledWith("p2", "i3", "page");
   });
   test("all my issues leaves home; project enters its board", async () => {

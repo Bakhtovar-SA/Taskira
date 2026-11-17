@@ -26,6 +26,7 @@ import {
   IcStar,
   IcTimeline,
   IcCalendar,
+  IcDocument,
   IcUsers,
   type IconTone,
 } from "../icons";
@@ -64,6 +65,7 @@ export const PROJECT_VIEWS: NavItem[] = [
   { id: "timeline", labelKey: "sidebar.nav.timeline", icon: (p) => <IcTimeline {...p} />, tone: "teal", kbd: "3" },
   { id: "calendar", labelKey: "calendar.title", icon: (p) => <IcCalendar {...p} />, tone: "blue", kbd: "5" },
   { id: "sprints", labelKey: "sidebar.nav.sprints", icon: (p) => <IcFlag {...p} />, tone: "amber", kbd: "4", sprintsOnly: true },
+  { id: "files", labelKey: "sidebar.nav.files", icon: (p) => <IcDocument {...p} />, tone: "sky" },
 ];
 
 /** Три дома настроек (ADR-0013 §2, ТЗ 5.9): Личные, Проект, Организация. */

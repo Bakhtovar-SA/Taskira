@@ -11,6 +11,8 @@ import { Tabs } from "../ds/Tabs";
 import { IcChevD, IcDownload, IcReport } from "../icons";
 import { DashboardTabs, useDashboardList } from "../dashboards/DashboardTabs";
 import { REPORT_PROJECT_LIMIT, selectReportProject } from "../reportProjectSelection";
+import { useChartReveal } from "../dashboards/useChartReveal";
+import "../dashboards/chartMotion.css";
 
 const DAY = 86_400_000;
 const date = (s: string) => new Date(`${s}T00:00:00Z`);
@@ -48,6 +50,15 @@ function Trend({ report }: { report: ReportSummary }) {
   const fmt = (s: string) => date(s).toLocaleDateString(lang, { day: "numeric", month: "short", timeZone: "UTC" });
   // Идентификаторы градиентов уникальны для каждого экземпляра графика (два графика на странице не делят <defs>).
   const gid = useId().replace(/:/g, "");
+  const revision = JSON.stringify(points.map(p => [p.week, p.created, p.closed]));
+  useChartReveal(revision, box);
+  const bars = points.flatMap((p, i) => {
+    const x = 18 + slot * (i + .5), bw = Math.min(30, Math.round(slot * .26));
+    return (["created", "closed"] as const).map((series, j) => {
+      const value = p[series], h = value ? Math.max(1, Math.round((value / max) * 174)) : 0;
+      return { key: `${p.week}-${series}`, series, value, h, x: Math.round(x + (j ? 3 : -bw - 3)), width: bw };
+    });
+  });
   return <section className="reports-panel reports-chart">
     <div className="reports-panel-head"><h2>{t("reports.trend.title")}</h2><span className="reports-legend"><i data-series="created" />{t("reports.table.created")}<i data-series="closed" />{t("reports.table.closed")}</span></div>
     <div className="reports-chart-scroll ds-focus" tabIndex={0} role="region" aria-label={t("reports.trend.title")} ref={box}>
@@ -55,14 +66,13 @@ function Trend({ report }: { report: ReportSummary }) {
         <title>{t("reports.trend.title")}</title>
         <defs>{(["created", "closed"] as const).map(series => <linearGradient key={series} id={`${gid}-${series}`} data-series={series} x1="0" y1="0" x2="0" y2="1"><stop offset="0" /><stop offset="1" /></linearGradient>)}</defs>
         {[0, 1, 2, 3].map(i => <line key={i} x1={18} x2={W - 18} y1={base - i * 60} y2={base - i * 60} className="reports-gridline" />)}
+        {/* The plot grows from its baseline; labels and accessible data stay final. */}
+        <g key={revision} className="chart-motion-report">{bars.map(b => <rect key={b.key} data-series={b.series} fill={`url(#${gid}-${b.series})`} x={b.x} y={base - b.h} width={b.width} height={b.h} rx={3} />)}</g>
         {points.map((p, i) => {
-          const x = 18 + slot * (i + .5), bw = Math.min(30, Math.round(slot * .26));
+          const x = 18 + slot * (i + .5);
           return <g key={p.week}>
             <title>{`${fmt(p.week)}: ${t("reports.table.created")} ${p.created ?? "—"}, ${t("reports.table.closed")} ${p.closed}`}</title>
-            {(["created", "closed"] as const).map((series, j) => {
-              const value = p[series], h = value ? Math.max(1, Math.round((value / max) * 174)) : 0, bx = Math.round(x + (j ? 3 : -bw - 3));
-              return <g key={series}><rect data-series={series} fill={`url(#${gid}-${series})`} x={bx} y={base - h} width={bw} height={h} rx={3} /><text x={bx + bw / 2} y={base - h - 8} textAnchor="middle">{value ?? "—"}</text></g>;
-            })}
+            {bars.slice(i * 2, i * 2 + 2).map(b => <text key={b.key} x={b.x + b.width / 2} y={base - b.h - 8} textAnchor="middle">{b.value ?? "—"}</text>)}
             <text x={x} y={base + 25} textAnchor="middle">{fmt(p.week)}</text>
           </g>;
         })}

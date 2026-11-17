@@ -118,7 +118,10 @@ export function Select<T extends SelectValue>({
 
   useLayoutEffect(() => {
     if (open) showPop(pop.current);
-    else hidePop(pop.current);
+    else {
+      hidePop(pop.current);
+      typed.current = { s: "", t: 0 };
+    }
   }, [open]);
   // Активная строка видна: прокрутка внутри списка, не всей страницы.
   useLayoutEffect(() => {

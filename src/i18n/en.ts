@@ -4,6 +4,7 @@ import type { Dict } from "./ru";
  *  забыть ключ (ошибка "Property missing") и не даст добавить лишний,
  *  которого нет в ru.ts (excess property check на литерале). */
 const en: Record<keyof Dict, string> = {
+  "sidebar.nav.files": "Files",
   "issue.concurrentEdit": "This issue changed while you were editing. Your draft is preserved.",
   "issue.latestValue": "Latest saved value: {value}",
   "issue.saveMine": "Save my version",

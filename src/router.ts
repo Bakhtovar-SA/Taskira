@@ -21,6 +21,7 @@ const PROJECT_SEGMENT: Partial<Record<ViewId, string>> = {
   timeline: "timeline",
   calendar: "calendar",
   sprints: "sprints",
+  files: "files",
 };
 const GLOBAL_PATH: Partial<Record<ViewId, string>> = {
   dashboards: "/dashboards",

@@ -7,7 +7,7 @@ const ruLazy = {
   "automation.setDue": "Указать срок",
   "automation.setDate": "Задать дату",
   "automation.dateLabel": "Дата",
-  "automation.dateTomorrow": "Через день",
+  "automation.dateTomorrow": "Завтра",
   "automation.dateWeekEnd": "До конца недели",
   "automation.dateMonth": "Через месяц",
   "automation.dateCustom": "Другая дата…",

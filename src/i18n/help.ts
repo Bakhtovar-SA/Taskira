@@ -74,6 +74,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "id": "attachments",
         "label": "Вложения",
         "paragraphs": [
+          "Вкладка «Файлы» после основных представлений проекта собирает вложения всех его задач, включая архивные. Ищите по названию файла, ключу или названию задачи, выбирайте тип файла и сортировку. Имя файла скачивает вложение; строка задачи открывает её карточку. Каталог доступен только тем, кому доступен весь проект, а не только одна приглашённая задача.",
           "Файлы добавляются в карточке задачи пользователем с правом комментирования. По умолчанию — до 50 файлов, каждый до 25 МБ; сервер может задавать другие пределы.",
           "Загрузивший файл или пользователь с правом удаления задач может убрать вложение. Проверки типа и размера выполняются на сервере; скачивание требует доступа к задаче.",
           "Файлы хранятся на диске сервера или в настроенном S3-совместимом хранилище. Для пользователя способ добавления и скачивания одинаков. Фото аватара имеет отдельные ограничения — см. оформление."
@@ -378,6 +379,7 @@ export const helpCopy: Record<"ru" | "en", HelpCopy> = {
         "id": "attachments",
         "label": "Attachments",
         "paragraphs": [
+          "The Files tab follows the project's existing views and collects attachments from all its tasks, including archived tasks. Search by file name, task key or title, filter by file type and choose a sort order. The file name downloads the attachment; the task link opens its details. The catalogue requires access to the whole project; an invitation to one task does not grant access.",
           "Users with comment permission upload files in issue details. Defaults are up to 50 files, each up to 25 MB; the server can configure different limits.",
           "The uploader or a user with issue-delete permission can remove an attachment. The server validates file type and size, and downloads require access to the issue.",
           "Files are kept on server disk or configured S3-compatible storage. Uploading and downloading work the same way for users. Profile photos have separate restrictions; see Appearance."

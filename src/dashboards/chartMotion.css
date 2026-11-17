@@ -1,0 +1,54 @@
+/* Geometry alone enters; labels and accessible values are already final. Value-keyed
+   marks replay on changed data, never on hover or a responsive width measurement.
+   The reveal gate waits for the viewport and navigation; CSS owns every frame. */
+@keyframes chartBarIn {
+  from { transform: scaleX(0); }
+}
+@keyframes chartArcIn {
+  from { stroke-dasharray: 0 1; }
+}
+@keyframes chartLineIn {
+  from { stroke-dashoffset: 1; }
+}
+@keyframes chartReportIn {
+  from { transform: scaleY(0); }
+}
+.chart-motion-bar {
+  transform-origin: left center;
+  animation: chartBarIn var(--dur-5) var(--ease-standard) backwards;
+}
+.chart-motion-arc {
+  animation: chartArcIn var(--dur-5) var(--ease-standard) backwards;
+}
+.chart-motion-line {
+  stroke-dasharray: 1;
+  animation: chartLineIn var(--dur-5) var(--ease-standard) backwards;
+}
+.chart-motion-report {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: chartReportIn var(--dur-5) var(--ease-standard) backwards;
+}
+/* One baseline growth for the plot, without transforming labels. */
+.reports-chart .chart-motion-report > rect[data-series] {
+  animation: none;
+}
+[data-chart-motion="waiting"] .chart-motion-bar,
+[data-chart-motion="waiting"] .chart-motion-arc,
+[data-chart-motion="waiting"] .chart-motion-line,
+[data-chart-motion="waiting"] .chart-motion-report {
+  animation-play-state: paused;
+}
+/* Same two sources as motionReduced(): OS preference and the personal setting.
+   A change during playback cancels it immediately and shows final geometry. */
+@media (prefers-reduced-motion: reduce) {
+  .chart-motion-bar, .chart-motion-arc, .chart-motion-line, .chart-motion-report {
+    animation: none;
+  }
+}
+html[data-motion="reduce"] .chart-motion-bar,
+html[data-motion="reduce"] .chart-motion-arc,
+html[data-motion="reduce"] .chart-motion-line,
+html[data-motion="reduce"] .chart-motion-report {
+  animation: none;
+}
