@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
 import { auth, getApp, login, q, resetDb, seedFixture, stopApp, type Fixture } from "./helpers.js";
-import type { ProjectFilesResultDto } from "../src/projectFilesContract.js";
+import type { ProjectFilesResultDto } from "../src/contract.js";
 
 let app: FastifyInstance;
 let fx: Fixture;

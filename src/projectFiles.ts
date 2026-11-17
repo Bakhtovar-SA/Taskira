@@ -1,5 +1,5 @@
 import { api } from "./api";
-import type { ProjectFilesQuery, ProjectFilesResult } from "../server/src/projectFilesContract";
+import type { ProjectFilesQuery, ProjectFilesResultDto } from "../server/src/contract";
 
 export const FILE_PAGE_SIZE = 50;
 export const FILE_TYPES = ["all", "images", "documents", "archives", "other"] as const;
@@ -34,5 +34,5 @@ export function fileQuerySearch(search: string, patch: Partial<ProjectFilesQuery
 
 export const projectFilesApi = {
   list: (projectId: string, query: ProjectFilesQuery, signal?: AbortSignal) =>
-    api<ProjectFilesResult>(`/api/projects/${encodeURIComponent(projectId)}/files`, { query, signal }),
+    api<ProjectFilesResultDto>(`/api/projects/${encodeURIComponent(projectId)}/files`, { query, signal }),
 };

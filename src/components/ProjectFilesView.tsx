@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import type { ProjectFile, ProjectFilesQuery, ProjectFilesResult } from "../../server/src/projectFilesContract";
+import type { ProjectFileDto, ProjectFilesQuery, ProjectFilesResultDto } from "../../server/src/contract";
 import { attachmentsApi } from "../api";
 import { Button, IconButton } from "../ds/Button";
 import { EmptyState } from "../ds/Display";
@@ -20,7 +20,7 @@ export default function ProjectFilesView() {
   const query = useMemo(() => readFileQuery(urlSearch), [urlSearch]);
   const requestKey = JSON.stringify([projectId, query]);
   const [search, setSearch] = useState(query.q), [tick, setTick] = useState(0);
-  const [resource, setResource] = useState<{ key: string; data: ProjectFilesResult } | null>(null);
+  const [resource, setResource] = useState<{ key: string; data: ProjectFilesResultDto } | null>(null);
   const [loading, setLoading] = useState(true), [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<Set<string>>(() => new Set());
   const searchInput = useRef<HTMLInputElement>(null);
@@ -55,7 +55,7 @@ export default function ProjectFilesView() {
     const unit = Math.min(3, Math.max(0, Math.floor(Math.log(bytes || 1) / Math.log(1024))));
     return `${new Intl.NumberFormat(lang, { maximumFractionDigits: unit ? 1 : 0 }).format(bytes / 1024 ** unit)} ${copy.units[unit]}`;
   };
-  const download = async (file: ProjectFile) => {
+  const download = async (file: ProjectFileDto) => {
     if (downloading.has(file.id)) return;
     setDownloading(current => new Set(current).add(file.id));
     try { await attachmentsApi.download(projectId, file.issue.id, file.id, file.filename); }

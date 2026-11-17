@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { q } from "../db.js";
 import { requirePerm, zquery } from "../middleware.js";
-import { ProjectFilesQuery, type ProjectFileDto, type ProjectFilesResultDto } from "../projectFilesContract.js";
+import { ProjectFilesQuery, type ProjectFileDto, type ProjectFilesResultDto } from "../contract.js";
 
 interface FileRow {
   id: string;
@@ -59,8 +59,8 @@ export async function projectFileRoutes(app: FastifyInstance): Promise<void> {
         WHERE i.project_id = $1
       ), filtered AS (
         SELECT * FROM files
-        WHERE ($2 = 'all' OR file_type = $2)
-          AND ($3 = '' OR strpos(lower(filename || ' ' || issue_key || ' ' || issue_title), lower($3)) > 0)
+        WHERE ($2::text = 'all' OR file_type = $2::text)
+          AND ($3::text = '' OR strpos(lower(filename || ' ' || issue_key || ' ' || issue_title), lower($3::text)) > 0)
       )
       SELECT coalesce((SELECT jsonb_agg(p) FROM (
         SELECT * FROM filtered ORDER BY ${order} LIMIT $4 OFFSET $5

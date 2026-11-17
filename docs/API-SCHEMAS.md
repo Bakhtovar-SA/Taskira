@@ -508,6 +508,16 @@
 | `color` | enum: `violet` \| `indigo` \| `blue` \| `sky` \| `teal` \| `green` \| `amber` \| `orange` \| `red` \| `pink` | необязательное, может быть null; по умолчанию null |
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | необязательное, может быть null; по умолчанию null |
 
+### ProjectFilesQuery
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `q` | string | необязательное; по умолчанию ""; длина 0…250 |
+| `type` | enum: `all` \| `images` \| `documents` \| `archives` \| `other` | необязательное; по умолчанию "all" |
+| `sort` | enum: `newest` \| `oldest` \| `name` \| `size` | необязательное; по умолчанию "newest" |
+| `limit` | integer | необязательное; по умолчанию 50; 1…50 |
+| `offset` | integer | необязательное; по умолчанию 0; 0…1000000 |
+
 ### ProjectOverviewBody
 
 | Поле | Тип | Замечания |
@@ -1380,6 +1390,34 @@ enum: `backup` \| `restore_drill`
 | `background` | enum: `default` \| `dusk` \| `dawn` \| `aurora` \| `sea` \| `rose` \| `mint` \| `graphite` \| `plain` \| `grid` \| `dots` \| `rings` \| `prism` \| `lines` | может быть null |
 | `backgroundPhoto` | object | может быть null |
 | `isDemo` | boolean |  |
+
+### ProjectFileDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `id` | string (uuid) |  |
+| `filename` | string |  |
+| `contentType` | string |  |
+| `byteSize` | integer | 0…∞ |
+| `createdAt` | string (datetime) |  |
+| `uploadedById` | string (uuid) | может быть null |
+| `uploaderName` | string | может быть null |
+| `type` | enum: `images` \| `documents` \| `archives` \| `other` |  |
+| `issue` | object |  |
+
+### ProjectFileType
+
+enum: `images` \| `documents` \| `archives` \| `other`
+
+### ProjectFilesResultDto
+
+| Поле | Тип | Замечания |
+|---|---|---|
+| `items` | array&lt;object&gt; |  |
+| `total` | integer | 0…∞ |
+| `totalBytes` | integer | 0…∞ |
+| `limit` | integer |  |
+| `offset` | integer | 0…∞ |
 
 ### ProjectMemberDto
 

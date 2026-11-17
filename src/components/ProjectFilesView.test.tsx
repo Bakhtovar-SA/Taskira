@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
-import type { ProjectFilesResult } from "../../server/src/projectFilesContract";
+import type { ProjectFilesResultDto } from "../../server/src/contract";
 import { fileQuerySearch, readFileQuery } from "../projectFiles";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), download: vi.fn(), openIssue: vi.fn(), toast: vi.fn() }));
@@ -10,7 +10,7 @@ vi.mock("../projectFiles", async original => ({ ...(await original<typeof import
 vi.mock("../api", async original => ({ ...(await original<typeof import("../api")>()), attachmentsApi: { download: mocks.download } }));
 import ProjectFilesView from "./ProjectFilesView";
 
-const FILES: ProjectFilesResult = {
+const FILES: ProjectFilesResultDto = {
   items: [{ id: "f1", filename: "Проверка портала.pdf", contentType: "application/pdf", byteSize: 2048,
     createdAt: "2026-11-16T10:00:00Z", uploadedById: null, uploaderName: "Анна Соколова", type: "documents",
     issue: { id: "i1", key: "DEMO-12", title: "Проверить портал", archived: true } }],
@@ -48,8 +48,8 @@ describe("project file catalogue", () => {
     expect(await screen.findByRole("button", { name: "Проверка портала.pdf" })).toBeTruthy();
   });
   test("ignores a late response after changing the requested catalogue", async () => {
-    let finish!: (result: ProjectFilesResult) => void;
-    mocks.list.mockImplementationOnce(() => new Promise<ProjectFilesResult>(resolve => { finish = resolve; }));
+    let finish!: (result: ProjectFilesResultDto) => void;
+    mocks.list.mockImplementationOnce(() => new Promise<ProjectFilesResultDto>(resolve => { finish = resolve; }));
     show();
     fireEvent.change(screen.getByRole("searchbox", { name: "Поиск" }), { target: { value: "nothing" } });
     mocks.list.mockResolvedValue({ ...FILES, items: [], total: 0, totalBytes: 0 });
