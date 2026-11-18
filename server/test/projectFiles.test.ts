@@ -82,6 +82,36 @@ describe("Project files: access and source metadata", () => {
     expect((await app.inject({ method: "GET", url: url(fx.projects.p1), headers: auth(outsider) })).statusCode).toBe(403);
   });
 
+  test.each(["emp1", "viw1"])("%s can open every catalogue source, including another author's archived task", async (username) => {
+    // Neither reader owns or is assigned to these tasks: browse is project-wide, unlike edit/transition.
+    const issueIds = [fx.issues.p1issue, archivedIssue];
+    await q(`UPDATE issues SET reporter_id = $1 WHERE id = ANY($2::uuid[])`, [fx.users.mgr1, issueIds]);
+    await q(`DELETE FROM issue_assignees WHERE issue_id = ANY($1::uuid[])`, [issueIds]);
+    const reader = await login(app, username);
+    const result = await catalogue("", fx.projects.p1, reader);
+    expect(result.total).toBe(4);
+    expect(result.items.some(file => file.issue.archived)).toBe(true);
+    for (const issueId of issueIds) {
+      const base = `/api/projects/${fx.projects.p1}/issues/${issueId}`;
+      const issue = await app.inject({ method: "GET", url: base, headers: auth(reader) });
+      expect(issue.statusCode, issue.body).toBe(200);
+      const source = issue.json<{ key: string; title: string }>();
+      const attachments = await app.inject({ method: "GET", url: `${base}/attachments`, headers: auth(reader) });
+      expect(attachments.statusCode, attachments.body).toBe(200);
+      const visibleIds = attachments.json<{ id: string }[]>().map(file => file.id);
+      const listed = result.items.filter(file => file.issue.id === issueId);
+      expect(listed).not.toHaveLength(0);
+      for (const file of listed) {
+        expect(file.issue.key).toBe(source.key);
+        expect(file.issue.title).toBe(source.title);
+        expect(visibleIds).toContain(file.id);
+      }
+    }
+    const foreign = await app.inject({ method: "GET", url: `/api/projects/${fx.projects.p2}/issues/${fx.issues.p2issue}`, headers: auth(reader) });
+    expect(foreign.statusCode).toBe(403);
+    expect(result.items.some(file => file.issue.id === fx.issues.p2issue)).toBe(false);
+  });
+
   test("anonymous and another project member cannot browse; own project stays scoped", async () => {
     expect((await app.inject({ method: "GET", url: url(fx.projects.p1) })).statusCode).toBe(401);
     const other = await login(app, "mgr2");
