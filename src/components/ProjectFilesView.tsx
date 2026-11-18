@@ -8,13 +8,14 @@ import { Input } from "../ds/Field";
 import { Select } from "../ds/Select";
 import { IcDocument, IcDownload, IcSearch, IcUndo, IcX } from "../icons";
 import { useT } from "../i18n";
-import { projectFilesCopy } from "../i18n/projectFiles";
 import { FILE_PAGE_SIZE, FILE_SORTS, FILE_TYPES, fileQuerySearch, projectFilesApi, readFileQuery } from "../projectFiles";
 import { useStore } from "../store";
 import "../styles/projectFiles.css";
 
+const SIZE_UNITS = ["projectFiles.unit.byte", "projectFiles.unit.kb", "projectFiles.unit.mb", "projectFiles.unit.gb"] as const;
+
 export default function ProjectFilesView() {
-  const { data, openIssue, toast } = useStore(), { lang, errText } = useT(), copy = projectFilesCopy(lang);
+  const { data, openIssue, toast } = useStore(), { lang, t, errText } = useT();
   const projectId = data.currentProjectId;
   const [path, navigate] = useLocation(), urlSearch = useSearch();
   const query = useMemo(() => readFileQuery(urlSearch), [urlSearch]);
@@ -46,20 +47,20 @@ export default function ProjectFilesView() {
         if (query.offset > lastOffset) { updateQuery({ offset: lastOffset }); return; }
         setResource({ key: requestKey, data: result });
       })
-      .catch(error => { if (!controller.signal.aborted) setError(errText(error, copy.loadFailed)); })
+      .catch(error => { if (!controller.signal.aborted) setError(errText(error, t("projectFiles.loadFailed"))); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [projectId, query, requestKey, tick, errText, copy.loadFailed, updateQuery]);
+  }, [projectId, query, requestKey, tick, errText, t, updateQuery]);
 
   const size = (bytes: number) => {
     const unit = Math.min(3, Math.max(0, Math.floor(Math.log(bytes || 1) / Math.log(1024))));
-    return `${new Intl.NumberFormat(lang, { maximumFractionDigits: unit ? 1 : 0 }).format(bytes / 1024 ** unit)} ${copy.units[unit]}`;
+    return `${new Intl.NumberFormat(lang, { maximumFractionDigits: unit ? 1 : 0 }).format(bytes / 1024 ** unit)} ${t(SIZE_UNITS[unit])}`;
   };
   const download = async (file: ProjectFileDto) => {
     if (downloading.has(file.id)) return;
     setDownloading(current => new Set(current).add(file.id));
     try { await attachmentsApi.download(projectId, file.issue.id, file.id, file.filename); }
-    catch (error) { toast("error", errText(error, copy.downloadFailed)); }
+    catch (error) { toast("error", errText(error, t("projectFiles.downloadFailed"))); }
     finally { setDownloading(current => { const next = new Set(current); next.delete(file.id); return next; }); }
   };
   const clearSearch = (resetType = false) => {
@@ -70,40 +71,40 @@ export default function ProjectFilesView() {
   const filtered = !!query.q || query.type !== "all" || query.offset > 0;
   return <section className="project-files">
     <header className="project-files-header">
-      <div><h1>{copy.title}</h1><p>{copy.hint}</p></div>
-      <Button size="sm" variant="secondary" iconLeft={<IcUndo size={16} />} disabled={loading} onClick={() => setTick(value => value + 1)}>{copy.refresh}</Button>
+      <div><h1>{t("projectFiles.title")}</h1><p>{t("projectFiles.hint")}</p></div>
+      <Button size="sm" variant="secondary" iconLeft={<IcUndo size={16} />} disabled={loading} onClick={() => setTick(value => value + 1)}>{t("projectFiles.refresh")}</Button>
     </header>
     <div className="project-files-filters">
-      <Input ref={searchInput} label={copy.search} type="text" role="searchbox" enterKeyHint="search" placeholder={copy.searchHint} maxLength={250} value={search}
+      <Input ref={searchInput} label={t("projectFiles.search")} type="text" role="searchbox" enterKeyHint="search" placeholder={t("projectFiles.searchHint")} maxLength={250} value={search}
         iconLeft={<IcSearch size={16} />} onChange={event => setSearch(event.target.value)}
-        right={search ? <IconButton size="sm" variant="ghost" label={copy.clear} onClick={() => clearSearch()}><IcX size={14} /></IconButton> : undefined} />
-      <Select label={copy.type} value={query.type} onChange={type => updateQuery({ type, offset: 0 })} options={FILE_TYPES.map(value => ({ value, label: copy[value] }))} />
-      <Select label={copy.sort} value={query.sort} onChange={sort => updateQuery({ sort, offset: 0 })} options={FILE_SORTS.map(value => ({ value, label: copy[value] }))} />
+        right={search ? <IconButton size="sm" variant="ghost" label={t("projectFiles.clear")} onClick={() => clearSearch()}><IcX size={14} /></IconButton> : undefined} />
+      <Select label={t("projectFiles.type")} value={query.type} onChange={type => updateQuery({ type, offset: 0 })} options={FILE_TYPES.map(value => ({ value, label: t(`projectFiles.${value}`) }))} />
+      <Select label={t("projectFiles.sort")} value={query.sort} onChange={sort => updateQuery({ sort, offset: 0 })} options={FILE_SORTS.map(value => ({ value, label: t(`projectFiles.${value}`) }))} />
     </div>
     <div className="project-files-content" aria-busy={loading}>
-      {error && <div className="project-files-error" role="alert"><span>{error}</span><Button size="sm" variant="secondary" onClick={() => setTick(value => value + 1)}>{copy.retry}</Button></div>}
-      <p className="project-files-summary" role="status">{loading ? copy.loading : files ? `${copy.total}: ${files.total.toLocaleString(lang)} · ${size(files.totalBytes)}` : ""}</p>
+      {error && <div className="project-files-error" role="alert"><span>{error}</span><Button size="sm" variant="secondary" onClick={() => setTick(value => value + 1)}>{t("common.retry")}</Button></div>}
+      <p className="project-files-summary" role="status">{loading ? t("projectFiles.loading") : files ? t("projectFiles.summary", { count: files.total.toLocaleString(lang), size: size(files.totalBytes) }) : ""}</p>
       {loading && !files ? <div className="project-files-loading" aria-hidden="true">{Array.from({ length: 6 }, (_, index) => <div key={index} className="skeleton" />)}</div>
         : files?.items.length ? <div className="project-files-table-wrap"><table className="project-files-table">
-          <caption className="sr-only">{copy.title}</caption>
-          <thead><tr><th scope="col">{copy.filename}</th><th scope="col">{copy.issue}</th><th scope="col">{copy.byteSize}</th><th scope="col">{copy.uploaded}</th><th scope="col"><span className="sr-only">{copy.download}</span></th></tr></thead>
+          <caption className="sr-only">{t("projectFiles.title")}</caption>
+          <thead><tr><th scope="col">{t("projectFiles.filename")}</th><th scope="col">{t("projectFiles.issue")}</th><th scope="col">{t("projectFiles.byteSize")}</th><th scope="col">{t("projectFiles.uploaded")}</th><th scope="col"><span className="sr-only">{t("projectFiles.download")}</span></th></tr></thead>
           <tbody>{files.items.map(file => <tr key={file.id}>
             <td className="project-file-name"><span className="project-file-mark" aria-hidden="true"><IcDocument size={22} tone={file.type === "images" ? "pink" : file.type === "archives" ? "amber" : "sky"} /></span>
-              <div><button type="button" className="project-file-link" onClick={() => void download(file)} disabled={downloading.has(file.id)} aria-busy={downloading.has(file.id) || undefined}>{file.filename}</button><span className="project-file-kind">{copy[file.type]}</span></div></td>
-            <td className="project-file-source"><button type="button" className="project-file-link" onClick={() => openIssue(file.issue.id)}><span className="project-file-key">{file.issue.key}</span>{" "}{file.issue.title}</button>{file.issue.archived && <span className="project-file-kind">{copy.archived}</span>}</td>
-            <td className="project-file-size" data-label={copy.byteSize}>{size(file.byteSize)}</td>
-            <td className="project-file-added"><time dateTime={file.createdAt}>{new Date(file.createdAt).toLocaleDateString(lang, { day: "numeric", month: "short", year: "numeric" })}</time>{" "}<span className="project-file-kind">{file.uploaderName ?? copy.authorUnknown}</span></td>
-            <td className="project-file-action"><IconButton size="sm" variant="ghost" label={`${copy.download}: ${file.filename}`} disabled={downloading.has(file.id)} aria-busy={downloading.has(file.id) || undefined} onClick={() => void download(file)}><IcDownload size={18} /></IconButton></td>
+              <div><button type="button" className="project-file-link" onClick={() => void download(file)} disabled={downloading.has(file.id)} aria-busy={downloading.has(file.id) || undefined}>{file.filename}</button><span className="project-file-kind">{t(`projectFiles.${file.type}`)}</span></div></td>
+            <td className="project-file-source"><button type="button" className="project-file-link" onClick={() => openIssue(file.issue.id)}><span className="project-file-key">{file.issue.key}</span>{" "}{file.issue.title}</button>{file.issue.archived && <span className="project-file-kind">{t("projectFiles.archived")}</span>}</td>
+            <td className="project-file-size" data-label={t("projectFiles.byteSize")}>{size(file.byteSize)}</td>
+            <td className="project-file-added"><time dateTime={file.createdAt}>{new Date(file.createdAt).toLocaleDateString(lang, { day: "numeric", month: "short", year: "numeric" })}</time>{" "}<span className="project-file-kind">{file.uploaderName ?? t("projectFiles.authorUnknown")}</span></td>
+            <td className="project-file-action"><IconButton size="sm" variant="ghost" label={`${t("projectFiles.download")}: ${file.filename}`} disabled={downloading.has(file.id)} aria-busy={downloading.has(file.id) || undefined} onClick={() => void download(file)}><IcDownload size={18} /></IconButton></td>
           </tr>)}</tbody>
         </table></div>
-        : files && !error ? <EmptyState icon={<IcDocument size={26} tone="sky" />} title={filtered ? copy.noMatchesTitle : copy.emptyTitle} sub={filtered ? copy.noMatchesHint : copy.emptyHint}
-          action={filtered ? <Button size="sm" variant="secondary" onClick={() => clearSearch(true)}>{copy.reset}</Button> : undefined} /> : null}
-      {files && files.total > FILE_PAGE_SIZE && <nav className="project-files-pagination" aria-label={copy.pages}>
-        <Button size="sm" variant="secondary" disabled={loading || !query.offset} onClick={() => updateQuery({ offset: Math.max(0, query.offset - FILE_PAGE_SIZE) })}>{copy.previous}</Button>
-        <span>{copy.page} {Math.floor(query.offset / FILE_PAGE_SIZE) + 1} {copy.of} {Math.ceil(files.total / FILE_PAGE_SIZE)}</span>
-        <Button size="sm" variant="secondary" disabled={loading || query.offset + FILE_PAGE_SIZE >= files.total} onClick={() => updateQuery({ offset: query.offset + FILE_PAGE_SIZE })}>{copy.next}</Button>
+        : files && !error ? <EmptyState icon={<IcDocument size={26} tone="sky" />} title={filtered ? t("projectFiles.noMatchesTitle") : t("projectFiles.emptyTitle")} sub={filtered ? t("projectFiles.noMatchesHint") : t("projectFiles.emptyHint")}
+          action={filtered ? <Button size="sm" variant="secondary" onClick={() => clearSearch(true)}>{t("projectFiles.reset")}</Button> : undefined} /> : null}
+      {files && files.total > FILE_PAGE_SIZE && <nav className="project-files-pagination" aria-label={t("projectFiles.pages")}>
+        <Button size="sm" variant="secondary" disabled={loading || !query.offset} onClick={() => updateQuery({ offset: Math.max(0, query.offset - FILE_PAGE_SIZE) })}>{t("projectFiles.previous")}</Button>
+        <span>{t("projectFiles.pageStatus", { page: Math.floor(query.offset / FILE_PAGE_SIZE) + 1, pages: Math.ceil(files.total / FILE_PAGE_SIZE) })}</span>
+        <Button size="sm" variant="secondary" disabled={loading || query.offset + FILE_PAGE_SIZE >= files.total} onClick={() => updateQuery({ offset: query.offset + FILE_PAGE_SIZE })}>{t("projectFiles.next")}</Button>
       </nav>}
-      <p className="project-files-help">{copy.help}</p>
+      <p className="project-files-help">{t("projectFiles.help")}</p>
     </div>
   </section>;
 }

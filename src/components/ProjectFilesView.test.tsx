@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { I18nProvider } from "../i18n";
+import { I18nProvider, loadLang } from "../i18n";
+import { optionLabels } from "../ds/Select.testing";
 import type { ProjectFilesResultDto } from "../../server/src/contract";
 import { fileQuerySearch, readFileQuery } from "../projectFiles";
 
@@ -16,11 +17,33 @@ const FILES: ProjectFilesResultDto = {
     issue: { id: "i1", key: "DEMO-12", title: "Проверить портал", archived: true } }],
   total: 1, totalBytes: 2048, limit: 50, offset: 0,
 };
-beforeEach(() => { history.replaceState(null, "", "/p/DEMO/files"); mocks.list.mockResolvedValue(FILES); mocks.download.mockResolvedValue(undefined); });
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+beforeEach(() => { localStorage.clear(); history.replaceState(null, "", "/p/DEMO/files"); mocks.list.mockResolvedValue(FILES); mocks.download.mockResolvedValue(undefined); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
 const show = () => render(<I18nProvider><ProjectFilesView /></I18nProvider>);
 
 describe("project file catalogue", () => {
+  test("English dictionary covers filters, sizes, pagination and errors without translating task data", async () => {
+    await loadLang("en");
+    localStorage.setItem("taskira.lang", "en");
+    mocks.list.mockResolvedValue({ ...FILES, total: 51, items: [{ ...FILES.items[0], uploaderName: null }] });
+    mocks.download.mockRejectedValueOnce(new Error("Connection failed"));
+    show();
+    await screen.findByText("Files: 51 · 2 KB");
+    expect(screen.getByRole("heading", { name: "Project files" })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search" })).toBeTruthy();
+    expect(screen.getByText("Page 1 of 2")).toBeTruthy();
+    expect(screen.getByText("Archived task")).toBeTruthy();
+    expect(screen.getByText("Author unavailable")).toBeTruthy();
+    const type = screen.getByRole("combobox", { name: "File type" });
+    expect(optionLabels(type)).toEqual(["All types", "Images", "Documents", "Archives", "Other files"]);
+    const sort = screen.getByRole("combobox", { name: "Sort" });
+    expect(optionLabels(sort)).toEqual(["Newest first", "Oldest first", "Name", "Largest first"]);
+    fireEvent.click(screen.getByRole("button", { name: "Проверка портала.pdf" }));
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith("error", "Could not download the file. Try again."));
+    fireEvent.click(screen.getByRole("button", { name: "DEMO-12 Проверить портал" }));
+    expect(mocks.openIssue).toHaveBeenCalledWith("i1");
+  });
+
   test("downloads using source task permissions and opens its source", async () => {
     show();
     fireEvent.click(await screen.findByRole("button", { name: "Проверка портала.pdf" }));
