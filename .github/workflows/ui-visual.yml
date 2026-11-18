@@ -2,7 +2,7 @@ name: ui visual
 
 # Визуальная регрессия и axe библиотеки компонентов (ТЗ 5.7 п. 6, ADR-0014): только на PR,
 # затрагивающих продуктовый UI, публичные ресурсы или зависимости. Эталоны: e2e/__screenshots__ (Linux Chromium
-# из @playwright/test 1.56.1); обновить — `npm run test:ui -- --update-snapshots` в той же среде.
+# из закреплённой версии @playwright/test); обновить — `npm run test:ui -- --update-snapshots` в той же среде.
 on:
   pull_request:
     paths:
@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Match the pinned Playwright version and the Linux screenshot environment.
     container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
+      image: mcr.microsoft.com/playwright:v1.65.0-noble
     permissions:
       contents: read
     steps:
@@ -36,6 +36,17 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Verify Playwright driver and browser image versions
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const driver = require('@playwright/test/package.json').version;
+          const image = JSON.parse(fs.readFileSync('/ms-playwright/.docker-info', 'utf8'));
+          if (driver !== image.driverVersion) {
+            throw new Error(`Playwright driver ${driver} does not match browser image ${image.driverVersion}`);
+          }
+          console.log(`Playwright ${driver}: driver and image match`);
+          NODE
       - run: npm run test:ui
       - run: npm run test:ui:production
       - if: failure()

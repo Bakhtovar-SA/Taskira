@@ -1,7 +1,9 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DatePicker } from "./DatePicker";
+import { mockPopoverVisibility } from "./Popover.testing";
 
+mockPopoverVisibility();
 afterEach(cleanup);
 
 test.each([
