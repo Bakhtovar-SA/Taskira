@@ -44,6 +44,16 @@ beforeEach(async () => {
 });
 
 describe("Project files: access and source metadata", () => {
+  test.each(["limit=100", "type=x"])("access is checked before an invalid query: %s", async (query) => {
+    await q(`INSERT INTO issue_collaborators (issue_id, user_id) VALUES ($1, $2)`, [fx.issues.p1issue, fx.users.outsider]);
+    const invited = await login(app, "outsider");
+    const foreign = await login(app, "mgr2");
+    for (const [headers, status] of [[{}, 401], [auth(invited), 403], [auth(foreign), 403], [auth(token), 400]] as const) {
+      const res = await app.inject({ method: "GET", url: url(fx.projects.p1, query), headers });
+      expect(res.statusCode, res.body).toBe(status);
+    }
+  });
+
   test("global admin and all project roles browse, without foreign files or storage keys", async () => {
     for (const username of ["admin", "mgr1", "emp1", "viw1"]) {
       const result = await catalogue("", fx.projects.p1, await login(app, username));
@@ -94,6 +104,34 @@ describe("Project files: access and source metadata", () => {
 });
 
 describe("Project files: search, filters and pages", () => {
+  test("a 5,000-file catalogue keeps exact search totals and deep-page results", async () => {
+    await q(`WITH created AS (
+      INSERT INTO issues (project_id, num, key, title, description, type_id, status_id, priority_id, reporter_id, labels, rank)
+      SELECT $1, 1000 + n, 'CORP-' || (1000 + n), 'Bulk catalogue task ' || n, '', 'task', $2, 'medium', $3, '{}', n
+      FROM generate_series(1, 1000) n RETURNING id, key
+    )
+    INSERT INTO attachments (issue_id, uploaded_by, filename, content_type, byte_size, sha256, storage_driver, storage_key)
+    SELECT c.id, $3, 'bulk-' || c.key || '-' || n || '.pdf', 'application/pdf', 100, repeat('0', 64), 'local', c.id || '/' || n
+    FROM created c CROSS JOIN generate_series(1, 5) n`, [fx.projects.p1, fx.p1status.todo, fx.users.emp1]);
+    const result = await catalogue("q=bulk-&type=documents&sort=name");
+    expect(result.items).toHaveLength(50);
+    expect(result.total).toBe(5000);
+    expect(result.totalBytes).toBe(500_000);
+    const last = await catalogue("q=bulk-&type=documents&sort=name&offset=4950");
+    expect(last.items).toHaveLength(50);
+    expect(last.total).toBe(5000);
+    expect(last.totalBytes).toBe(500_000);
+    expect(last.items.some(file => result.items.some(first => first.id === file.id))).toBe(false);
+    const precise = await catalogue("q=bulk-CORP-1001-");
+    expect(precise.items).toHaveLength(5);
+    expect(precise.total).toBe(5);
+    expect(precise.totalBytes).toBe(500);
+    const pastEnd = await catalogue("q=bulk-&offset=1000000");
+    expect(pastEnd.items).toEqual([]);
+    expect(pastEnd.total).toBe(5000);
+    expect(pastEnd.totalBytes).toBe(500_000);
+  });
+
   test("search matches case-insensitive filename, issue key or title; percent/underscore are literal", async () => {
     expect((await catalogue("q=alpha")).items.map((file) => file.filename)).toEqual(["Alpha.png"]);
     expect((await catalogue(`q=${encodeURIComponent("  ПОРТАЛ  ")}`)).total).toBe(3);

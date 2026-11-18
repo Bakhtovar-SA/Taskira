@@ -22,8 +22,7 @@ interface FileRow {
 export async function projectFileRoutes(app: FastifyInstance): Promise<void> {
   app.get("/files", {
     // Deliberately project-scoped: an invitation to one issue never opens this catalogue.
-    preHandler: requirePerm("browse"),
-    preValidation: zquery(ProjectFilesQuery),
+    preValidation: [requirePerm("browse"), zquery(ProjectFilesQuery)],
   }, async (req): Promise<ProjectFilesResultDto> => {
     const filter = req.query as ProjectFilesQuery;
     // Every SQL fragment comes from this closed map, never from query text.
