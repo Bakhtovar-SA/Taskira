@@ -10,8 +10,8 @@ test.each(["ru", "en"] as const)("the accessible date name includes the visible 
   for (const numeric of [false, true]) {
     const { unmount } = render(<DatePicker value="2026-10-15" onChange={() => {}} label="Due" today="2026-10-01" lang={lang} numeric={numeric} />);
     const trigger = screen.getByRole("button", { name: /^Due:/ });
-    expect(trigger.getAttribute("aria-label")).toBe(`Due: ${trigger.textContent}`);
-    expect(trigger.getAttribute("aria-description")).toContain("2026");
+    expect(trigger.getAttribute("aria-label")).toContain(`Due: ${trigger.textContent}`);
+    expect(trigger.getAttribute("aria-label")).toMatch(/\(.*2026.*\)$/);
     unmount();
   }
 });

@@ -63,7 +63,7 @@ test("board refresh: English toolbar", async ({ page }) => {
 test("board refresh: quick filters restore from URL and compose with overdue", async ({ page }) => {
   await boardFixture(page);
   await page.goto("/p/CORP/board?assignee=u1");
-  const mine = page.getByRole("button", { name: "Мои", exact: true });
+  const mine = page.getByRole("button", { name: "Мои задачи", exact: true });
   await expect(mine).toHaveAttribute("aria-pressed", "true");
   await mine.click(); await expect(page).not.toHaveURL(/assignee=/);
   await page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }).click();

@@ -44,7 +44,7 @@
 .workspace-controls .project-members { display: flex; align-self: center; padding-inline: 4px; }
 @container (max-width: 1000px) {
   .global-topbar-right .sidebar-user-menu { width: 40px; }
-  .global-topbar-right .sidebar-user-menu > span.truncate > span:last-child { display: none; }
+  .global-topbar-right .sidebar-user-menu .sidebar-user-caption { display: none; }
 }
 @container (max-width: 600px) {
   .global-topbar-row { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px; padding-inline: 4px; }

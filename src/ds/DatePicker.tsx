@@ -143,8 +143,7 @@ export function DatePicker({
         <button
           {...p}
           type="button"
-          aria-label={`${label}: ${displayValue}`}
-          aria-description={value ? fmt(value, { day: "numeric", month: "long", year: "numeric" }) : undefined}
+          aria-label={`${label}: ${displayValue}${value ? ` (${fmt(value, { day: "numeric", month: "long", year: "numeric" })})` : ""}`}
           className={`ds-input ds-focus cursor-pointer text-left ${block ? "w-full min-w-0" : "min-w-[168px]"} ${overdue ? "text-[var(--status-danger-fg)]" : ""}`}
         >
           <span className="ds-adorn">

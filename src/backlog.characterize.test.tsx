@@ -268,7 +268,7 @@ async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl, 
 }
 
 function showOptions() {
-  const button = screen.getByRole("button", { name: "Вид" });
+  const button = screen.getByRole("button", { name: "Вид: Настройки вида" });
   if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 

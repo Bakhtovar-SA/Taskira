@@ -552,8 +552,8 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     });
     await settle();
 
-    const prevBtn = screen.getByRole("button", { name: "Предыдущая K" });
-    const nextBtn = screen.getByRole("button", { name: "Следующая J" });
+    const prevBtn = screen.getByRole("button", { name: "Предыдущая K: Предыдущая задача" });
+    const nextBtn = screen.getByRole("button", { name: "Следующая J: Следующая задача" });
     // i1 — первый элемент фиктивного <main>: нет предыдущей, есть следующая.
     expect(prevBtn.getAttribute("aria-disabled")).toBe("true");
     expect(nextBtn.getAttribute("aria-disabled")).toBeNull();
@@ -580,8 +580,8 @@ describe("IssueModal — характеризационные тесты (ТЗ 5
     await settle();
 
     expect(screen.getByText("Первая")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Предыдущая K" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Следующая J" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Предыдущая K: Предыдущая задача" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Следующая J: Следующая задача" })).toBeNull();
     h.ui.unmount();
   });
 

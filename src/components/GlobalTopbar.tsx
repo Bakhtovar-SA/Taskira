@@ -27,7 +27,7 @@ export default function GlobalTopbar() {
         </Button>
         <Button variant={canCreate ? "primary" : "ghost"} size="sm" disabled={canCreate ? false : t("topbar.createDeniedTip")}
           onClick={() => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true)} className="project-create"
-          aria-label={`${t("topbar.task")} C`} aria-description={t("topbar.createAria")} aria-keyshortcuts="C" iconLeft={canCreate ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
+          aria-label={`${t("topbar.task")} C: ${t("topbar.createAria")}`} aria-keyshortcuts="C" iconLeft={canCreate ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
           <span className="hidden sm:inline">{t("topbar.task")}</span>
         </Button>
       </div>

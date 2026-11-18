@@ -13,7 +13,7 @@ test("create form orders the checklist, searches project assignees and dismisses
     workflow: { statuses: [{ id: "s1", sid: "todo", name: "Todo", category: "todo", position: 0 }], transitions: [] }, issueTemplates: [], customFields: [], sprints: [],
   } }));
   await page.goto("/p/TEST/board");
-  await page.locator(".global-topbar").getByRole("button", { name: "Задача C", exact: true }).click();
+  await page.locator(".global-topbar").getByRole("button", { name: "Задача C: Создать задачу", exact: true }).click();
   const dialog = page.getByRole("dialog").filter({ has: page.getByPlaceholder(/Экран восстановления пароля/) });
   const title = dialog.getByPlaceholder(/Экран восстановления пароля/);
   await title.fill("Проверить новый интерфейс");

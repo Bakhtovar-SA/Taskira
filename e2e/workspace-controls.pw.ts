@@ -11,7 +11,7 @@ for (const theme of ["light", "dark"]) for (const width of [1440, 390, 320]) {
     await page.addInitScript(theme => localStorage.setItem("taskira.theme", theme), theme);
     await page.goto("/p/TEST/list");
     const filters = page.getByRole("button", { name: /^Фильтры/ });
-    const options = page.getByRole("button", { name: "Вид", exact: true });
+    const options = page.getByRole("button", { name: "Вид: Настройки вида", exact: true });
     await expect(filters).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     const before = await filters.boundingBox();
@@ -56,7 +56,7 @@ for (const theme of ["light", "dark"]) for (const width of [1440, 390, 320]) {
     const select = page.getByRole("button", { name: "Выделить", exact: true });
     await expect(photo).toBeVisible();
     await expect(select).toBeVisible();
-    await expect(page.locator(".workspace-controls").getByRole("button", { name: /^Фильтры|Вид$/ })).toHaveCount(0);
+    await expect(page.locator(".workspace-controls").getByRole("button", { name: /^Фильтры|Вид: Настройки вида$/ })).toHaveCount(0);
     await photo.click();
     await expect(page.getByRole("dialog", { name: "Вид доски" })).toBeVisible();
     await page.keyboard.press("Escape");

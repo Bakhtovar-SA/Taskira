@@ -30,7 +30,7 @@ for (const theme of ["light", "dark"] as const) for (const lang of ["ru", "en"] 
     await expect(page.locator('main [data-issue-id]')).toHaveCount(8);
     await day.locator('[data-issue-id="i1"]').click();
     await expect(page).toHaveURL(/issue=TEST-1/);
-    await page.getByRole("button", { name: lang === "en" ? "Next J" : "Следующая J", exact: true }).focus();
+    await page.getByRole("button", { name: lang === "en" ? "Next J: Next issue" : "Следующая J: Следующая задача", exact: true }).focus();
     await page.keyboard.press("j"); await expect(page).toHaveURL(/issue=TEST-3/);
     await page.keyboard.press("k"); await expect(page).toHaveURL(/issue=TEST-1/);
     await page.keyboard.press("Escape"); await expect(page).not.toHaveURL(/issue=/);

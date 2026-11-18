@@ -12,15 +12,16 @@ export function UserMenu({ onLogout }: { onLogout: () => void }) {
       className="w-[280px]" label={t("topbar.userMenuAria")}
       placement="bottom-end"
       trigger={(props, open) => (
-        <Button {...props} variant="ghost" size="sm" className={`sidebar-user-menu min-w-0 flex-1 flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"} [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2`} aria-description={t("topbar.userMenuAria")}>
+        <Button {...props} variant="ghost" size="sm" className={`sidebar-user-menu min-w-0 flex-1 flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition-colors duration-150 ${open ? "bg-active" : "hover:bg-hover"} [&>span.truncate]:flex [&>span.truncate]:w-full [&>span.truncate]:min-w-0 [&>span.truncate]:items-center [&>span.truncate]:gap-2`}>
           {/* interactive=false: клик по аватарке здесь должен открывать это же
               меню профиля, а не всплывающую карточку профиля —
               её показывает сам заголовок открытого меню ниже. */}
           <PersonAvatar user={me} size={30} interactive={false} />
-          <span className="min-w-0 flex-1 truncate text-left">
+          <span className="sidebar-user-caption min-w-0 flex-1 truncate text-left">
             <span className="block truncate text-[14.5px] font-semibold leading-tight text-ink">{me.name}</span>
             <span className="block mt-0.5 text-[13px] leading-tight text-sub">{me.role}</span>
           </span>
+          <span className="sr-only">{t("topbar.userMenuAria")}</span>
         </Button>
       )}
     >
