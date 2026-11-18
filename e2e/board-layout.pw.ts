@@ -56,12 +56,12 @@ for (const [width, height] of [[1920, 1080], [1460, 900], [390, 844]]) test(`boa
   await expect(summaryTrigger).toHaveCount(0);
   await expectStableTop();
 
-  await page.getByRole("button", { name: "Мои задачи", exact: true }).click();
+  await page.getByRole("button", { name: "Мои", exact: true }).click();
   await expectStableTop();
-  await page.getByRole("button", { name: "Мои задачи", exact: true }).click();
-  await page.getByRole("button", { name: "Просрочено", exact: true }).click();
+  await page.getByRole("button", { name: "Мои", exact: true }).click();
+  await page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }).click();
   await expectStableTop();
-  await page.getByRole("button", { name: "Просрочено", exact: true }).click();
+  await page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }).click();
   await page.getByRole("button", { name: "Без исполнителя", exact: true }).click();
   await expectStableTop();
   await page.getByRole("button", { name: "Без исполнителя", exact: true }).click();

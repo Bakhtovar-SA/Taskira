@@ -103,7 +103,7 @@ test("saved brand stays applied after the logo returns to home", async ({ page }
   await page.goto("/p/TEST/board");
   await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand-h").trim())).toBe("145");
   const accent = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand-h"));
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.locator('button[aria-description="На главный экран"]').click();
   await expect(page).toHaveURL(/\/$/);
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--brand-h"))).toBe(accent);
   await expect(page.locator("html")).toHaveAttribute("data-brand-palette", "extended");

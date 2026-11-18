@@ -63,17 +63,17 @@ test("board refresh: English toolbar", async ({ page }) => {
 test("board refresh: quick filters restore from URL and compose with overdue", async ({ page }) => {
   await boardFixture(page);
   await page.goto("/p/CORP/board?assignee=u1");
-  const mine = page.getByRole("button", { name: "Мои задачи", exact: true });
+  const mine = page.getByRole("button", { name: "Мои", exact: true });
   await expect(mine).toHaveAttribute("aria-pressed", "true");
   await mine.click(); await expect(page).not.toHaveURL(/assignee=/);
-  await page.getByRole("button", { name: "Просрочено", exact: true }).click();
+  await page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }).click();
   await expect(page).toHaveURL(/overdue=1/);
   await page.getByRole("button", { name: "Без исполнителя", exact: true }).click();
   await expect(page).toHaveURL(/assignee=none/);
   await expect(page.locator(".board-card")).toHaveCount(1);
   await page.reload();
   await expect(page.getByRole("button", { name: "Без исполнителя", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByRole("button", { name: "Просрочено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("/"); await expect(page.getByRole("textbox", { name: "Фильтр задач" })).toBeFocused();
 });
 

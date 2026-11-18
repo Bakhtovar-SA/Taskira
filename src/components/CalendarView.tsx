@@ -49,7 +49,7 @@ const Day = memo(function Day({ day, date, mode, today, items, focused, categori
     editable={editable.has(i.id)} reason={reasons.get(i.id) ?? ""} actions={actions} today={today} nav={nav} />;
   return <div role="gridcell" className="calendar-day ds-focus" data-day={day} data-today={day === today || undefined}
     data-outside={mode === "month" && day.slice(0, 7) !== date.slice(0, 7) || undefined} data-weekend={weekend || undefined}
-    tabIndex={focused ? 0 : -1} aria-label={dateOf(day).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+    tabIndex={focused ? 0 : -1} aria-description={dateOf(day).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long", year: "numeric" })}
     onFocus={e => { if (e.target === e.currentTarget) onFocusDay(day); }} onKeyDown={e => { if (e.target === e.currentTarget) onDayKey(e, day); }}
     onDragOver={e => { if (e.dataTransfer.types.includes("application/x-taskira-issue")) e.preventDefault(); }}
     onDrop={e => { e.preventDefault(); actions.move(e.dataTransfer.getData("application/x-taskira-issue"), day); }}>

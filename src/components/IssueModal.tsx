@@ -292,8 +292,8 @@ export default function IssueModal({ mode = "panel", open = true }: { mode?: Iss
         <div className="issue-toolbar-actions">
           {!editOk && <span className="issue-readonly" title={denyMsg}>{t("issue.readOnly")}</span>}
           {!page && <div className="issue-nav-buttons">
-            <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasPrev} aria-label={t("issue.prev")} onClick={() => go(-1)} kbd="K">{t("issue.prevShort")}</Button>
-            <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasNext} aria-label={t("issue.next")} onClick={() => go(1)} kbd="J">{t("issue.nextShort")}</Button>
+            <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasPrev} aria-description={t("issue.prev")} aria-keyshortcuts="K" onClick={() => go(-1)} kbd="K">{t("issue.prevShort")}</Button>
+            <Button variant="secondary" size="sm" className="issue-nav-button" disabled={!hasNext} aria-description={t("issue.next")} aria-keyshortcuts="J" onClick={() => go(1)} kbd="J">{t("issue.nextShort")}</Button>
             <span className="issue-toolbar-divider" />
             <button onClick={() => openIssue(issue.id, "page")} className={iconBtn} aria-label={t("issue.openFull")}><IcExpand size={17} /></button>
           </div>}

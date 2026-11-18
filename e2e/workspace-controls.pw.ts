@@ -11,7 +11,7 @@ for (const theme of ["light", "dark"]) for (const width of [1440, 390, 320]) {
     await page.addInitScript(theme => localStorage.setItem("taskira.theme", theme), theme);
     await page.goto("/p/TEST/list");
     const filters = page.getByRole("button", { name: /^Фильтры/ });
-    const options = page.getByRole("button", { name: "Настройки вида", exact: true });
+    const options = page.getByRole("button", { name: "Вид", exact: true });
     await expect(filters).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
     const before = await filters.boundingBox();
@@ -56,7 +56,7 @@ for (const theme of ["light", "dark"]) for (const width of [1440, 390, 320]) {
     const select = page.getByRole("button", { name: "Выделить", exact: true });
     await expect(photo).toBeVisible();
     await expect(select).toBeVisible();
-    await expect(page.locator(".workspace-controls").getByRole("button", { name: /^Фильтры|Настройки вида$/ })).toHaveCount(0);
+    await expect(page.locator(".workspace-controls").getByRole("button", { name: /^Фильтры|Вид$/ })).toHaveCount(0);
     await photo.click();
     await expect(page.getByRole("dialog", { name: "Вид доски" })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -89,7 +89,7 @@ for (const theme of ["dark", "light"]) for (const width of [1920, 3440, 390, 320
     await page.getByRole("button", { name: "Фильтры", exact: true }).click();
     const panel = page.locator('.workspace-panel[data-panel="filters"]');
     await expect(panel.locator("select")).toHaveCount(0);
-    const status = panel.getByRole("button", { name: "Статус", exact: true });
+    const status = panel.getByRole("button", { name: /^Статус: / });
     await status.click();
     const menu = page.getByRole("menu", { name: "Статус", exact: true });
     await expect(menu).toBeVisible();
@@ -112,13 +112,13 @@ for (const theme of ["dark", "light"]) for (const width of [1920, 3440, 390, 320
     await expect(panel).toBeVisible();
     await expect(status).toBeFocused();
     for (const label of ["Исполнитель", "Тип задачи", "Приоритет"]) {
-      await panel.getByRole("button", { name: label, exact: true }).click();
+      await panel.getByRole("button", { name: new RegExp(`^${label}: `) }).click();
       await expect(page.getByRole("menu", { name: label, exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
     }
     await page.keyboard.press("Escape");
     await page.reload();
     await page.getByRole("button", { name: /^Фильтры/ }).click();
-    await expect(panel.getByRole("button", { name: "Статус", exact: true })).toHaveText("К выполнению");
+    await expect(panel.getByRole("button", { name: /^Статус: / })).toHaveText("К выполнению");
   });
 }

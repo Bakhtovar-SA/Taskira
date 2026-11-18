@@ -21,13 +21,13 @@ export default function GlobalTopbar() {
         <IcPanel size={18} />
       </IconButton>
       <div className="global-topbar-center">
-        <Button variant="secondary" size="sm" onClick={openPalette} aria-label={t("sidebar.search")} className="sidebar-search global-search min-w-0"
+        <Button variant="secondary" size="sm" onClick={openPalette} className="sidebar-search global-search min-w-0"
           iconLeft={<IcSearch size={16} />} iconRight={<Kbd>{paletteShortcut()}</Kbd>}>
           {t("sidebar.search")}
         </Button>
         <Button variant={canCreate ? "primary" : "ghost"} size="sm" disabled={canCreate ? false : t("topbar.createDeniedTip")}
           onClick={() => bootStatus === "home" ? openHomeCreate() : setCreateOpen(true)} className="project-create"
-          aria-label={t("topbar.createAria")} iconLeft={canCreate ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
+          aria-label={`${t("topbar.task")} C`} aria-description={t("topbar.createAria")} aria-keyshortcuts="C" iconLeft={canCreate ? <IcPlus size={18} /> : <IcLock size={18} />} kbd="C">
           <span className="hidden sm:inline">{t("topbar.task")}</span>
         </Button>
       </div>

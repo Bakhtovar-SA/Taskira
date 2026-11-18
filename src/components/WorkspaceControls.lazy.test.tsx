@@ -18,7 +18,7 @@ test("a click on the filters button before the overlay chunk loads still opens t
 
 test("a click on a filter value menu before the overlay chunk loads still opens it", async () => {
   render(<I18nProvider><WorkspaceSelect label="Kind" value="a" onChange={() => {}} options={[{ value: "a", label: "Alpha" }, { value: "b", label: "Beta" }]} /></I18nProvider>);
-  const stub = screen.getByRole("button", { name: "Kind" });
+  const stub = screen.getByRole("button", { name: "Kind: Alpha" });
   expect(stub.getAttribute("aria-controls")).toBeNull();
   fireEvent.click(stub);
   await waitFor(() => expect(screen.getAllByRole("menuitem", { hidden: true }).length).toBe(2), { timeout: 5000 });

@@ -22,7 +22,7 @@ for (const path of ["reports", "dashboards/overview", "dashboards/personal"]) fo
     await page.goto(`/${path}`);
     await expect(page.getByRole("heading", { name: "Отчёты и дашборды", exact: true })).toBeVisible();
     await expect(page.locator(".project-topbar")).toHaveCount(0);
-    await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
+    await page.locator('button[aria-description="Меню пользователя"]').click();
     await page.getByRole("button", { name: "Выйти", exact: true }).click();
     await expect.poll(() => loggedOut).toBe(true);
     await expect(page.getByRole("button", { name: "Войти", exact: true })).toBeVisible();
@@ -40,7 +40,7 @@ test("read-only project retains its permission guard on a narrow screen", async 
   } }));
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto("/p/TEST/board");
-  const create = page.getByRole("button", { name: "Создать задачу", exact: true });
+  const create = page.getByRole("button", { name: "Задача C", exact: true });
   await expect(create).toBeDisabled();
   await expect(page.locator("article[data-issue-id]")).toHaveCount(3);
   await expect(page.locator("article[draggable=true]")).toHaveCount(0);
@@ -103,7 +103,7 @@ for (const theme of ["light", "dark"]) {
     await page.getByRole("heading", { level: 1 }).click();
     await expect(page.locator("[data-toast-id]").filter({ hasText: "Теперь при входе — список ваших проектов и задач." })).toBeHidden({ timeout: 10000 });
     await page.screenshot({ path: `shots/workspace-home-mobile-${theme}.png` });
-    await page.locator(".global-topbar").getByRole("button", { name: "Создать задачу", exact: true }).click();
+    await page.locator(".global-topbar").getByRole("button", { name: "Задача C", exact: true }).click();
     const chooser = page.getByRole("dialog");
     await expect(chooser).toBeVisible();
     await chooser.getByRole("button", { name: "Sales", exact: true }).click();
@@ -150,7 +150,7 @@ for (const theme of ["light", "dark"]) {
         const second = (await columns.nth(1).boundingBox())!;
         expect(Math.abs(first.x - second.x)).toBeLessThan(1);
         expect(second.y).toBeGreaterThan(first.y + first.height - 1);
-        const create = page.getByRole("button", { name: "Создать задачу", exact: true });
+        const create = page.getByRole("button", { name: "Задача C", exact: true });
         expect((await create.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       }
     }

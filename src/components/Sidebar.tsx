@@ -347,7 +347,7 @@ export default function Sidebar() {
           <Button variant="ghost" size="sm"
             type="button"
             onClick={goHome}
-            aria-label={t("sidebar.homeAria")}
+            aria-description={t("sidebar.homeAria")}
             className="min-w-0 flex-1 text-left [&>span.truncate]:flex [&>span.truncate]:items-center [&>span.truncate]:gap-2 [&>span.truncate]:min-w-0"
           >
             <BrandMark size={22} />

@@ -70,7 +70,7 @@ export function Row({
   const urgency = status?.category === "done" ? "done" : overdue ? "late" : days <= 3 ? "soon" : "normal";
   const statusAction = (iconOnly = false) => status && (can("transition", issue) ? <Menu
     label={t("field.status")} placement="bottom-end"
-    trigger={p => <Button {...p} variant="ghost" size="sm" className="list-status-action" aria-label={t("backlog.changeStatus", { key: issue.key })}
+    trigger={p => <Button {...p} variant="ghost" size="sm" className="list-status-action" aria-label={`${t("backlog.changeStatus", { key: issue.key })}${iconOnly ? "" : `: ${workflowStatusName(status, t)}`}`}
       iconLeft={<StatusGlyph category={status.category} size={16} />}>{iconOnly ? <IcChevD size={12} /> : workflowStatusName(status, t)}</Button>}
     items={data.workflow.statuses.map(target => ({ id: target.id, label: workflowStatusName(target, t), icon: <StatusGlyph category={target.category} size={16} />,
       disabled: !canTransition(data.workflow, issue.statusId, target.id), onSelect: () => moveStatus(issue.id, target.id, null) }))} /> : <Tag size="sm" tone={statusTone(status.category)} dot strong>{workflowStatusName(status, t)}</Tag>);

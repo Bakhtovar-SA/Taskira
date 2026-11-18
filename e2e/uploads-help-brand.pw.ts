@@ -8,7 +8,7 @@ test("unsupported original avatar formats are rejected before any upload", async
   const uploads: string[] = [];
   page.on("request", request => { if (request.url().endsWith("/api/me/avatar") && request.method() === "POST") uploads.push(request.url()); });
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
+  await page.locator('button[aria-description="Меню пользователя"]').click();
   const input = page.locator('input[type="file"][accept=".png,.jpg,.jpeg,.gif"]');
   await input.setInputFiles({ name: "photo.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>') });
   await expect(page.getByRole("alert")).toContainText("PNG, JPG/JPEG и GIF");
@@ -75,7 +75,7 @@ test("a corrupt avatar does not upload, then an uppercase PNG is cropped and upl
   const photo = readFileSync("e2e/__screenshots__/tabs-light.png");
   await page.route("**/api/users/u1/avatar*", route => route.fulfill({ contentType: "image/png", body: photo }));
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "Меню пользователя", exact: true }).click();
+  await page.locator('button[aria-description="Меню пользователя"]').click();
   const input = page.locator('input[type="file"][accept=".png,.jpg,.jpeg,.gif"]');
   await input.setInputFiles({ name: "broken.png", mimeType: "image/png", buffer: Buffer.from("broken") });
   await expect(page.getByRole("alert")).toContainText("Не удалось загрузить фото");

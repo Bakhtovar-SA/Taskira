@@ -21,7 +21,7 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   expect((await header.boundingBox())!.height).toBe(52);
   expect((await sidebar.boundingBox())!.width).toBe(248);
   await expect(header.locator("input")).toHaveCount(0);
-  await expect(header.getByRole("button", { name: "Меню пользователя" })).toHaveCount(0);
+  await expect(header.locator('button[aria-description="Меню пользователя"]')).toHaveCount(0);
   await expect(page.getByRole("main").getByRole("heading", { level: 1, name: /^Доска/ })).toHaveCount(1);
   const favorite = header.getByRole("button", { name: "Убрать из избранного" });
   await favorite.click();
@@ -38,14 +38,14 @@ test("shell refresh: navigation, favorites, shortcuts and profile", async ({ pag
   await expect(page).toHaveURL(url => url.pathname === "/p/CORP/list");
   await expect(header.getByRole("link", { name: "Список", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("main").getByRole("heading", { name: "Список задач", exact: true })).toHaveCount(0);
-  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
+  await page.locator(".global-topbar").locator('button[aria-description="Меню пользователя"]').click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.locator(".global-topbar").getByRole("button", { name: "Настройки", exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Личные", exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.keyboard.press("[");
-  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
+  await page.locator(".global-topbar").locator('button[aria-description="Меню пользователя"]').click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
 });
 
@@ -65,9 +65,9 @@ test("shell refresh: mobile tabs stay in the header and drawer actions remain re
   const sidebar = page.locator("aside");
   await expect(sidebar.getByRole("button", { name: /^Справка/ })).toBeVisible();
   await sidebar.getByRole("button", { name: "Закрыть", exact: true }).click();
-  await expect(page.locator(".global-topbar").getByRole("button", { name: "Поиск и команды", exact: true })).toBeVisible();
+  await expect(page.locator(".global-topbar").getByRole("button", { name: /^Поиск и команды(?: |$)/ })).toBeVisible();
   expect((await page.locator(".global-topbar .project-create").boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  await page.locator(".global-topbar").getByRole("button", { name: "Меню пользователя" }).click();
+  await page.locator(".global-topbar").locator('button[aria-description="Меню пользователя"]').click();
   await expect(page.getByRole("button", { name: "Выйти", exact: true })).toBeVisible();
 });
 
@@ -127,7 +127,7 @@ test("composed task screens work without CSP violations", async ({ page }) => {
   await page.getByRole("link", { name: issues[0].title }).click();
   await expect(page.getByRole("dialog").getByLabel("Метки", { exact: true })).toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Создать задачу", exact: true }).click();
+  await page.getByRole("button", { name: "Задача C", exact: true }).click();
   await page.getByText("Дополнительные поля", { exact: true }).click();
   await expect(page.getByLabel("Чек-лист", { exact: true })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: /Не назначен/ }).click();
@@ -177,7 +177,7 @@ for (const theme of ["light", "dark"]) {
   test(`draft survives Esc and failed creation, successful creation clears it (${theme})`, async ({ page }) => {
     const writes = await fixture(page, theme);
     await page.goto("/p/TEST/board");
-    const create = page.getByRole("button", { name: "Создать задачу", exact: true });
+    const create = page.getByRole("button", { name: "Задача C", exact: true });
     await create.click();
     const title = page.getByLabel("Название *", { exact: true });
     await title.fill("Черновик новой задачи");
@@ -214,7 +214,7 @@ for (const theme of ["light", "dark"]) {
     await fixture(page, theme);
     await page.goto("/p/TEST/board");
     await expect(page.locator(".board-view").getByRole("button", { name: /^Фильтры/ })).toHaveCount(0);
-    await page.getByRole("main").getByRole("button", { name: "Мои задачи", exact: true }).click();
+    await page.getByRole("main").getByRole("button", { name: "Мои", exact: true }).click();
     await expect(page).toHaveURL(/assignee=u1/);
     await expect(page.locator("article[data-issue-id]")).toHaveCount(2);
     await page.getByRole("link", { name: "Список", exact: true }).click();
@@ -260,7 +260,7 @@ for (const theme of ["light", "dark"]) {
       expect(issueAxe.violations).toEqual([]);
     }
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "Создать задачу", exact: true }).click();
+    await page.getByRole("button", { name: "Задача C", exact: true }).click();
     if (browserName === "chromium") {
       await expect(dialog).toHaveCSS("opacity", "1");
       const createAxe = await new AxeBuilder({ page }).include("dialog").exclude("[aria-disabled=true]").analyze();

@@ -6,6 +6,16 @@ import { mockPopoverVisibility } from "./Popover.testing";
 mockPopoverVisibility();
 afterEach(cleanup);
 
+test.each(["ru", "en"] as const)("the accessible date name includes the visible value in %s", lang => {
+  for (const numeric of [false, true]) {
+    const { unmount } = render(<DatePicker value="2026-10-15" onChange={() => {}} label="Due" today="2026-10-01" lang={lang} numeric={numeric} />);
+    const trigger = screen.getByRole("button", { name: /^Due:/ });
+    expect(trigger.getAttribute("aria-label")).toBe(`Due: ${trigger.textContent}`);
+    expect(trigger.getAttribute("aria-description")).toContain("2026");
+    unmount();
+  }
+});
+
 test.each([
   ["2026-10-15", "2026-10-16"],
   ["2026-10-31", "2026-11-01"],

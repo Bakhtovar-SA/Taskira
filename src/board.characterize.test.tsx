@@ -339,7 +339,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
   test("4a. чип «Мои задачи» переводится в assignee = текущий пользователь во всех запросах страниц", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByRole("button", { name: "Мои задачи" }));
+    fireEvent.click(screen.getByRole("button", { name: "Мои" }));
     await settle();
     expect(h.pageCalls.length).toBeGreaterThan(0);
     for (const c of h.pageCalls) expect(c.assignee).toBe("u1");
@@ -349,7 +349,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
   test("4a-2. аватар в доске фильтрует по исполнителю и повторный клик снимает фильтр", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     expect(screen.queryByRole("button", { name: "Фильтры" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Настройки вида" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Вид" })).toBeNull();
     expect(screen.getByRole("button", { name: "Фото доски" })).toBeTruthy();
     const avatar = screen.getByRole("button", { name: "Фильтр: Анна Иванова" });
     h.pageCalls.length = 0;
@@ -389,7 +389,7 @@ describe("Board — характеризующие тесты (ТЗ 5.12 c, до
   test("4b. чип «Просрочено» переводится в overdue=1 во всех запросах страниц", async () => {
     const h = await setup({ pageImpl: async () => ({ items: [], hasMore: false, nextCursor: null }) });
     h.pageCalls.length = 0;
-    fireEvent.click(screen.getByRole("button", { name: "Просрочено" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }));
     await settle();
     expect(h.pageCalls.length).toBeGreaterThan(0);
     for (const c of h.pageCalls) expect(c.overdue).toBe("1");

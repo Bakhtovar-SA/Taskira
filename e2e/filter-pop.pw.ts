@@ -21,7 +21,7 @@ for (const width of [1460, 390]) for (const reduced of [false, true]) test(`filt
   if (loaded) await loaded;
   await settle(page);
   const columns = page.locator('.board-columns'), top = (await columns.boundingBox())!.y;
-  const mine = page.getByRole('button', { name: 'Мои задачи', exact: true });
+  const mine = page.getByRole('button', { name: 'Мои', exact: true });
   await mine.click();
   const chip = page.getByRole('button', { name: /^Фильтры:/ });
   await expect(chip).toBeVisible(); await expect(chip).not.toContainText('…'); await settle(page);

@@ -19,8 +19,8 @@ export function WorkspaceQuickFilters({ active, onToggle, overdue }: { active: (
   return <div className="board-quick-filters flex flex-wrap items-center gap-2">
     {(["mine", "overdue", "unassigned"] as const).map(id => {
       const on = active(id), label = t(id === "mine" ? "workspace.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned");
-      return <Button key={id} variant="ghost" size="sm" className="workspace-quick-filter" aria-label={t(id === "mine" ? "board.quickChip.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned")} aria-pressed={on} iconLeft={on ? <IcCheck size={15} /> : undefined} onClick={() => onToggle(id)}>
-        {label}{id === "overdue" && <span className="workspace-overdue-count tabular" aria-hidden="true">{overdue ?? "…"}</span>}
+      return <Button key={id} variant="ghost" size="sm" className="workspace-quick-filter" aria-description={t(id === "mine" ? "board.quickChip.mine" : id === "overdue" ? "board.quickChip.overdue" : "board.quickChip.unassigned")} aria-pressed={on} iconLeft={on ? <IcCheck size={15} /> : undefined} onClick={() => onToggle(id)}>
+        {label}{id === "overdue" && <span className="workspace-overdue-count tabular">{overdue ?? "…"}</span>}
       </Button>;
     })}
   </div>;
@@ -33,7 +33,7 @@ function WorkspacePanel({ kind, content, compact, count }: { kind: "filters" | "
   const { t } = useT();
   const [open, setOpen] = useState(false);
   return <Popover open={open} onOpenChange={setOpen} placement="bottom-end" label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")} className="workspace-pop"
-    trigger={p => <button {...p} type="button" className="workspace-toggle ds-focus" aria-label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")}>
+    trigger={p => <button {...p} type="button" className="workspace-toggle ds-focus" aria-label={kind === "filters" && compact ? `${t("workspace.filters")}${count > 0 ? ` ${count}` : ""}` : undefined} aria-description={kind === "options" ? t("workspace.settings") : undefined}>
       {kind === "filters" ? <><IcFilter size={16} />{!compact && t("workspace.filters")}{count > 0 && <span className="ds-count">{count}</span>}</> : <>{t("workspace.view")}<IcChevD size={14} /></>}
     </button>}>
     {close => <section className="workspace-panel" data-panel={kind} aria-label={t(kind === "filters" ? "workspace.filters" : "workspace.settings")}>
@@ -69,7 +69,7 @@ export function WorkspaceSelect({ label, value, onChange, options }: {
   const current = options.find(option => option.value === value);
   const [open, setOpen] = useState(false);
   return <Menu open={open} onOpenChange={setOpen} label={label} placement="bottom-end" className="workspace-select-menu"
-    trigger={p => <Button {...p} type="button" variant="ghost" size="sm" aria-label={label} className="workspace-select" iconRight={<IcChevD size={14} />}>{current?.label}</Button>}
+    trigger={p => <Button {...p} type="button" variant="ghost" size="sm" aria-label={`${label}: ${current?.label ?? ""}`} className="workspace-select" iconRight={<IcChevD size={14} />}>{current?.label}</Button>}
     items={options.map(option => ({ id: option.value || "all", label: option.label,
       icon: option.icon ? <span aria-hidden="true">{option.icon}</span> : undefined,
       hint: option.value === value ? <IcCheck size={14} className="text-accenttext" /> : undefined,

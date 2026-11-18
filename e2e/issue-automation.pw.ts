@@ -17,7 +17,7 @@ async function fixture(page:Page){
   return route.fallback();
  });return {writes,setFail:(v:boolean)=>{fail=v}};
 }
-async function create(page:Page){await page.goto('/p/CORP/board');await expect(page.locator('.board-card').first()).toBeVisible();await page.getByRole('button',{name:'Создать задачу',exact:true}).first().click();await expect(page.locator('#create-issue-title')).toBeVisible();await page.locator('#create-issue-title').fill('Подготовить отчёт');}
+async function create(page:Page){await page.goto('/p/CORP/board');await expect(page.locator('.board-card').first()).toBeVisible();await page.getByRole('button',{name:'Задача C',exact:true}).first().click();await expect(page.locator('#create-issue-title')).toBeVisible();await page.locator('#create-issue-title').fill('Подготовить отчёт');}
 async function dateAction(page:Page,name:string){await page.getByRole('button',{name:'Задать дату',exact:true}).click();await page.getByRole('menuitem',{name:new RegExp('^'+name)}).click();}
 for(const width of [1920,3440,390])test(`automation creation layout, saving draft and presets at ${width}`,async({page})=>{
  await page.setViewportSize({width,height:width===3440?1440:1080});const f=await fixture(page);await create(page);

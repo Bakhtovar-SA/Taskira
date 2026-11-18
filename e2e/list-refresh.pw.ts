@@ -63,13 +63,13 @@ for (const width of [1280, 1920]) test(`list popovers stay anchored under the li
 test("list refresh: quick filters, grouping modes and reload", async ({ page }) => {
   await boardFixture(page);
   await page.goto("/p/CORP/list");
-  await page.getByRole("button", { name: "Просрочено", exact: true }).click();
+  await page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ }).click();
   await page.getByRole("button", { name: "Без исполнителя", exact: true }).click();
   await expect(page.locator(".list-row")).toHaveCount(1);
   await expect(page).toHaveURL(/overdue=1/);
   await expect(page).toHaveURL(/assignee=none/);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Просрочено", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: /^Просрочено(?:\s*[\d…]+)?$/ })).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press("/");
   await expect(page.getByRole("textbox", { name: "Фильтр задач" })).toBeFocused();
   for (const [label, mode] of [["Направление", "epic"], ["Исполнитель", "assignee"], ["Нет", "none"]]) {
@@ -243,7 +243,7 @@ test("list annotations: direct import, labeled sort direction and separated head
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await toolbar.getByRole("button", { name: "Настройки вида", exact: true }).click();
+  await toolbar.getByRole("button", { name: "Вид", exact: true }).click();
   const direction = page.getByRole("button", { name: /^Направление сортировки: Приоритет/ });
   await expect(direction).toContainText("По возрастанию");
   const descending = page.waitForRequest(request => {
@@ -299,7 +299,7 @@ for (const theme of ["light", "dark"]) for (const width of [1920, 3440, 390, 320
       const before = await row.locator(".list-title").boundingBox();
       expect(await row.locator(".list-select").evaluate(el => getComputedStyle(el).opacity)).toBe(width < 640 ? "1" : "0");
       await expect(page.locator(".list-selection-dock")).toHaveCount(0);
-      await page.getByRole("button", { name: "Настройки вида", exact: true }).click();
+      await page.getByRole("button", { name: "Вид", exact: true }).click();
       await expect(page.getByRole("button", { name: "Выделить", exact: true })).toHaveCount(0);
       await page.keyboard.press("Escape");
       if (width >= 640) await row.hover();
@@ -337,7 +337,7 @@ for (const theme of ["light", "dark"]) for (const width of [1920, 3440, 390, 320
       await expect(first).toBeFocused();
       await first.locator("..").click(); await expect(first).toBeChecked(); await dock.getByRole("button", { name: "Очистить", exact: true }).click();
       await expect(dock).toHaveCount(0);
-      await first.locator("..").click(); await expect(first).toBeChecked(); await page.getByRole("button", { name: "Мои задачи", exact: true }).click();
+      await first.locator("..").click(); await expect(first).toBeChecked(); await page.getByRole("button", { name: "Мои", exact: true }).click();
       await expect(dock).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
       const axe = await new AxeBuilder({ page }).include(".list-view").analyze();
