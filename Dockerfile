@@ -18,7 +18,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginx:1.30.6-alpine3.24
+FROM nginx:1.30.7-alpine3.24
 # Исправления поверх базового образа: brotli-libs >= 1.2.1-r0 (CVE-2026-111497),
 # curl/libcurl >= 8.23.0-r0 (CVE-2026-92392), libexpat >= 2.8.5 (CVE-2026-93990),
 # pcre2 >= 10.49-r0 (CVE-2026-103111), tiff >= 4.7.2-r0 (CVE-2026-4775),
