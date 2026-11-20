@@ -31,7 +31,8 @@ jobs:
         run: apt-get update -qq && apt-get install -y --no-install-recommends unzip gh ripgrep
       - name: Install pinned Bun runtime
         working-directory: /tmp
-        run: npm install --global bun@1.3.14
+        # Match the action's runtime; older Bun breaks its --tsconfig-override.
+        run: npm install --global bun@1.4.4
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
