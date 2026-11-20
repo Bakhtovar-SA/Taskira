@@ -55,3 +55,7 @@ jobs:
             just comment.
           claude_args: |
             --allowed-tools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"
+
+      - name: Report reviewer failure category without transcript
+        if: failure()
+        run: node .github/scripts/report-review-failure.mjs
