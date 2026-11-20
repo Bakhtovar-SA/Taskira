@@ -17,6 +17,7 @@ import { issuesRoutes } from "./routes/issues.js";
 import { issuesBulkRoutes } from "./routes/issuesBulk.js";
 import { commentRoutes } from "./routes/comments.js";
 import { attachmentRoutes } from "./routes/attachments.js";
+import { projectFileRoutes } from "./routes/projectFiles.js";
 import { collaboratorRoutes } from "./routes/collaborators.js";
 import { collaboratingRoutes } from "./routes/collaborating.js";
 import { homeRoutes } from "./routes/home.js";
@@ -281,6 +282,7 @@ export function buildApp(logger?: FastifyServerOptions["logger"]): FastifyInstan
           await proj.register(issuesBulkRoutes, { prefix: "/issues" }); // PATCH /bulk — ТЗ 3.3
           await proj.register(commentRoutes, { prefix: "/issues" }); // /:id/comments
           await proj.register(attachmentRoutes, { prefix: "/issues" }); // /:id/attachments[/:attId]
+          await proj.register(projectFileRoutes); // /files — catalogue of project task attachments
           await proj.register(collaboratorRoutes, { prefix: "/issues" }); // /:id/collaborators[/:userId]
           await proj.register(workflowRoutes, { prefix: "/workflow" });
           await proj.register(issueTemplatesRoutes, { prefix: "/issue-templates" });

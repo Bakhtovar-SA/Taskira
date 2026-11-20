@@ -100,8 +100,8 @@
 .project-view-tabs [role="group"] {
   width: max-content;
   min-width: 0;
-  padding: 3px;
-  border-radius: 11px;
+  padding: 2px;
+  border-radius: 10px;
   background: var(--project-tabs-bg);
 }
 .project-view-tabs [data-tab] {
@@ -110,15 +110,16 @@
   flex-shrink: 0;
   white-space: nowrap;
   padding: 0 11px;
-  gap: 7px;
+  gap: 6px;
   border-radius: 8px;
   font-size: 15px;
   font-weight: 500;
+  line-height: 1.25;
 }
-.project-view-tabs [data-tab] > span:first-child { color: var(--text-3); }
+.project-view-tabs [data-tab] > span:first-child { color: var(--text-3); flex: 0 0 16px; align-items: center; justify-content: center; }
 /* Выбранная вкладка: лёгкая акцентная заливка и контур — в тёмных темах серая плашка на сером фоне была почти незаметна. */
 .project-view-tabs [data-tab][aria-current="page"] {
-  font-weight: 700;
+  font-weight: 600;
   background: var(--project-tab-active-bg);
   box-shadow: var(--elev-1), inset 0 0 0 1px var(--accent-muted);
 }
@@ -669,7 +670,7 @@ html[data-motion="reduce"] .create-direction-reveal { animation: none; }
   .project-topbar-row { height: var(--bar-h); gap: 10px; }
   .global-topbar .global-search.ds-btn, .project-create.ds-btn, .project-switcher.ds-btn, .project-favorite.ds-btn, .global-topbar-right .ds-btn[data-icon] { height: var(--work-h); font-size: var(--work-fs); }
   .project-switcher-name { font-size: 13.5px; }
-  .project-view-tabs [data-tab] { height: calc(var(--work-h) - 2px); min-height: calc(var(--work-h) - 2px); font-size: var(--work-fs); padding-inline: 9px; }
+  .project-view-tabs [data-tab] { height: var(--work-h); min-height: var(--work-h); font-size: var(--work-fs); padding-inline: 10px; }
    .workspace-controls[data-layout="compact"] .workspace-search, .workspace-controls[data-layout="compact"] .ds-btn { height: var(--work-h); min-height: var(--work-h); font-size: var(--work-fs); }
   .workspace-controls[data-layout="compact"] .workspace-search input { font-size: var(--work-fs); }
   .board-columns { min-width: calc(var(--board-columns, 4) * var(--lane-min) + 24px); max-width: calc(var(--board-columns, 4) * var(--lane-max) + 24px); }

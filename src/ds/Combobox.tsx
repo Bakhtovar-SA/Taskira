@@ -37,16 +37,21 @@ export function Combobox({
   emptyText ??= t ? t("ds.nothingFound") : "Ничего не найдено";
   errorText ??= t ? t("ds.loadFailed") : "Не удалось загрузить";
   const [id] = useState(() => dsId("cb"));
-  const [q, setQ] = useState(value?.label ?? "");
+  const [q, setQ] = useState(clearOnSelect ? "" : value?.label ?? "");
   const query = value && q === value.label ? "" : q.trim();
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<{ status: "idle" | "loading" | "ok" | "error"; query: string; items: ComboOption[] }>({ status: "idle", query: "", items: [] });
   const [active, setActive] = useState(0);
+  const input = useRef<HTMLInputElement>(null);
   const field = useRef<HTMLDivElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const reqSeq = useRef(0);
+  const blurTimer = useRef(0);
   useAnchored(field, pop, open, { matchWidth: true, gap: 4 });
-  useEffect(() => { if (value) setQ(value.label); }, [value?.id, value?.label]);
+  useEffect(() => setQ(clearOnSelect ? "" : value?.label ?? ""), [value?.id, value?.label, clearOnSelect]);
+  useEffect(() => () => window.clearTimeout(blurTimer.current), []);
+  // Native fieldset disabling also applies to an already open picker.
+  useEffect(() => { if (open && input.current?.matches(":disabled")) setOpen(false); });
 
   useLayoutEffect(() => {
     if (open) showPop(pop.current);
@@ -72,13 +77,23 @@ export function Combobox({
   }, [q, query, open, load, minChars, value?.id]);
 
   const pick = (o: ComboOption) => {
-    if (state.status !== "ok" || state.query !== query) return;
+    if (input.current?.matches(":disabled") || state.status !== "ok" || state.query !== query) return;
     onSelect(o);
     setQ(clearOnSelect ? "" : o.label);
     setOpen(false);
   };
   const items = state.status === "ok" && state.query === query ? state.items : [];
   const optId = (i: number) => `${id}-o${i}`;
+  // Keep keyboard navigation inside the popup; never scroll the surrounding page.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const box = pop.current;
+    const option = box?.querySelector<HTMLElement>("[role=option][data-active]");
+    if (!box || !option) return;
+    const top = option.offsetTop;
+    if (top < box.scrollTop) box.scrollTop = top;
+    else if (top + option.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = top + option.offsetHeight - box.clientHeight;
+  }, [open, active, items]);
 
   return (
     <div className="ds-field">
@@ -87,7 +102,7 @@ export function Combobox({
       </label>
       <div ref={field} className="ds-input">
         <span className="ds-adorn">
-          {state.status === "loading" ? (
+          {open && state.status === "loading" ? (
             <Spinner />
           ) : (
             <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
@@ -97,6 +112,7 @@ export function Combobox({
           )}
         </span>
         <input
+          ref={input}
           id={id}
           role="combobox"
           aria-expanded={open}
@@ -106,8 +122,13 @@ export function Combobox({
           autoComplete="off"
           value={q}
           placeholder={placeholder}
-          onFocus={() => setOpen(true)}
-          onBlur={() => { if (value) setQ(value.label); window.setTimeout(() => setOpen(false), 120); }}
+          onFocus={() => { window.clearTimeout(blurTimer.current); setOpen(true); }}
+          onClick={() => { window.clearTimeout(blurTimer.current); setOpen(true); }}
+          onBlur={() => {
+            if (value) setQ(clearOnSelect ? "" : value.label);
+            window.clearTimeout(blurTimer.current);
+            blurTimer.current = window.setTimeout(() => setOpen(false), 120);
+          }}
           onChange={(e) => {
             reqSeq.current++;
             setActive(0);

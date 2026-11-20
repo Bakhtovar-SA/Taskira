@@ -19,6 +19,7 @@ import { useIssueSearch } from "../issueSearch";
 import { PROJECT_VIEWS } from "./Sidebar";
 
 export const VIEW_LABEL: Record<ViewId, TKey> = {
+  files: "sidebar.nav.files",
   board: "sidebar.nav.board",
   backlog: "sidebar.nav.backlog",
   sprints: "sidebar.nav.sprints",
@@ -550,7 +551,7 @@ export default function Topbar() {
           <span className="project-topbar-divider" aria-hidden="true" />
           <nav aria-label={t("topbar.viewsAria")} className="project-view-tabs">
             <Tabs<ViewId> mode="navigation" label={t("topbar.viewsAria")} value={ui.view} onChange={setView}
-              items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 17 }), label: t(v.labelKey) }))} />
+              items={views.map((v) => ({ id: v.id, href: `${pathForView(data.project.key, v.id)}${location.search}`, icon: v.icon({ size: 16 }), label: t(v.labelKey) }))} />
           </nav>
         </> : <h1 data-view-heading={TOPBAR_VIEW_HEADING.has(ui.view) || undefined} className="min-w-0 flex-1 truncate text-[16px] font-bold text-ink">{t(VIEW_LABEL[ui.view])}</h1>}
 

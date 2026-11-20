@@ -90,7 +90,18 @@ export function Popover({
     const el = pop.current;
     if (!open || !el) return;
     showPop(el);
-    if (initialFocus === "first") el.querySelector<HTMLElement>("[data-autofocus], button:not([aria-disabled=true]), [href], input, [tabindex]:not([tabindex='-1'])")?.focus();
+    if (initialFocus === "first") {
+      const controls = [...el.querySelectorAll<HTMLElement>("[data-autofocus], button, [href], input, textarea, [tabindex]:not([tabindex='-1'])")]
+        .sort((a, b) => Number(b.hasAttribute("data-autofocus")) - Number(a.hasAttribute("data-autofocus")));
+      for (const control of controls) {
+        if (control.matches(":disabled, [aria-disabled=true], [type=hidden]") || control.closest("[hidden], [inert], [aria-hidden=true]")) continue;
+        const style = getComputedStyle(control);
+        if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") continue;
+        control.focus();
+        // A CSS-hidden ancestor can also make focus fail; try the next control.
+        if (el.ownerDocument.activeElement === control) break;
+      }
+    }
     // Закрыли снаружи (клик мимо, Esc, открылся другой) — синхронизируем состояние.
     const onToggle = (e: Event) => {
       if ((e as ToggleEvent).newState === "closed") setOpen(false);
@@ -170,6 +181,7 @@ export function Menu({ trigger, items, placement = "bottom-start", label, classN
   );
   const listRef = useRef<HTMLDivElement>(null);
   const typed = useRef({ s: "", t: 0 });
+  useLayoutEffect(() => { typed.current = { s: "", t: 0 }; }, [open]);
   const focusables = () => [...(listRef.current?.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])") ?? [])];
 
   const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -184,11 +196,15 @@ export function Menu({ trigger, items, placement = "bottom-start", label, classN
     else if (e.key === "Home") to(0);
     else if (e.key === "End") to(els.length - 1);
     else if (e.key === "Tab") setOpen(false);
-    else if (e.key.length === 1 && /\S/.test(e.key)) {
+    else if (e.key.length === 1 && /\S/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.nativeEvent.isComposing) {
       const now = Date.now();
       typed.current = { s: (now - typed.current.t < 600 ? typed.current.s : "") + e.key.toLowerCase(), t: now };
-      const hit = els.findIndex((el) => (el.dataset.text ?? el.textContent ?? "").trim().toLowerCase().startsWith(typed.current.s));
-      if (hit >= 0) to(hit);
+      const repeated = [...typed.current.s].every(char => char === typed.current.s[0]);
+      const query = repeated ? typed.current.s[0] : typed.current.s;
+      const from = query.length === 1 ? i + 1 : Math.max(0, i);
+      const hit = Array.from({ length: els.length }, (_, offset) => (from + offset) % els.length)
+        .find(index => (els[index].dataset.text ?? els[index].textContent ?? "").trim().toLowerCase().startsWith(query));
+      if (hit !== undefined) to(hit);
     }
   };
 

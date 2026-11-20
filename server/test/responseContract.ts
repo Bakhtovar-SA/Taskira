@@ -36,6 +36,7 @@ export const RESPONSES: Record<string, z.ZodType> = {
   "GET /api/projects": z.array(C.ProjectDto),
   "GET /api/projects/:projectId": C.ProjectBootstrapDto,
   "GET /api/projects/:projectId/custom-fields": z.array(C.CustomFieldDto),
+  "GET /api/projects/:projectId/files": C.ProjectFilesResultDto,
   "GET /api/projects/:projectId/issue-templates": z.array(C.IssueTemplateDto),
   "GET /api/projects/:projectId/issues": page(C.IssueDto),
   "GET /api/projects/:projectId/issues/:id": C.IssueDetailDto,

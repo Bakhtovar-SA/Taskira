@@ -15,6 +15,7 @@ import {
   type ServerIssue,
 } from "./api";
 import { pathForIssue, pathForView } from "./router";
+import { __resetMotionForTests } from "./motion";
 
 /** `useStore()` + вынесенные из него домены (ADR-0011, шаги 1–2): тосты и уведомления — отдельные хранилища. */
 function useStoreSnapshot() {
@@ -134,6 +135,7 @@ async function readyInP1(o: Setup = {}) {
 afterEach(() => {
   unmountCurrent?.();
   unmountCurrent = null;
+  __resetMotionForTests();
   localStorage.clear();
   location.hash = "";
   history.replaceState(null, "", "/");

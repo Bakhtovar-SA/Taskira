@@ -35,6 +35,15 @@ export function Tabs<T extends string>({
     const ind = glider.current;
     if (!box || !ind) return;
     const tab = selected < 0 ? null : box.querySelectorAll<HTMLElement>("[data-tab]")[selected];
+    // Navigation may be wider than its own scroll viewport (project views, dashboards).
+    // Find only a local horizontal scroller; scrollIntoView would also move the page.
+    let viewport: HTMLElement | null = null;
+    if (mode === "navigation") {
+      for (let parent: HTMLElement | null = box; parent && parent !== document.body && parent !== document.documentElement; parent = parent.parentElement) {
+        if (/^(auto|scroll)$/.test(getComputedStyle(parent).overflowX)) { viewport = parent; break; }
+      }
+    }
+    let placed: { x: number; y: number; w: number; h: number } | null = null;
     const place = (animate: boolean) => {
       const r = tab?.getBoundingClientRect();
       if (!tab || !r || !r.width) {
@@ -48,22 +57,34 @@ export function Tabs<T extends string>({
       const y = (r.top - b.top) / z - box.clientTop + box.scrollTop;
       const w = r.width / z;
       const h = r.height / z;
-      glideTo(ind, variant === "line" ? { x, y: y + h - 2, w, h: 2 } : { x, y, w, h }, { animate: animate && shown.current });
+      const target = variant === "line" ? { x, y: y + h - 2, w, h: 2 } : { x, y, w, h };
+      // The first observer delivery may already include a loaded font or a new
+      // density profile. Reconcile that geometry, without cancelling a running
+      // navigation glide when its target has not changed.
+      if (!placed || Object.keys(target).some(key => Math.abs(target[key as keyof typeof target] - placed![key as keyof typeof target]) > 0.1)) {
+        glideTo(ind, target, { animate: animate && shown.current });
+        placed = target;
+      }
       box.setAttribute("data-glide", "");
       shown.current = true;
+      if (viewport && viewport.clientWidth > 0) {
+        const zoom = cssZoom(viewport);
+        const left = viewport.getBoundingClientRect().left + viewport.clientLeft * zoom;
+        const width = viewport.clientWidth * zoom;
+        const delta = r.left < left || r.width > width ? r.left - left : r.right > left + width ? r.right - left - width : 0;
+        if (Math.abs(delta) > 0.5) viewport.scrollLeft = Math.max(0, Math.min(viewport.scrollWidth - viewport.clientWidth, viewport.scrollLeft + delta / zoom));
+      }
     };
     place(true);
     if (typeof ResizeObserver !== "function") return;
     // Ширина вкладок меняется (счётчик, язык, шрифт догрузился, окно): переставляем без движения.
-    let first = true;
-    const ro = new ResizeObserver(() => {
-      if (first) first = false;
-      else place(false);
-    });
+    const ro = new ResizeObserver(() => place(false));
     ro.observe(box);
     if (tab) ro.observe(tab);
+    // The max-content tab strip can retain its width while the local viewport narrows.
+    if (viewport && viewport !== box) ro.observe(viewport);
     return () => ro.disconnect();
-  }, [selected, variant, itemIds]);
+  }, [selected, variant, itemIds, mode]);
   const move = (from: number, dir: 1 | -1 | "home" | "end") => {
     const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
     if (!enabled.length) return;

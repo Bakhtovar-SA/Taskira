@@ -1,5 +1,6 @@
 /** Russian strings used by the startup graph (first screen). Everything else lives in ruLazy.ts; see ru.ts. */
 const ruCore = {
+  "sidebar.nav.files": "Файлы",
   "notifVerb.issueReminder": "Ваше напоминание о задаче",
   "recurring.schedule.daily": "Каждый день",
   "recurring.schedule.days": "Каждые {count} {unit}",

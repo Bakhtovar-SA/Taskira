@@ -12,8 +12,16 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
 | src/components/BoardCard.tsx:89 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardCard.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
-| src/components/Sidebar.tsx:192 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
+| src/components/Sidebar.tsx:194 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
+| src/dashboards/chartMotion.css:10 | css-keyframes | chartLineIn: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
+| src/dashboards/chartMotion.css:13 | css-keyframes | chartReportIn: transform | из правила применения | см. правила применения | см. CSS |
+| src/dashboards/chartMotion.css:16 | css-animation | .chart-motion-bar: transform | chartBarIn var(--dur-5) var(--ease-standard) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
+| src/dashboards/chartMotion.css:20 | css-animation | .chart-motion-arc: stroke-dasharray | chartArcIn var(--dur-5) var(--ease-standard) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
+| src/dashboards/chartMotion.css:23 | css-animation | .chart-motion-line: stroke-dashoffset | chartLineIn var(--dur-5) var(--ease-standard) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
+| src/dashboards/chartMotion.css:27 | css-animation | .chart-motion-report: transform | chartReportIn var(--dur-5) var(--ease-standard) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
+| src/dashboards/chartMotion.css:4 | css-keyframes | chartBarIn: transform | из правила применения | см. правила применения | см. CSS |
+| src/dashboards/chartMotion.css:7 | css-keyframes | chartArcIn: stroke-dasharray | из правила применения | см. правила применения | см. CSS |
 | src/dashboards/gridFlip.ts:59 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/dashboards/gridFlip.ts |
 | src/ds/Dialog.tsx:56 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/ds/Dialog.tsx |
 | src/ds/ds.css:1005 | css-transition | .ds-ring .ds-ring-val: stroke-dashoffset | stroke-dashoffset var(--dur-4) var(--ease-out) | личный выключатель | src/ds/Display.tsx |
@@ -47,14 +55,14 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ds/ds.css:978 | css-transition | .ds-progress > span: width | width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/ds/Display.tsx |
 | src/ds/ds.css:986 | css-animation | .ds-progress[data-indeterminate] > span: transform | dsIndet 1.2s var(--ease-in-out) infinite | личный выключатель | src/ds/Display.tsx |
 | src/ds/ds.css:990 | css-keyframes | dsIndet: transform | из правила применения | см. правила применения | см. CSS |
-| src/ds/Tabs.tsx:51 | waapi-wrapper | glideTo: пресет glideTo | пресет src/motion.ts | обёртка motionReduced | src/ds/Tabs.tsx |
+| src/ds/Tabs.tsx:65 | waapi-wrapper | glideTo: пресет glideTo | пресет src/motion.ts | обёртка motionReduced | src/ds/Tabs.tsx |
 | src/Flash.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/Flash.tsx |
 | src/index.css:1061 | css-keyframes | viewIn: opacity | из правила применения | см. правила применения | см. CSS |
 | src/index.css:1066 | css-keyframes | drawLine: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
 | src/index.css:1071 | css-animation | .anim-view: opacity | viewIn var(--dur-3) var(--ease-out) both | @media + личный выключатель | src/App.tsx, src/components/ProjectWizard.tsx, src/components/QuickCreateIssue.tsx, src/components/TimelineView.tsx, src/components/settings/SettingsView.tsx, src/useSkeletonReveal.ts |
 | src/index.css:1074 | css-animation | .anim-stagger > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/InboxView.tsx, src/components/MyIssuesView.tsx, src/components/ReportsView.tsx, src/components/SprintsView.tsx, src/dashboards/DashboardGrid.tsx |
 | src/index.css:1083 | css-animation | .success-check path: stroke-dashoffset | drawLine var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/ds/Display.tsx, src/ui.tsx |
-| src/index.css:1087 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | src/dashboards/charts.tsx |
+| src/index.css:1087 | css-animation | .chart-line: stroke-dashoffset | drawLine var(--dur-5) var(--ease-out) backwards | @media + личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:1091 | css-animation | .reports-chart rect[data-series]: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/index.css:1094 | css-animation | .ds-empty: opacity | viewIn var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/dashboards/widgets.tsx, src/ds/Display.tsx |
 | src/index.css:1103 | css-animation | .anim-done-tail: grid-template-rows, opacity | doneTailIn var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/BoardDoneTail.tsx |
@@ -98,39 +106,41 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/index.css:914 | css-animation | .anim-flash-done: background, box-shadow | doneFlash var(--dur-5) ease-out both | личный выключатель | CSS / динамическая сборка классов |
 | src/index.css:928 | css-transition | .timeline-bar: transform, width | transform var(--dur-4) var(--ease-out), width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
 | src/index.css:954 | css-transition | .timeline-bar-fill: width | width var(--dur-4) var(--ease-out) | @media + личный выключатель | src/components/TimelineView.tsx |
-| src/index.css:977 | css-animation | .skeleton: background-position | shimmer 1.4s ease-in-out infinite | @media + личный выключатель | src/App.tsx, src/components/IssueModal.tsx, src/components/IssueSearchBox.tsx, src/components/ReportsView.tsx, src/components/RoadmapView.tsx, src/issuePages.ts, src/useSkeletonReveal.ts |
+| src/index.css:977 | css-animation | .skeleton: background-position | shimmer 1.4s ease-in-out infinite | @media + личный выключатель | src/App.tsx, src/components/IssueModal.tsx, src/components/IssueSearchBox.tsx, src/components/ProjectFilesView.tsx, src/components/ReportsView.tsx, src/components/RoadmapView.tsx, src/issuePages.ts, src/useSkeletonReveal.ts |
 | src/index.css:988 | css-keyframes | fadeOnly: opacity | из правила применения | см. правила применения | см. CSS |
 | src/listEnter.ts:29 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/listEnter.ts |
 | src/listExit.ts:101 | waapi-wrapper | exit: пресет exit | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
 | src/listExit.ts:105 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/listExit.ts |
-| src/motion.ts:220 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:259 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...(delayMs > 0 ? SPRING_ENTER : SPRING), ...(delayMs > 0 ? { delay: delayMs / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:260 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: DUR_4_MS, delay: delayMs, fill: "backwards", easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:290 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:300 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:308 | waapi-wrapper | animate: [ { opacity: 0.4, transform: `translateX(${dir * 12}px)` }, { opacity: 1, transform: "none" }, ] | { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:369 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: MOTION.flash, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:399 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:399 | waapi-wrapper | animate: frames | { duration: DUR_4_MS, easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
-| src/motion.ts:446 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:222 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:264 | waapi-wrapper | animate: el, { transform: [from, "translate(0px, 0px)"] } | { type: e.spring, ...(delayMs > 0 ? SPRING_ENTER : SPRING), ...(delayMs > 0 ? { delay: delayMs / 1000 } : {}) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:265 | waapi-wrapper | animate: [{ transform: from }, { transform: "none" }] | { duration: DUR_4_MS, delay: delayMs, fill: "backwards", easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:295 | waapi-wrapper | animate: el, ENTER_FRAMES[kind] | { type: e.spring, ...(kind === "pop" ? SPRING_POP : SPRING_ENTER) } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:305 | waapi-wrapper | animate: el, { opacity: [1, 0], transform } | EXIT | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:313 | waapi-wrapper | animate: [ { opacity: 0.4, transform: `translateX(${dir * 12}px)` }, { opacity: 1, transform: "none" }, ] | { duration: DUR_4_MS, easing: EASE_OUT_CSS, fill: "backwards" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:374 | waapi-wrapper | animate: [{ backgroundColor: "color-mix(in oklch, var(--accent-solid) 22%, transparent)" }, { backgroundColor: "transparent" }] | { duration: MOTION.flash, easing: "ease-out" } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:404 | waapi-wrapper | animate: el, frames | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:404 | waapi-wrapper | animate: frames | { duration: DUR_4_MS, easing: EASE_OUT_CSS } | JS guard в модуле; проверяется motion:check | src/motion.ts |
+| src/motion.ts:451 | waapi-wrapper | animate: el, { transform: [from, `${at} scaleX(1)`] } | { type: e.spring, ...SPRING } | JS guard в модуле; проверяется motion:check | src/motion.ts |
 | src/roadmapDateFlash.ts:35 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/roadmapDateFlash.ts |
 | src/store.tsx:463 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store.tsx:476 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store.tsx |
 | src/store/session.ts:344 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
 | src/store/session.ts:546 | view-transition | viewTransition: пресет viewTransition | пресет src/motion.ts | обёртка motionReduced | src/store/session.ts |
+| src/styles/projectFiles.css:13 | css-transition | .project-files-table tbody tr: background-color | background-color var(--dur-2) var(--ease-out) | личный выключатель | src/components/ProjectFilesView.tsx |
+| src/styles/projectFiles.css:17 | css-transition | .project-file-link: color, text-decoration-color | color var(--dur-2),text-decoration-color var(--dur-2) | личный выключатель | src/components/ProjectFilesView.tsx |
 | src/styles/reports.css:56 | css-animation | .reports-metrics > *, .reports-panels > *: opacity | viewIn var(--dur-4) var(--ease-out) backwards | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/styles/reports.css:63 | css-animation | .reports-content > .reports-footnote: opacity | viewIn var(--dur-4) var(--ease-out) backwards; delay 150ms | @media + личный выключатель | src/components/ReportsView.tsx |
 | src/styles/roadmap.css:81 | css-animation | .roadmap-connection-preview: stroke-dashoffset | roadmap-dash var(--dur-5) linear infinite | @media + личный выключатель | src/components/RoadmapView.tsx |
 | src/styles/roadmap.css:85 | css-keyframes | roadmap-dash: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
-| src/styles/workspace.css:260 | css-animation | .create-direction-reveal: grid-template-rows, opacity | directionOpen var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/CreateIssueModal.tsx |
-| src/styles/workspace.css:261 | css-animation | .create-direction-reveal[data-open="false"]: grid-template-rows, opacity | directionClose var(--dur-3) var(--ease-out) both | личный выключатель | src/components/CreateIssueModal.tsx |
-| src/styles/workspace.css:262 | css-keyframes | directionOpen: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
-| src/styles/workspace.css:263 | css-keyframes | directionClose: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
-| src/styles/workspace.css:274 | css-transition | .board-member-filter: transform | transform var(--dur-2) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
-| src/styles/workspace.css:277 | css-transition | .board-member-name: max-width, opacity, padding | max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
-| src/styles/workspace.css:422 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/BoardColumn.tsx |
-| src/styles/workspace.css:761 | css-transition | .form-disclosure::details-content, .reports-chart-data::details-content: block-size, content-visibility | block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete | @media + личный выключатель | src/components/CreateIssueModal.tsx, src/components/ReportsView.tsx |
-| src/styles/workspace.css:775 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
+| src/styles/workspace.css:261 | css-animation | .create-direction-reveal: grid-template-rows, opacity | directionOpen var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/CreateIssueModal.tsx |
+| src/styles/workspace.css:262 | css-animation | .create-direction-reveal[data-open="false"]: grid-template-rows, opacity | directionClose var(--dur-3) var(--ease-out) both | личный выключатель | src/components/CreateIssueModal.tsx |
+| src/styles/workspace.css:263 | css-keyframes | directionOpen: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
+| src/styles/workspace.css:264 | css-keyframes | directionClose: grid-template-rows, opacity | из правила применения | см. правила применения | см. CSS |
+| src/styles/workspace.css:275 | css-transition | .board-member-filter: transform | transform var(--dur-2) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
+| src/styles/workspace.css:278 | css-transition | .board-member-name: max-width, opacity, padding | max-width var(--dur-3) var(--ease-out), opacity var(--dur-2) var(--ease-out), padding var(--dur-3) var(--ease-out) | @media + личный выключатель | src/components/ProjectMembers.tsx |
+| src/styles/workspace.css:423 | css-transition | .board-col-highlight: box-shadow, background-color | box-shadow var(--dur-3) var(--ease-standard), background-color var(--dur-3) var(--ease-standard) | личный выключатель | src/components/BoardColumn.tsx |
+| src/styles/workspace.css:762 | css-transition | .form-disclosure::details-content, .reports-chart-data::details-content: block-size, content-visibility | block-size var(--dur-4) var(--ease-out), content-visibility var(--dur-4) allow-discrete | @media + личный выключатель | src/components/CreateIssueModal.tsx, src/components/ReportsView.tsx |
+| src/styles/workspace.css:776 | css-animation | .home-grid > div > .home-card: opacity | fadeOnly var(--dur-4) var(--ease-out) both | @media + личный выключатель | src/components/HomeView.tsx |
 | src/theme.ts:147 | view-transition | startViewTransition: пресет startViewTransition | пресет src/motion.ts | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/theme.ts:150 | waapi-raw | animate: { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.ceil(r)}px at ${x}px ${y}px)`] } | { duration: 450, easing: "cubic-bezier(0.2, 0, 0, 1)", pseudoElement: "::view-transition-new(root)" } | JS guard в модуле; проверяется motion:check | src/theme.ts |
 | src/ui.tsx:127 | waapi-wrapper | flipFrom: пресет flipFrom | пресет src/motion.ts | обёртка motionReduced | src/ui.tsx |

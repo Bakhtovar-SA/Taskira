@@ -5,6 +5,9 @@
  *  проверенные валидатором на наших поверхностях (tokens.css). Позиции в HTML — через cssVars (ADR-0010). */
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { cssVars } from "../cssVars";
+import { MOTION_CAPS } from "../motion";
+import { useChartReveal } from "./useChartReveal";
+import "./chartMotion.css";
 
 /** Категориальный цвет слота: тон закреплён за местом сущности в списке данных, а не за её рангом. */
 export const chartColor = (slot: number): string => `var(--chart-${(slot % 8) + 1})`;
@@ -36,24 +39,30 @@ export function Donut({ parts, total, centerLabel }: { parts: Part[]; total: num
   const R = 38;
   const C = 2 * Math.PI * R;
   const GAP = sum > 0 && parts.length > 1 ? 1.6 : 0;
+  // Data, not size/hover/translated labels: changing geometry replays only the marks.
+  const revision = JSON.stringify(parts.map(p => [p.key, p.value]));
+  const reveal = useChartReveal<HTMLDivElement>(revision);
   let start = 0;
   const arcs = parts.map((p) => {
     const len = sum > 0 ? (p.value / sum) * C : 0;
-    const a = { p, dash: `${Math.max(0, len - GAP).toFixed(2)} ${(C - Math.max(0, len - GAP)).toFixed(2)}`, offset: (-start).toFixed(2) };
+    const visible = Math.max(0, len - GAP) / C;
+    const a = { p, dash: `${visible.toFixed(6)} ${(1 - visible).toFixed(6)}`, offset: (-start / C).toFixed(6) };
     start += len;
     return a;
   });
   return (
-    <div className="flex h-full min-h-0 items-center gap-4">
+    <div ref={reveal} className="flex h-full min-h-0 items-center gap-4">
       <svg viewBox="0 0 100 100" className="aspect-square h-full max-h-[150px] min-h-[88px] max-w-[42%] shrink-0" role="img" aria-label={`${centerLabel}: ${total}`}>
         <circle cx="50" cy="50" r={R} fill="none" stroke="var(--border-subtle)" strokeWidth="11" />
-        <g transform="rotate(-90 50 50)">
+        <g key={revision} transform="rotate(-90 50 50)">
           {arcs.map(({ p, dash, offset }) => (
             <circle
               key={p.key}
               cx="50"
               cy="50"
               r={R}
+              pathLength={1}
+              className="chart-motion-arc"
               fill="none"
               stroke={p.color}
               strokeWidth={hi === p.key ? 13 : 11}
@@ -99,9 +108,10 @@ export function Donut({ parts, total, centerLabel }: { parts: Part[]; total: num
  *  (одна серия — один цвет); «прочее» — нейтральным. */
 export function BarList({ rows, onPick }: { rows: (Part & { hint?: string; lead?: ReactNode })[]; onPick?: (key: string) => void }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
+  const reveal = useChartReveal<HTMLUListElement>(JSON.stringify(rows.map(r => [r.key, r.value])));
   return (
-    <ul className="space-y-1.5">
-      {rows.map((r) => {
+    <ul ref={reveal} className="space-y-1.5">
+      {rows.map((r, index) => {
         const body = (
           <>
             <span className="flex w-[38%] min-w-0 items-center gap-1.5 text-[13px] text-sub">
@@ -111,7 +121,7 @@ export function BarList({ rows, onPick }: { rows: (Part & { hint?: string; lead?
               </span>
             </span>
             <span className="relative h-2.5 min-w-0 flex-1">
-              <span ref={cssVars({ "--p": `${(r.value / max) * 100}%`, "--c": r.color })} className="absolute inset-y-0 left-0 w-[max(var(--p),2px)] rounded-r-[4px] bg-[var(--c)]" />
+              <span key={`${r.value}:${max}`} ref={cssVars({ "--p": `${(r.value / max) * 100}%`, "--c": r.color })} className={`absolute inset-y-0 left-0 w-[max(var(--p),2px)] rounded-r-[4px] bg-[var(--c)] ${index < MOTION_CAPS.enter ? "chart-motion-bar" : ""}`} />
             </span>
             <span className="w-8 shrink-0 text-right text-[13px] font-semibold tabular text-ink">{r.value}</span>
           </>
@@ -173,6 +183,8 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
   const [hover, setHover] = useState<number | null>(null);
   const tableId = useId();
   const n = xs.length;
+  const revision = JSON.stringify([xs, series.map(s => [s.key, s.values])]);
+  useChartReveal(revision, boxRef);
   const LEFT = 26;
   const RIGHT = 30;
   const TOP = 8;
@@ -237,7 +249,7 @@ export function Lines({ xs, series, fmtX, height, label }: { xs: string[]; serie
             ))}
           {series.map((s) => (
             <g key={s.key}>
-              <path d={path(s.values)} pathLength={1} className="chart-line" fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+              <path key={revision} d={path(s.values)} pathLength={1} className="chart-motion-line" fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
               <circle cx={x(idx)} cy={y(s.values[idx] ?? 0)} r="4" fill={s.color} stroke="var(--bg-panel)" strokeWidth="2" />
               {endLabels && hover === null && (
                 <text x={x(last) + 8} y={y(s.values[last] ?? 0) + 3.5} className="fill-[var(--text-2)] text-[11.5px] font-semibold tabular">
@@ -306,11 +318,13 @@ export function Legend({ items, line = false }: { items: { key: string; label: s
  *  максимального итога среди строк, чтобы строки сравнивались между собой. */
 export function StackedRow({ segments, max, label }: { segments: { key: string; value: number; color: string; label: string }[]; max: number; label: string }) {
   const total = segments.reduce((s, x) => s + x.value, 0);
+  const revision = JSON.stringify([max, segments.map(s => [s.key, s.value])]);
+  const reveal = useChartReveal<HTMLSpanElement>(revision);
   const title = `${label}: ${segments.map((s) => `${s.label} ${s.value}`).join(", ")}`;
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2" title={title}>
+    <span ref={reveal} className="flex min-w-0 flex-1 items-center gap-2" title={title}>
       <span className="relative h-2.5 min-w-0 flex-1">
-        <span ref={cssVars({ "--p": `${max > 0 ? (total / max) * 100 : 0}%` })} className="absolute inset-y-0 left-0 flex w-[var(--p)] gap-[2px]">
+        <span key={revision} ref={cssVars({ "--p": `${max > 0 ? (total / max) * 100 : 0}%` })} className="chart-motion-bar absolute inset-y-0 left-0 flex w-[var(--p)] gap-[2px]">
           {segments
             .filter((s) => s.value > 0)
             .map((s, i, arr) => (
@@ -330,9 +344,10 @@ export function StackedRow({ segments, max, label }: { segments: { key: string; 
 /** Шкала доли: заливка акцентом по светлой ступени того же тона. */
 export function Meter({ value, total, label }: { value: number; total: number; label: string }) {
   const p = total > 0 ? value / total : 0;
+  const reveal = useChartReveal<HTMLSpanElement>(`${value}:${total}`);
   return (
-    <span className="relative block h-1.5 w-full overflow-hidden rounded-full bg-[var(--accent-subtle)]" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label={label}>
-      <span ref={cssVars({ "--p": `${p * 100}%` })} className="absolute inset-y-0 left-0 w-[var(--p)] rounded-full bg-[var(--accent-solid)]" />
+    <span ref={reveal} className="relative block h-1.5 w-full overflow-hidden rounded-full bg-[var(--accent-subtle)]" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(p * 100)} aria-label={label}>
+      <span key={`${value}:${total}`} ref={cssVars({ "--p": `${p * 100}%` })} className="chart-motion-bar absolute inset-y-0 left-0 w-[var(--p)] rounded-full bg-[var(--accent-solid)]" />
     </span>
   );
 }

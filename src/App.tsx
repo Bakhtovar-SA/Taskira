@@ -29,6 +29,7 @@ const SprintsView = lazyView(() => import("./components/SprintsView"));
 const TimelineView = lazyView(() => import("./components/TimelineView"));
 const CalendarView = lazyView(() => import("./components/CalendarView"));
 const ReportsView = lazyView(() => import("./components/ReportsView"));
+const ProjectFilesView = lazyView(() => import("./components/ProjectFilesView"));
 const RoadmapView = lazyView(() => import("./components/RoadmapView"));
 const DashboardView = lazyView(() => import("./components/DashboardView"));
 // Три дома настроек (ТЗ 5.9): «Процесс», «Доступ», «Отделы и проекты» и новые страницы — внутри.
@@ -322,6 +323,7 @@ function Shell() {
             {ui.view === "sprints" && <SprintsView />}
             {ui.view === "timeline" && <TimelineView />}
             {ui.view === "calendar" && <CalendarView />}
+            {ui.view === "files" && <ProjectFilesView key={`${data.currentUserId}:${data.currentProjectId}`} />}
             {ui.view === "reports" && <ReportsView />}
             {ui.view === "roadmap" && <RoadmapView />}
             {ui.view === "dashboards" && <DashboardView mode="org" />}

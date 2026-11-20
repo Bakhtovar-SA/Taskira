@@ -110,6 +110,8 @@ export function preloadMotion(): Promise<Engine | null> {
 }
 /** Только для тестов: подменить загрузчик чанка и сбросить состояние. */
 export function __resetMotionForTests(load?: () => Promise<Engine>): void {
+  viewSequence++;
+  cancelViewFocus();
   for (const stop of counting.values()) stop();
   engine = null;
   loading = null;
@@ -169,7 +171,7 @@ function safe<T>(f: () => T): T | null {
 
 /** Смена представления или открытие задачи полной страницей: короткое перекрёстное затухание (--dur-2,
  *  правила — `html.vt-nav` в index.css). Нет API, reduced-motion или вкладка скрыта — мгновенно. */
-type VTDoc = Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+type VTDoc = Document & { startViewTransition?: (cb: () => void) => { ready?: Promise<void>; finished: Promise<void> } };
 let viewSequence = 0;
 let activeTransitions = 0;
 let cancelViewFocus = () => {};
@@ -225,6 +227,9 @@ export function viewTransition(update: () => void): void {
     requestAnimationFrame(() => focusViewHeading(sequence, outgoingFocus));
     return;
   }
+  // A replacement navigation can skip the snapshot before ready resolves.
+  // This is normal interruption; handle both native promises independently.
+  transition.ready?.catch(() => undefined);
   transition.finished.catch(() => undefined).finally(() => {
     if (--activeTransitions === 0) root.classList.remove("vt-nav");
     focusViewHeading(sequence, outgoingFocus);
