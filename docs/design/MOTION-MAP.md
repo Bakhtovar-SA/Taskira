@@ -12,7 +12,7 @@ CSS-классы сопоставлены с текстовыми ссылкам
 | src/ChecklistCount.tsx:11 | waapi-wrapper | flash: пресет flash | пресет src/motion.ts | обёртка motionReduced | src/ChecklistCount.tsx |
 | src/components/BoardCard.tsx:89 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardCard.tsx |
 | src/components/BoardFilterSummary.tsx:14 | waapi-wrapper | enter: пресет enter | пресет src/motion.ts | обёртка motionReduced | src/components/BoardFilterSummary.tsx |
-| src/components/Sidebar.tsx:193 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
+| src/components/Sidebar.tsx:194 | waapi-wrapper | glideWidth: пресет glideWidth | пресет src/motion.ts | обёртка motionReduced | src/components/Sidebar.tsx |
 | src/CountUp.tsx:22 | waapi-wrapper | countTo: пресет countTo | пресет src/motion.ts | обёртка motionReduced | src/CountUp.tsx |
 | src/dashboards/chartMotion.css:10 | css-keyframes | chartLineIn: stroke-dashoffset | из правила применения | см. правила применения | см. CSS |
 | src/dashboards/chartMotion.css:13 | css-keyframes | chartReportIn: transform | из правила применения | см. правила применения | см. CSS |

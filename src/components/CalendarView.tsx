@@ -45,15 +45,17 @@ type CellProps = { day: string; date: string; mode: CalendarMode; today: string;
 const Day = memo(function Day({ day, date, mode, today, items, focused, categories, users, editable, reasons, actions, onDayKey, onFocusDay }: CellProps) {
   const { t, lang } = useT();
   const weekend = dateOf(day).getDay() % 6 === 0;
+  const fullDate = dateOf(day).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long", year: "numeric" });
   const plate = (i: Issue, nav = true) => <Plate key={i.id} issue={i} category={categories.get(i.statusId) ?? "todo"} person={users.get(i.assigneeIds[0])}
     editable={editable.has(i.id)} reason={reasons.get(i.id) ?? ""} actions={actions} today={today} nav={nav} />;
   return <div role="gridcell" className="calendar-day ds-focus" data-day={day} data-today={day === today || undefined}
     data-outside={mode === "month" && day.slice(0, 7) !== date.slice(0, 7) || undefined} data-weekend={weekend || undefined}
-    tabIndex={focused ? 0 : -1} aria-label={dateOf(day).toLocaleDateString(lang === "en" ? "en-GB" : "ru-RU", { day: "numeric", month: "long", year: "numeric" })}
+    tabIndex={focused ? 0 : -1}
     onFocus={e => { if (e.target === e.currentTarget) onFocusDay(day); }} onKeyDown={e => { if (e.target === e.currentTarget) onDayKey(e, day); }}
     onDragOver={e => { if (e.dataTransfer.types.includes("application/x-taskira-issue")) e.preventDefault(); }}
     onDrop={e => { e.preventDefault(); actions.move(e.dataTransfer.getData("application/x-taskira-issue"), day); }}>
-    <div className="calendar-day-head"><span className="calendar-day-number">{Number(day.slice(-2))}</span>
+    <span className="sr-only">{fullDate}</span>
+    <div className="calendar-day-head"><span className="calendar-day-number" aria-hidden="true">{Number(day.slice(-2))}</span>
       <span className="calendar-add"><IconButton label={t("calendar.add")} size="sm" onClick={() => actions.create(day)}><IcPlus size={15} /></IconButton></span>
     </div>
     <div className="calendar-day-issues">

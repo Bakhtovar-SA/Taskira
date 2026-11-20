@@ -1,14 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { Menu, Popover } from "./Overlay";
+import { mockPopoverVisibility } from "./Popover.testing";
 
 vi.mock("./floating", async original => ({
   ...await original<typeof import("./floating")>(),
   useAnchored: () => {},
-  showPop: () => {},
-  hidePop: () => {},
 }));
 
+mockPopoverVisibility();
 afterEach(cleanup);
 
 test("opening a popover skips disabled controls for initial focus", () => {

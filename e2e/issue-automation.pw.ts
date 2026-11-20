@@ -1,4 +1,4 @@
-import {test,expect,type Page} from '@playwright/test';
+import {test,expect,type Page,type WebSocketRoute} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {boardFixture} from './board-fixture';
 async function fixture(page:Page){
@@ -15,10 +15,30 @@ async function fixture(page:Page){
   if(path==='/api/projects/p1/issues/i1'&&method==='GET')return route.fulfill({json:detail});
   if(path==='/api/projects/p1/issues'&&method==='POST')writes.push({path,method,body:route.request().postDataJSON()});
   return route.fallback();
- });return {writes,setFail:(v:boolean)=>{fail=v}};
+ });return {writes,project:f.project,setFail:(v:boolean)=>{fail=v}};
 }
-async function create(page:Page){await page.goto('/p/CORP/board');await expect(page.locator('.board-card').first()).toBeVisible();await page.getByRole('button',{name:'Создать задачу',exact:true}).first().click();await expect(page.locator('#create-issue-title')).toBeVisible();await page.locator('#create-issue-title').fill('Подготовить отчёт');}
+async function create(page:Page){await page.goto('/p/CORP/board');await expect(page.locator('.board-card').first()).toBeVisible();await page.getByRole('button',{name:'Задача C: Создать задачу',exact:true}).first().click();await expect(page.locator('#create-issue-title')).toBeVisible();await page.locator('#create-issue-title').fill('Подготовить отчёт');}
 async function dateAction(page:Page,name:string){await page.getByRole('button',{name:'Задать дату',exact:true}).click();await page.getByRole('menuitem',{name:new RegExp('^'+name)}).click();}
+test('a background project refresh preserves the nested recurrence menu and its focused action',async({page})=>{
+ const f=await fixture(page);
+ let socket:WebSocketRoute|undefined,projectReads=0,remoteReset=false;
+ await page.route('**/api/projects/p1/sync**',route=>route.fulfill({json:{type:'sync',projectId:'p1',cursor:remoteReset?'1':'0',reset:remoteReset,issueIds:[],ts:Date.now()}}));
+ await page.routeWebSocket('**/api/ws',peer=>{
+  socket=peer;peer.send(JSON.stringify({type:'auth_ok'}));
+  peer.onMessage(data=>{const message=JSON.parse(String(data));if(message.type==='sync:subscribe')peer.send(JSON.stringify({type:'sync',projectId:'p1',cursor:'0',reset:false,issueIds:[],ts:Date.now()}));});
+ });
+ await page.route('**/api/projects/p1',route=>{projectReads++;return route.fallback()});
+ await create(page);await dateAction(page,'Повторение');
+ const panel=page.locator('.issue-repeat-pop');
+ await panel.getByRole('button',{name:/^Расписание:/}).click();
+ const daily=page.getByRole('menuitem',{name:'Ежедневно',exact:true});await expect(daily).toBeVisible();await daily.focus();
+ const before=projectReads;expect(socket).toBeDefined();remoteReset=true;f.project.name='Обновлённый проект';
+ socket!.send(JSON.stringify({type:'sync',projectId:'p1',cursor:'1',reset:true,issueIds:[],ts:Date.now()}));
+ await expect.poll(()=>projectReads).toBeGreaterThan(before);
+ await expect(page.getByRole('button',{name:'Обновлённый проект',exact:true}).first()).toBeVisible();
+ await expect(daily).toBeVisible();await expect(daily).toBeFocused();await daily.click();
+ await expect(panel.getByRole('button',{name:/^Расписание:/})).toContainText('дн.');
+});
 for(const width of [1920,3440,390])test(`automation creation layout, saving draft and presets at ${width}`,async({page})=>{
  await page.setViewportSize({width,height:width===3440?1440:1080});const f=await fixture(page);await create(page);
  await dateAction(page,'Повторение');const panel=page.locator('.issue-repeat-pop');const repeat=panel.locator('.recurrence-inline');await expect(repeat).toBeVisible();await repeat.getByRole('button',{name:/^Расписание:/}).click();await page.getByRole('menuitem',{name:'Ежедневно',exact:true}).click();

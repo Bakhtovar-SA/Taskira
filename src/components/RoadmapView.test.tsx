@@ -58,8 +58,8 @@ test("отделы, полосы, «сроки не заданы», вехи и 
   expect(screen.getByText("Маркетинг · 1")).toBeTruthy();
   expect(screen.getByText("Разработка · 2")).toBeTruthy();
   // Полоса — кнопка с понятной подписью: даты, прогресс, кого ждёт.
-  expect(screen.getByRole("button", { name: /^Альфа · .* · закрыто 3 из 4 задач$/ })).toBeTruthy();
-  expect(screen.getByRole("button", { name: /^Бета · .* ждёт: Альфа$/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^ALP · Альфа · .* · закрыто 3 из 4 задач$/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /^BET · Бета · .* ждёт: Альфа$/ })).toBeTruthy();
   expect(screen.getByText("Сроки не заданы")).toBeTruthy();
   expect(screen.getByText("Бета-релиз", { exact: true })).toBeTruthy();
   // Альфа заканчивается 31.10, Бета начинается 15.10 — линия красная.
@@ -69,7 +69,7 @@ test("отделы, полосы, «сроки не заданы», вехи и 
 
 test("клик по полосе — представление проекта; меню сроков — только с правом", async () => {
   await renderIt();
-  fireEvent.click(screen.getByRole("button", { name: /^Бета · / }));
+  fireEvent.click(screen.getByRole("button", { name: /^BET · Бета · / }));
   expect(store.setView).toHaveBeenCalledWith("backlog");
   expect(store.switchProject).toHaveBeenCalledWith("b");
 

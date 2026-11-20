@@ -100,7 +100,7 @@ test("solo guests keep their separate shell without project creation", async ({ 
   await page.goto("/");
   await expect(page.getByText("Вы — гость", { exact: true })).toBeVisible();
   await expect(page.locator(".global-topbar")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Создать задачу", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Задача C: Создать задачу", exact: true })).toHaveCount(0);
 });
 
 test("global controls fit small screens and a collapsed sidebar", async ({ page }) => {

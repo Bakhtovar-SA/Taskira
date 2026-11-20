@@ -1,8 +1,12 @@
-import { describe, expect, test, vi } from "vitest";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, test, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef, useState } from "react";
 import { Button, Checkbox, DatePicker, IconButton, SidePanel, Switch, Tabs, Textarea } from ".";
 import { Popover, Tooltip } from "./Overlay";
+import { mockPopoverVisibility } from "./Popover.testing";
+
+mockPopoverVisibility();
+afterEach(cleanup);
 
 describe("Button", () => {
   test("недоступная — aria-disabled, в порядке фокуса, клик не срабатывает, причина — в подсказке", async () => {
@@ -50,7 +54,7 @@ describe("Tabs", () => {
     fireEvent.keyDown(board, { key: "ArrowRight" });
     expect(document.activeElement).toBe(list);
     expect(onChange).not.toHaveBeenCalled();
-    // jsdom cannot navigate; intercept the browser default only after React, and verify the component left it intact.
+    // Intercept jsdom's unsupported navigation after React and check that the component kept the browser default.
     let nativeAllowed = false;
     const finishClick = (event: MouseEvent) => { nativeAllowed = !event.defaultPrevented; event.preventDefault(); };
     document.addEventListener("click", finishClick, { once: true });

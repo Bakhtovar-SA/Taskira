@@ -29,22 +29,22 @@ test("home cards, logo, history, palette and assigned tasks across two projects"
   await page.goto("/");
   await page.getByRole("button", { name: /OTHER project/ }).first().click();
   await expect(page).toHaveURL(/\/p\/OTHER\/board$/);
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goBack(); await expect(page).toHaveURL(/\/p\/OTHER\/board$/);
   await page.goForward(); await expect(page).toHaveURL(/\/$/);
   await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox"); await expect(input).toBeVisible(); await input.fill("OTHER project"); await input.press("Enter");
   await expect(page).toHaveURL(/\/p\/OTHER\/board$/);
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await page.getByText("Task OTHER 5", { exact: true }).first().click();
   await expect(page).toHaveURL(/\/p\/OTHER\/issue\/OTHER-5$/);
   await expect(page.locator('[data-issue-details="i5"]')).toBeVisible();
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await page.getByText("Task TEST 1", { exact: true }).first().click();
   await expect(page).toHaveURL(/\/p\/TEST\/issue\/TEST-1$/);
   await expect(page.locator('[data-issue-details="i1"]')).toBeVisible();
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await page.keyboard.press("Control+k"); await page.getByRole("combobox").fill("OTHER-5");
   await page.getByRole("option", { name: /Task OTHER 5/ }).click();
   await expect(page).toHaveURL(/\/p\/OTHER\/issue\/OTHER-5$/);
@@ -69,7 +69,7 @@ for (const theme of ["light", "dark"]) test(`all four priorities, single-project
     return false;
   })).toBe(true);
   await calendar.click(); await expect(page).toHaveURL(/\/calendar$/); await expect(page.getByRole("grid")).toBeVisible();
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click(); await expect(page).toHaveURL(/\/$/);
+  await page.getByRole("button", { name: /На главный экран$/ }).click(); await expect(page).toHaveURL(/\/$/);
   await page.locator(".home-project").filter({ hasText: "Test project" }).click(); await expect(page).toHaveURL(/\/p\/TEST\//);
 });
 

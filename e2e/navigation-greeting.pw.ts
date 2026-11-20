@@ -22,10 +22,10 @@ test("LDAP home greeting uses directory givenName across project switches", asyn
   await mockApi(page, { username: "bakhtovar", name: "Сафарлизод Бахтовар", givenName: "Бахтовар", authSource: "ldap" });
   await page.route("**/api/issues/assigned-to-me*", route => route.fulfill({ json: { items: [], truncated: false, limit: 100 } }));
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await expect(page.getByRole("heading", { name: /Бахтовар/, exact: false }).first()).not.toContainText("Сафарлизод");
   await page.getByRole("button", { name: /Test project/ }).first().click();
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await expect(page.getByRole("heading", { name: /Бахтовар/ }).first()).not.toContainText("Сафарлизод");
   await page.screenshot({ path: "shots/home-greeting.png", fullPage: true });
 });
@@ -37,7 +37,7 @@ for (const profile of [
   await mockApi(page, { name: "Сафарлизод Бахтовар", authSource: profile.authSource, givenName: profile.givenName });
   await page.route("**/api/issues/assigned-to-me*", route => route.fulfill({ json: { items: [], truncated: false, limit: 100 } }));
   await page.goto("/p/TEST/board");
-  await page.getByRole("button", { name: "На главный экран", exact: true }).click();
+  await page.getByRole("button", { name: /На главный экран$/ }).click();
   await expect(page.locator("h1")).toHaveText(new RegExp(`, ${profile.expected}$`));
 });
 

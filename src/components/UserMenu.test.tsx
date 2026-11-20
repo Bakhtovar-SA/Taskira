@@ -1,6 +1,7 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider } from "../i18n";
+import { mockPopoverVisibility } from "../ds/Popover.testing";
 
 const { store } = vi.hoisted(() => {
   const user = { id: "u1", name: "Test User", role: "Engineer", username: "test", accessRole: "employee", globalRole: "member", avatarUpdatedAt: null };
@@ -18,16 +19,18 @@ vi.mock("../ds/floating", async original => ({
 }));
 import { UserMenu } from "./UserMenu";
 
+mockPopoverVisibility();
 afterEach(cleanup);
 
 test("user profile survives lazy opening and focuses its visible avatar action", async () => {
   const logout = vi.fn();
   render(<I18nProvider><UserMenu onLogout={logout} /></I18nProvider>);
-  const stub = screen.getByRole("button", { name: "Меню пользователя" });
+  const menuName = /^Test User.*Engineer.*Меню пользователя$/;
+  const stub = screen.getByRole("button", { name: menuName });
   stub.focus();
   fireEvent.click(stub);
-  await waitFor(() => expect(screen.getByRole("button", { name: "Меню пользователя" }).getAttribute("aria-expanded")).toBe("true"));
-  const button = screen.getByRole("button", { name: "Меню пользователя" });
+  await waitFor(() => expect(screen.getByRole("button", { name: menuName }).getAttribute("aria-expanded")).toBe("true"));
+  const button = screen.getByRole("button", { name: menuName });
   const panel = document.getElementById(button.getAttribute("aria-controls")!)!;
   expect(panel).toBeTruthy();
   expect(panel.textContent).toContain("Test User");
