@@ -18,6 +18,10 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 test("requests visible dates, creation prefills the date, drop updates dueDate", async () => {
   vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
   show();
+  const namedDay = screen.getByRole("gridcell", { name: /TEST-1/ });
+  expect(screen.getByRole("gridcell", { name: /^1 октября 2026 г\./ })).toBe(namedDay);
+  expect(screen.getByRole("gridcell", { name: /^3 октября 2026 г\./ }).getAttribute("data-day")).toBe("2026-10-03");
+  expect(screen.queryByRole("gridcell", { name: /TEST-4/ })).toBeNull(); // collapsed tasks do not name the cell
   expect(queries).toHaveBeenCalledWith(expect.objectContaining({ filters: expect.objectContaining({ dueFrom: "2026-09-28", dueTo: "2026-11-08" }) }));
   const cell = document.querySelector<HTMLElement>('[data-day="2026-10-02"]')!;
   fireEvent.click(cell.querySelector('button[aria-label="Создать задачу в этот день"]')!);

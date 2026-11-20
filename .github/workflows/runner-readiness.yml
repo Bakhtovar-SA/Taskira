@@ -31,7 +31,7 @@ jobs:
         run: |
           # Cached docker run does not exercise registry TLS or credential helpers.
           # Match the public images pulled during job/service initialization.
-          for image in node:22-bookworm mcr.microsoft.com/playwright:v1.56.1-noble postgres:16; do
+          for image in node:22-bookworm mcr.microsoft.com/playwright:v1.65.0-noble postgres:16; do
             timeout 120 docker pull "$image"
           done
       - name: Inspect tools required by the test jobs

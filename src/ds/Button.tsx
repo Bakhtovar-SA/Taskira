@@ -57,7 +57,8 @@ export const Button = forwardRef<HTMLButtonElement, Common & { iconLeft?: ReactN
         {iconLeft && <span className="flex shrink-0">{iconLeft}</span>}
         <span className="truncate">{children}</span>
         {iconRight && <span className="flex shrink-0">{iconRight}</span>}
-        {kbd && <span className="ds-btn-kbd">{kbd}</span>}
+        {/* Separate the shortcut in the visible/accessibility text; flex ignores the whitespace. */}
+        {kbd && <>{" "}<span className="ds-btn-kbd">{kbd}</span></>}
       </Base>
     );
     return typeof disabled === "string" ? <Tooltip label={disabled}>{btn}</Tooltip> : btn;

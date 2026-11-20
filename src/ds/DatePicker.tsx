@@ -100,6 +100,7 @@ export function DatePicker({
   const typed = text ? parseDateInput(text, today) : null;
   const parsed = typed && inRange(typed) ? typed : null;
   const fmt = (s: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(loc, { ...o, timeZone: "UTC" }).format(new Date(`${s}T00:00:00Z`));
+  const displayValue = value ? fmt(value, numeric ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder;
 
   // Сетка месяца с понедельника; 6 строк — высота не прыгает между месяцами.
   const days = useMemo(() => {
@@ -142,7 +143,7 @@ export function DatePicker({
         <button
           {...p}
           type="button"
-          aria-label={`${label}: ${value ? fmt(value, { day: "numeric", month: "long", year: "numeric" }) : placeholder}`}
+          aria-label={`${label}: ${displayValue}${value ? ` (${fmt(value, { day: "numeric", month: "long", year: "numeric" })})` : ""}`}
           className={`ds-input ds-focus cursor-pointer text-left ${block ? "w-full min-w-0" : "min-w-[168px]"} ${overdue ? "text-[var(--status-danger-fg)]" : ""}`}
         >
           <span className="ds-adorn">
@@ -151,7 +152,7 @@ export function DatePicker({
               <path d="M2.5 6.75h11M5.5 1.75v3M10.5 1.75v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-          <span className={`flex-1 truncate text-[14px] font-medium ${value ? "" : "text-faint"}`}>{value ? fmt(value, numeric ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "numeric", month: "short", year: value.slice(0, 4) === today.slice(0, 4) ? undefined : "numeric" }) : placeholder}</span>
+          <span className={`flex-1 truncate text-[14px] font-medium ${value ? "" : "text-faint"}`}>{displayValue}</span>
         </button>
       )}
     >

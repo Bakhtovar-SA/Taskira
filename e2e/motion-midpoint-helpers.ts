@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { settle } from "./motion-helpers";
 
-export const MIDPOINT_IMAGE = "mcr.microsoft.com/playwright:v1.56.1-noble";
+export const MIDPOINT_IMAGE = "mcr.microsoft.com/playwright:v1.65.0-noble";
 const epoch = Date.parse("2026-10-18T08:00:00Z");
 const captureInput = process.env.MOTION_MIDPOINT_CAPTURE_DIR;
 /** Capture is deliberately a direct child of the operator's existing D-drive TEMP, never a baseline path. */
@@ -23,7 +23,7 @@ export function goldenEnvironment(): { driverVersion: string; dockerImageName: s
   if (process.platform !== "linux") throw new Error("Midpoint goldens require the pinned Linux image; use explicit D-temp capture-only on Windows");
   if (process.env.CHROMIUM_PATH) throw new Error("Linux midpoint goldens must use the image's bundled Chromium");
   const metadata = JSON.parse(readFileSync("/ms-playwright/.docker-info", "utf8")) as { driverVersion: string; dockerImageName: string };
-  expect(metadata.driverVersion).toBe("1.56.1");
+  expect(metadata.driverVersion).toBe("1.65.0");
   expect(metadata.dockerImageName).toBe(MIDPOINT_IMAGE);
   return metadata;
 }

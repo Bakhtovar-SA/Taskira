@@ -64,12 +64,16 @@ export function Popover({
 }: PopoverProps) {
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
+  // A parent refresh may replace an inline callback. Keep the current handler
+  // without hiding/reopening the native surface and dismissing nested menus.
+  const onOpenChangeRef = useRef(onOpenChange);
+  useLayoutEffect(() => { onOpenChangeRef.current = onOpenChange; }, [onOpenChange]);
   const setOpen = useCallback(
     (v: boolean) => {
       if (openProp === undefined) setOpenState(v);
-      onOpenChange?.(v);
+      onOpenChangeRef.current?.(v);
     },
-    [openProp, onOpenChange],
+    [openProp],
   );
   const [id] = useState(() => dsId("pop"));
   // A lazy Tooltip can replace its fallback button while the menu is already open.

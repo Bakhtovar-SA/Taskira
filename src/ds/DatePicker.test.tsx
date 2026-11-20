@@ -1,8 +1,20 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DatePicker } from "./DatePicker";
+import { mockPopoverVisibility } from "./Popover.testing";
 
+mockPopoverVisibility();
 afterEach(cleanup);
+
+test.each(["ru", "en"] as const)("the accessible date name includes the visible value in %s", lang => {
+  for (const numeric of [false, true]) {
+    const { unmount } = render(<DatePicker value="2026-10-15" onChange={() => {}} label="Due" today="2026-10-01" lang={lang} numeric={numeric} />);
+    const trigger = screen.getByRole("button", { name: /^Due:/ });
+    expect(trigger.getAttribute("aria-label")).toContain(`Due: ${trigger.textContent}`);
+    expect(trigger.getAttribute("aria-label")).toMatch(/\(.*2026.*\)$/);
+    unmount();
+  }
+});
 
 test.each([
   ["2026-10-15", "2026-10-16"],

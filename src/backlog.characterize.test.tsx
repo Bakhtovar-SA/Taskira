@@ -64,7 +64,7 @@ import Backlog from "./components/Backlog";
 configure({ defaultHidden: true });
 
 async function pickFilter(label: string, option: string) {
-  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}: `) }));
   await settle();
   fireEvent.click(screen.getByRole("menuitem", { name: option }));
   await settle();
@@ -268,7 +268,7 @@ async function setup({ role = "manager", pageImpl, countsImpl, views, bulkImpl, 
 }
 
 function showOptions() {
-  const button = screen.getByRole("button", { name: "Настройки вида" });
+  const button = screen.getByRole("button", { name: "Вид: Настройки вида" });
   if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
 }
 
@@ -399,7 +399,7 @@ describe("Список задач — характеризующие тесты 
     expect(screen.getByRole("button", { name: "Сбросить" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Сбросить" }));
     await settle();
-    expect(screen.getByRole("button", { name: "Статус" }).textContent).toBe("Все статусы");
+    expect(screen.getByRole("button", { name: "Статус: Все статусы" }).textContent).toBe("Все статусы");
     expect(screen.queryByRole("button", { name: "Сбросить" })).toBeNull();
     const qs = new URLSearchParams(location.search);
     expect(qs.get("status")).toBeNull();
