@@ -14,12 +14,13 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => (window as Window & { __pendingCsp?: string[] }).__pendingCsp)).toEqual([]);
 });
 async function fixture(page: Page, reduce: "normal" | "system" | "personal" = "normal") {
-  await issueFixture(page, "light");
+  // Reads and delayed writes must represent the same server state, including realtime reconciliation.
+  const checklist = [{ id: "check1", text: "Проверить уведомления", done: false, position: 0, createdAt: "2026-10-01T00:00:00Z" }];
+  await issueFixture(page, "light", "admin", "ru", true, [], checklist);
   await page.emulateMedia({ reducedMotion: reduce === "system" ? "reduce" : "no-preference" });
   await page.addInitScript(personal => { if (personal) localStorage.setItem("taskira.reduceMotion", "1"); }, reduce === "personal");
   let release: () => void = () => undefined;
-  const control = { fail: true, delay: 600, started: 0, finished: 0, release: () => release() };
-  const checklist = [{ id: "check1", text: "Проверить уведомления", done: false, position: 0, createdAt: "2026-10-01T00:00:00Z" }];
+  const control = { fail: true, delay: 600, started: 0, finished: 0, checklistPatches: [] as { done: boolean }[], release: () => release() };
   await page.route("**/api/projects/p1/issues/i1**", async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     if (!["POST", "PATCH"].includes(request.method()) || !["/api/projects/p1/issues/i1", "/api/projects/p1/issues/i1/comments", "/api/projects/p1/issues/i1/checklist", "/api/projects/p1/issues/i1/checklist/check1"].includes(path)) return route.fallback();
@@ -32,9 +33,15 @@ async function fixture(page: Page, reduce: "normal" | "system" | "personal" = "n
     if (fail) return route.fulfill({ status: 409, json: { error: { code: "CONFLICT", reason: "Не сохранено" } } });
     if (path.includes("/checklist")) {
       const body = request.postDataJSON();
-      if (request.method() === "POST") checklist.push({ ...checklist[0], id: "check2", text: body.text });
-      else checklist[0].done = body.done;
-      return route.fulfill({ json: { item: checklist.at(-1), checklist } });
+      if (request.method() === "POST") {
+        const item = { ...checklist[0], id: "check2", text: body.text, done: false };
+        checklist.push(item);
+        return route.fulfill({ json: { item, checklist } });
+      }
+      control.checklistPatches.push(body);
+      const item = checklist.find(item => item.id === path.split("/").at(-1))!;
+      item.done = body.done;
+      return route.fulfill({ json: { item, checklist } });
     }
     return route.fallback();
   });
@@ -70,13 +77,21 @@ test("checklist: add error retains the input; successful add and check wait for 
   const control = await fixture(page);
   await page.getByRole("button", { name: "+ Пункт", exact: true }).click();
   const input = page.getByRole("textbox", { name: "+ добавить пункт", exact: true });
-  await input.fill("Новый пункт"); await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", ""); await scopeClean(page); control.release();
+  await input.fill("Новый пункт"); await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", ""); await scopeClean(page);
+  await expect.poll(() => control.started).toBe(1); control.release();
   await expect.poll(() => control.finished).toBe(1); await expect(input).not.toHaveAttribute("data-pending", ""); await expect(input).toHaveValue("Новый пункт");
-  control.fail = false; await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", ""); control.release();
+  control.fail = false; await input.press("Enter"); await expect(input).toHaveAttribute("data-pending", "");
+  await expect.poll(() => control.started).toBe(2); control.release();
   await expect(page.locator('.issue-related [data-enter-id="check2"]')).toContainText("Новый пункт"); await expect(input).toHaveValue("");
   const row = page.locator('.issue-related [data-enter-id="check1"]'), check = row.getByRole("checkbox");
-  await check.click(); await expect(row).toHaveAttribute("data-pending", ""); await expect(check).not.toBeChecked(); await scopeClean(page); control.release();
+  await check.click(); await expect(row).toHaveAttribute("data-pending", ""); await expect(check).not.toBeChecked(); await scopeClean(page);
+  await expect.poll(() => control.started).toBe(3); control.release();
+  await expect.poll(() => control.checklistPatches).toEqual([{ done: true }]);
   await expect(check).toBeChecked(); await expect(row).not.toHaveAttribute("data-pending", "");
+  await page.keyboard.press("Escape");
+  await page.locator('.board-card[data-issue-id="i1"]').click();
+  await expect(check).toBeChecked();
+  await expect(page.locator('.issue-related [data-enter-id="check2"]')).toContainText("Новый пункт");
 });
 
 test("assignee: only the avatar is pending, an error preserves selection and retry commits it", async ({ page }) => {

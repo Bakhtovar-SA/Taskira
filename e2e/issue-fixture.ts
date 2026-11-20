@@ -1,13 +1,13 @@
 import type { Page } from "@playwright/test";
 import { boardFixture } from "./board-fixture";
 
-export async function issueFixture(page: Page, theme = "light", role = "admin", lang = "ru", sprints = true, customFields: { id: string; name: string; fieldType: string; options: string[]; position?: number }[] = []) {
+export async function issueFixture(page: Page, theme = "light", role = "admin", lang = "ru", sprints = true, customFields: { id: string; name: string; fieldType: string; options: string[]; position?: number }[] = [], checklist = [{ id: "check1", text: "Проверить уведомления", done: false }]) {
   const { issues, users, statuses, project } = await boardFixture(page, theme, 4, lang);
   users[0].globalRole = "member";
   const comments = [{ id: "comment1", issueId: "i1", authorId: "u2", author: users[1], body: "Проверил требования. Можно брать в работу.", createdAt: "2026-10-03T11:00:00Z" }];
   const activity = [{ id: "activity1", actorId: "u1", actor: users[0], event: null, text: "создал(а) задачу", createdAt: "2026-10-01T12:00:00Z" }];
   const detail = { ...issues[0], title: "Единая авторизация для корпоративных сервисов", description: "Настроить единый вход для сотрудников и проверить права доступа.\n\nСогласовать сценарии с @igor перед запуском.", complexity: "medium", labels: ["платформа", "запуск"], sprintId: sprints ? "sp1" : null,
-    attachments: [], links: [], checklist: [{ id: "check1", text: "Проверить уведомления", done: false }], customFieldValues: [], collaboratorIds: [], comments: [], activity: [], watch: { watching: true, watchers: 2 }, subtasksSummary: { total: 1, done: 0 },
+    attachments: [], links: [], checklist, customFieldValues: [], collaboratorIds: [], comments: [], activity: [], watch: { watching: true, watchers: 2 }, subtasksSummary: { total: 1, done: 0 },
   };
   const child = { ...issues[1], id: "child1", key: "CORP-11", title: "Проверить вход", parentId: "i1", attachments: [], links: [], checklist: [], customFieldValues: [] };
   const writes: { path: string; method: string; body: Record<string, unknown> | null }[] = [];
