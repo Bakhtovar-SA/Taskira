@@ -7,7 +7,7 @@
 B-04 и ручной чек-лист B-02 этим файлом не закрываются.
 
 Актуальная среда проверки и пересъёмки после обновления инструментов 18.11.2026 —
-`mcr.microsoft.com/playwright:v1.65.0-noble` и Playwright 1.65.0. Её проверяет `goldenEnvironment()`,
+`mcr.microsoft.com/playwright:v1.65.1-noble` и Playwright 1.65.1. Её проверяет `goldenEnvironment()`,
 а CI до запуска тестов сверяет версии драйвера и образа. Ниже приведены команды для этой среды;
 история первоначального получения эталонов сохранена выше.
 Повторная генерация Linux-эталонов в этой среде, включая десять midpoint-кадров,
@@ -95,7 +95,7 @@ Typecheck/build/bundle и guards выполняются отдельно под 
 ## Linux actual → просмотр → эталоны → повтор
 
 Используется существующий `.github/workflows/ui-visual.yml`, новый workflow не нужен:
-`mcr.microsoft.com/playwright:v1.65.0-noble`, установленный из lock Playwright 1.65.0.
+`mcr.microsoft.com/playwright:v1.65.1-noble`, установленный из lock Playwright 1.65.1.
 Обычный режим дополнительно сверяет driverVersion/dockerImageName из
 `/ms-playwright/.docker-info` и запрещает подмену Chromium через CHROMIUM_PATH.
 
